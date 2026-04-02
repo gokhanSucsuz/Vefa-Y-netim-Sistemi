@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidPerson(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.surname is string && data.surname.size() > 0 &&
+             data.tcNo is string && data.tcNo.size() == 11;
+    }
+
+    function isValidWorkDay(data) {
+      return data.date is string && data.isWorkDay is bool;
+    }
+
+    function isValidSchedule(data) {
+      return data.date is string && data.personIds is list;
+    }
+
+    match /persons/{personId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /workDays/{workDayId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /schedules/{scheduleId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

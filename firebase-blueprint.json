@@ -1,0 +1,51 @@
+{
+  "entities": {
+    "Person": {
+      "title": "Person",
+      "description": "A person record with contact and identification details.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "First name" },
+        "surname": { "type": "string", "description": "Last name" },
+        "tcNo": { "type": "string", "description": "Turkish Identification Number" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "address": { "type": "string", "description": "Residential address" }
+      },
+      "required": ["name", "surname", "tcNo"]
+    },
+    "WorkDay": {
+      "title": "Work Day",
+      "description": "A specific date marked as a work day.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date", "description": "ISO date string" },
+        "isWorkDay": { "type": "boolean", "description": "Whether this is a work day" }
+      },
+      "required": ["date", "isWorkDay"]
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "Assignment of 6 people to a specific work day.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date", "description": "ISO date string" },
+        "personIds": { "type": "array", "items": { "type": "string" }, "description": "IDs of 6 assigned persons" }
+      },
+      "required": ["date", "personIds"]
+    }
+  },
+  "firestore": {
+    "/persons/{personId}": {
+      "schema": "Person",
+      "description": "Collection of persons"
+    },
+    "/workDays/{workDayId}": {
+      "schema": "WorkDay",
+      "description": "Collection of work days"
+    },
+    "/schedules/{scheduleId}": {
+      "schema": "Schedule",
+      "description": "Collection of daily schedules"
+    }
+  }
+}
