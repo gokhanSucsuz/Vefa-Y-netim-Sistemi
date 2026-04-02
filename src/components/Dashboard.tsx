@@ -9,8 +9,10 @@ interface Props {
 }
 
 export default function Dashboard({ onNavigate }: Props) {
-  const applicants = useLiveQuery(() => dbLocal.applicants.count()) || 0;
-  const staff = useLiveQuery(() => dbLocal.staff.count()) || 0;
+  const applicantCount = useLiveQuery(() => dbLocal.applicants.count()) || 0;
+  const staffCount = useLiveQuery(() => dbLocal.staff.count()) || 0;
+  const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
+  const staff = useLiveQuery(() => dbLocal.staff.toArray()) || [];
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
   const workDays = useLiveQuery(() => dbLocal.workDays.toArray()) || [];
 
@@ -21,8 +23,8 @@ export default function Dashboard({ onNavigate }: Props) {
     .slice(0, 5);
 
   const stats = [
-    { label: 'Toplam Müracaatçı', value: applicants, icon: Users, color: 'bg-blue-500' },
-    { label: 'Aktif Personel', value: staff, icon: Briefcase, color: 'bg-indigo-500' },
+    { label: 'Toplam Müracaatçı', value: applicantCount, icon: Users, color: 'bg-blue-500' },
+    { label: 'Aktif Personel', value: staffCount, icon: Briefcase, color: 'bg-indigo-500' },
     { label: 'Planlanan Gün', value: schedules.length, icon: Calendar, color: 'bg-green-500' },
   ];
 
@@ -73,23 +75,29 @@ export default function Dashboard({ onNavigate }: Props) {
           <div className="p-6">
             {todaySchedule ? (
               <div className="space-y-4">
-                {todaySchedule.assignments.map((a, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">
-                        {i + 1}
+                {todaySchedule.assignments.map((a, i) => {
+                  const applicant = applicants.find(app => app.id === a.applicantId);
+                  const staffMember = staff.find(s => s.id === a.staffId);
+                  return (
+                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">
+                          {i + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-800">
+                            {applicant ? `${applicant.name} ${applicant.surname}` : `Müracaatçı #${a.applicantId}`}
+                          </p>
+                          {applicant && <p className="text-[10px] text-blue-600 font-medium">{applicant.neighborhood}</p>}
+                        </div>
                       </div>
-                      <p className="font-semibold text-gray-800">
-                        {/* We'd need to fetch names here, but for dashboard summary we can just show count or simple list */}
-                        Müracaatçı #{a.applicantId}
-                      </p>
+                      <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+                        <Briefcase className="w-3 h-3" />
+                        {staffMember ? `${staffMember.name} ${staffMember.surname}` : 'Atanmamış'}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
-                      <Briefcase className="w-3 h-3" />
-                      {a.staffId ? `Personel #${a.staffId}` : 'Atanmamış'}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-12">
