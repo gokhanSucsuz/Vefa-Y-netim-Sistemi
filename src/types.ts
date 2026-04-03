@@ -15,6 +15,7 @@ export interface Staff {
   id?: number;
   name: string;
   surname: string;
+  tcNo: string;
   phone: string;
   partnerId?: number; // ID of the other staff member in the team
 }

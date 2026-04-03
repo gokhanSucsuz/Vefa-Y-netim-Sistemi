@@ -30,6 +30,7 @@ export default function Documentation() {
       const mockStaff = Array.from({ length: 6 }).map((_, i) => ({
         name: firstNames[Math.floor(Math.random() * firstNames.length)],
         surname: lastNames[Math.floor(Math.random() * lastNames.length)],
+        tcNo: `1${Math.floor(1000000000 + Math.random() * 9000000000)}`,
         phone: `05${Math.floor(100000000 + Math.random() * 900000000)}`
       }));
 
@@ -183,6 +184,10 @@ export default function Documentation() {
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
               Planlama yaparken mahalle yakınlığı önceliklendirilir, böylece ulaşım maliyeti ve zaman kaybı minimize edilir.
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
+              Müracaatçı ve Personel listelerini Excel üzerinden toplu olarak yükleyebilirsiniz. (Sütunlar: ad-soyad, tc, telefon, adres vb.)
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />

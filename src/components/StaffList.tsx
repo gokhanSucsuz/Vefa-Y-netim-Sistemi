@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Staff } from '../types';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, Users } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Props {
   staff: Staff[];
@@ -9,10 +10,12 @@ interface Props {
 
 export default function StaffList({ staff }: Props) {
   const [isAdding, setIsAdding] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<Staff>({
     name: '',
     surname: '',
+    tcNo: '',
     phone: '',
     partnerId: undefined
   });
@@ -49,10 +52,50 @@ export default function StaffList({ staff }: Props) {
 
       setEditingId(null);
       setIsAdding(false);
-      setFormData({ name: '', surname: '', phone: '', partnerId: undefined });
+      setFormData({ name: '', surname: '', tcNo: '', phone: '', partnerId: undefined });
     } catch (error) {
       console.error("Error saving staff:", error);
     }
+  };
+
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        const newStaff: Staff[] = data.map(row => {
+          const fullName = (row['ad-soyad'] || row['Ad Soyad'] || '').toString().trim();
+          const parts = fullName.split(' ');
+          const surname = parts.length > 1 ? parts.pop() : '';
+          const name = parts.join(' ');
+
+          return {
+            name: name || fullName,
+            surname: surname || '',
+            tcNo: (row['tc'] || row['TC No'] || '').toString().replace(/\D/g, ''),
+            phone: (row['telefon'] || row['Telefon'] || '').toString(),
+          };
+        });
+
+        if (newStaff.length > 0) {
+          await dbLocal.staff.bulkAdd(newStaff);
+          alert(`${newStaff.length} personel başarıyla yüklendi.`);
+        }
+      } catch (error) {
+        console.error("Excel import error:", error);
+        alert("Excel dosyası okunurken bir hata oluştu. Lütfen sütun başlıklarını kontrol edin.");
+      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsBinaryString(file);
   };
 
   const handleEdit = (s: Staff) => {
@@ -78,15 +121,33 @@ export default function StaffList({ staff }: Props) {
           <h2 className="text-2xl font-bold text-gray-900">Personel Listesi</h2>
           <p className="text-gray-500">Temizlik görevlilerini yönetin.</p>
         </div>
-        {!isAdding && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
-          >
-            <UserPlus className="w-5 h-5" />
-            Yeni Personel Ekle
-          </button>
-        )}
+        <div className="flex gap-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleExcelImport}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+          {!isAdding && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200"
+            >
+              <FileSpreadsheet className="w-5 h-5" />
+              Excel'den Yükle
+            </button>
+          )}
+          {!isAdding && (
+            <button
+              onClick={() => setIsAdding(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+            >
+              <UserPlus className="w-5 h-5" />
+              Yeni Personel Ekle
+            </button>
+          )}
+        </div>
       </div>
 
       {isAdding && (
@@ -95,7 +156,7 @@ export default function StaffList({ staff }: Props) {
             <h3 className="text-lg font-semibold text-gray-900">
               {editingId ? 'Personel Düzenle' : 'Yeni Personel Kaydı'}
             </h3>
-            <button onClick={() => { setIsAdding(false); setEditingId(null); setFormData({ name: '', surname: '', phone: '' }); }} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => { setIsAdding(false); setEditingId(null); setFormData({ name: '', surname: '', tcNo: '', phone: '', partnerId: undefined }); }} className="text-gray-400 hover:text-gray-600">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -117,6 +178,17 @@ export default function StaffList({ staff }: Props) {
                 type="text"
                 value={formData.surname}
                 onChange={e => setFormData({ ...formData, surname: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">TC Kimlik No</label>
+              <input
+                required
+                type="text"
+                maxLength={11}
+                value={formData.tcNo}
+                onChange={e => setFormData({ ...formData, tcNo: e.target.value.replace(/\D/g, '') })}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
@@ -172,6 +244,7 @@ export default function StaffList({ staff }: Props) {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ad Soyad</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">TC Kimlik No</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Telefon</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ekip Arkadaşı</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">İşlemler</th>
@@ -180,7 +253,7 @@ export default function StaffList({ staff }: Props) {
             <tbody className="divide-y divide-gray-50">
               {staff.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                     Henüz kayıtlı personel bulunmuyor.
                   </td>
                 </tr>
@@ -192,6 +265,7 @@ export default function StaffList({ staff }: Props) {
                       <td className="px-6 py-4">
                         <div className="font-medium text-gray-900">{s.name} {s.surname}</div>
                       </td>
+                      <td className="px-6 py-4 text-gray-600 font-mono text-sm">{s.tcNo}</td>
                       <td className="px-6 py-4 text-gray-600">{s.phone || '-'}</td>
                       <td className="px-6 py-4">
                         {partner ? (
