@@ -98,14 +98,14 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       alert('Lütfen önce müracaatçı ekleyin.');
       return;
     }
-    if (currentMonthWorkDays.length === 0) {
-      alert('Lütfen bu ay için iş günlerini belirleyin.');
-      return;
-    }
 
     setIsGenerating(true);
     try {
-      // Clear existing schedules for this month
+      // 1. Calculate total visits needed (each applicant twice)
+      const totalVisitsNeeded = applicants.length * 2;
+      const daysNeeded = Math.ceil(totalVisitsNeeded / 6);
+
+      // 2. Clear existing schedules for this month
       const existingIds = schedules
         .filter(s => {
           const d = parseISO(s.date);
@@ -117,14 +117,44 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         await dbLocal.schedules.bulkDelete(existingIds);
       }
 
-      // Sort applicants by neighborhood to keep them together
-      const sortedApplicants = [...applicants].sort((a, b) => a.neighborhood.localeCompare(b.neighborhood));
+      // 3. Ensure we have enough work days. If not, auto-create them.
+      // We'll pick the first N weekdays of the month.
+      let availableWorkDays = currentMonthWorkDays;
+      if (availableWorkDays.length < daysNeeded) {
+        const newWorkDays: WorkDay[] = [];
+        let currentDate = monthStart;
+        let addedCount = 0;
+        
+        while (addedCount < daysNeeded && currentDate <= monthEnd) {
+          const dateStr = format(currentDate, 'yyyy-MM-dd');
+          const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+          
+          if (!isWeekend) {
+            const existing = workDays.find(wd => wd.date === dateStr);
+            if (!existing || !existing.isWorkDay) {
+              newWorkDays.push({ date: dateStr, isWorkDay: true });
+            }
+            addedCount++;
+          }
+          currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
+        }
+        
+        if (newWorkDays.length > 0) {
+          await dbLocal.workDays.bulkPut(newWorkDays);
+          // We need to wait a bit for the useLiveQuery to update or manually update local list
+          // For simplicity in this function, we'll just assume they are there or use the calculated list
+          availableWorkDays = [...availableWorkDays, ...newWorkDays].sort((a, b) => a.date.localeCompare(b.date));
+        }
+      }
+
+      // 4. Create the visit list (each ID twice)
+      // Sort applicants by address to keep them together
+      const sortedApplicants = [...applicants].sort((a, b) => a.address.localeCompare(b.address));
+      const visitList = [...sortedApplicants, ...sortedApplicants];
       
-      // Group staff into teams
+      // 5. Group staff into teams
       const teams: number[][] = [];
       const processedStaff = new Set<number>();
-      
-      // First, add defined teams
       staff.forEach(s => {
         if (processedStaff.has(s.id!)) return;
         if (s.partnerId) {
@@ -133,8 +163,6 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
           processedStaff.add(s.partnerId);
         }
       });
-      
-      // Then, add individuals (pair them up for the schedule)
       const individuals = staff.filter(s => !processedStaff.has(s.id!));
       for (let i = 0; i < individuals.length; i += 2) {
         const pair = [individuals[i].id!];
@@ -142,14 +170,23 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         teams.push(pair);
       }
 
-      let applicantIndex = 0;
-      for (const wd of currentMonthWorkDays) {
+      // 6. Distribute into days
+      let visitIndex = 0;
+      for (let d = 0; d < daysNeeded; d++) {
+        const wd = availableWorkDays[d];
+        if (!wd) break;
+
         const dailyAssignments: { applicantId: number, staffIds: number[] }[] = [];
         
         for (let i = 0; i < 6; i++) {
-          const applicant = sortedApplicants[applicantIndex];
-          // Each team visits 2 applicants per day
-          // So for 6 applicants, we use 3 teams
+          let applicant = visitList[visitIndex];
+          
+          // If we ran out of visits (shouldn't happen with daysNeeded calculation but for safety)
+          // or if it's the last day and we need to fill to 6
+          if (!applicant) {
+            applicant = sortedApplicants[i % sortedApplicants.length];
+          }
+
           const teamIndex = Math.floor(i / 2) % teams.length;
           const team = teams[teamIndex];
 
@@ -158,7 +195,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             staffIds: team || []
           });
           
-          applicantIndex = (applicantIndex + 1) % sortedApplicants.length;
+          visitIndex++;
         }
         
         await dbLocal.schedules.add({
@@ -308,9 +345,9 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     const day = assignments.find(a => a.date === expandedDay);
     if (!day) return [];
     return day.items.map(item => ({
-      pos: NEIGHBORHOOD_COORDS[item.applicant.neighborhood] || [41.675, 26.570],
+      pos: [item.applicant.lat || 41.675, item.applicant.lng || 26.570] as [number, number],
       name: `${item.applicant.name} ${item.applicant.surname}`,
-      neighborhood: item.applicant.neighborhood
+      address: item.applicant.address
     }));
   }, [expandedDay, assignments]);
 
@@ -363,12 +400,12 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
           <MapContainer center={[41.675, 26.570]} zoom={13} style={{ height: '100%', width: '100%' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             {activeMarkers.map((m, i) => (
-              <Marker key={i} position={m.pos}>
-                <Popup>
-                  <div className="font-bold">{m.name}</div>
-                  <div className="text-xs text-gray-500">{m.neighborhood}</div>
-                </Popup>
-              </Marker>
+                  <Marker key={i} position={m.pos}>
+                    <Popup>
+                      <div className="font-bold">{m.name}</div>
+                      <div className="text-xs text-gray-500">{m.address}</div>
+                    </Popup>
+                  </Marker>
             ))}
             {expandedDay && activeMarkers.length > 0 && <MapUpdater center={activeMarkers[0].pos} />}
           </MapContainer>
@@ -411,7 +448,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                     <div className="h-8 w-px bg-gray-200" />
                     <div>
                       <div className="text-sm font-semibold text-gray-700">
-                        {a.items.length > 0 ? `${[...new Set(a.items.map(i => i.applicant.neighborhood))].join(', ')}` : 'Atama Yapılmamış'}
+                        {a.items.length > 0 ? `${a.items[0].applicant.address.substring(0, 30)}...` : 'Atama Yapılmamış'}
                       </div>
                       <div className="text-xs text-gray-400">{a.items.length} Müracaatçı</div>
                     </div>
@@ -427,7 +464,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                           <div className="flex justify-between items-start">
                             <div>
                               <div className="font-bold text-gray-900">{item.applicant.name} {item.applicant.surname}</div>
-                              <div className="text-xs text-blue-600 font-medium">{item.applicant.neighborhood}</div>
+                              <div className="text-[10px] text-blue-600 font-medium line-clamp-1">{item.applicant.address}</div>
                             </div>
                             <div className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500 font-mono">{item.applicant.tcNo}</div>
                           </div>
@@ -448,11 +485,11 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                 }}
                                 className="w-full text-sm bg-gray-50 border-none rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                               >
-                                {applicants.map(app => (
-                                  <option key={app.id} value={app.id}>
-                                    {app.name} {app.surname} ({app.neighborhood})
-                                  </option>
-                                ))}
+                                  {applicants.map(app => (
+                                    <option key={app.id} value={app.id}>
+                                      {app.name} {app.surname} ({app.address.substring(0, 20)}...)
+                                    </option>
+                                  ))}
                               </select>
                             </div>
 

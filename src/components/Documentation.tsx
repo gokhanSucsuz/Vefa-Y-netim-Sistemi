@@ -166,11 +166,19 @@ export default function Documentation() {
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              Her müracaatçıya 2 personel atanır. Personelleri "Personel Listesi" üzerinden <b>ikili ekipler</b> halinde eşleştirebilirsiniz. Bir ekip üyesi atandığında ortağı otomatik olarak eklenir.
+              Her müracaatçı <b>ayda 2 kez</b> ziyaret edilecek şekilde planlanır.
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              Bir personel (veya ekip) günde en fazla 2 eve gidebilir.
+              Planlama <b>Adres Bilgisine</b> göre yapılır. Mahalle ayrımı yerine adreslerin birbirine yakınlığına göre sıralama yapılır.
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
+              İş günleri otomatik olarak müracaatçı sayısına göre belirlenir, ancak kullanıcı tarafından değiştirilebilir.
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
+              Son gün planlamasında eksik kalan kontenjanlar (6'dan az ise) listenin başından tekrar başlanarak tamamlanır.
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />

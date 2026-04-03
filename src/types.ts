@@ -5,7 +5,7 @@ export interface Applicant {
   tcNo: string;
   phone: string;
   address: string;
-  neighborhood: string; // Mahalle
+  neighborhood?: string; // Optional neighborhood
   householdSize?: number; // Kişi Sayısı
   lat?: number;
   lng?: number;

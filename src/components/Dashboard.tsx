@@ -89,7 +89,7 @@ export default function Dashboard({ onNavigate }: Props) {
                           <p className="font-semibold text-gray-800">
                             {applicant ? `${applicant.name} ${applicant.surname}` : `Müracaatçı #${a.applicantId}`}
                           </p>
-                          {applicant && <p className="text-[10px] text-blue-600 font-medium">{applicant.neighborhood}</p>}
+                          {applicant && <p className="text-[10px] text-blue-600 font-medium line-clamp-1">{applicant.address}</p>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500">

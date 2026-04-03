@@ -18,20 +18,26 @@ export default function ApplicantList({ applicants }: Props) {
     tcNo: '',
     phone: '',
     address: '',
-    neighborhood: EDIRNE_NEIGHBORHOODS[0]
+    neighborhood: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Mock geocoding based on address
+      const lat = 41.675 + (Math.random() - 0.5) * 0.05;
+      const lng = 26.570 + (Math.random() - 0.5) * 0.05;
+      
+      const dataToSave = { ...formData, lat, lng };
+
       if (editingId) {
-        await dbLocal.applicants.update(editingId, formData);
+        await dbLocal.applicants.update(editingId, dataToSave);
         setEditingId(null);
       } else {
-        await dbLocal.applicants.add(formData);
+        await dbLocal.applicants.add(dataToSave);
         setIsAdding(false);
       }
-      setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: EDIRNE_NEIGHBORHOODS[0] });
+      setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '' });
     } catch (error) {
       console.error("Error saving applicant:", error);
     }
@@ -189,41 +195,14 @@ export default function ApplicantList({ applicants }: Props) {
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Mahalle</label>
-              <select
-                value={formData.neighborhood}
-                onChange={e => setFormData({ ...formData, neighborhood: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              >
-                {EDIRNE_NEIGHBORHOODS.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Telefon</label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Kişi Sayısı (Hane)</label>
-              <input
-                type="number"
-                min="1"
-                value={formData.householdSize || 1}
-                onChange={e => setFormData({ ...formData, householdSize: parseInt(e.target.value) })}
-                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              />
-            </div>
             <div className="md:col-span-2 space-y-1">
               <label className="text-sm font-medium text-gray-700">Adres</label>
               <textarea
+                required
+                placeholder="Örn: Abdurrahman Mah. Şehit Emniyet Müdürü Ertan Nezihi Turhan Cad. No: 5"
                 value={formData.address}
                 onChange={e => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-20"
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24"
               />
             </div>
             <div className="md:col-span-2 flex justify-end gap-3 pt-2">
@@ -252,7 +231,7 @@ export default function ApplicantList({ applicants }: Props) {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ad Soyad</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Mahalle</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Adres Bilgisi</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">TC Kimlik No</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Kişi Sayısı</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">İşlemler</th>
@@ -261,7 +240,7 @@ export default function ApplicantList({ applicants }: Props) {
             <tbody className="divide-y divide-gray-50">
               {applicants.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                     Henüz kayıtlı müracaatçı bulunmuyor.
                   </td>
                 </tr>
@@ -272,11 +251,11 @@ export default function ApplicantList({ applicants }: Props) {
                       <div className="font-medium text-gray-900">{applicant.name} {applicant.surname}</div>
                       <div className="text-xs text-gray-500">{applicant.phone}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                        <MapPin className="w-3 h-3" />
-                        {applicant.neighborhood}
-                      </span>
+                    <td className="px-6 py-4 max-w-xs">
+                      <div className="flex items-start gap-1 text-sm text-gray-600">
+                        <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-500" />
+                        <span className="line-clamp-2">{applicant.address}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-gray-600 font-mono text-sm">{applicant.tcNo}</td>
                     <td className="px-6 py-4 text-gray-600 text-sm">{applicant.householdSize || 1} Kişi</td>
