@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS } from '../types';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
@@ -55,9 +55,16 @@ interface Props {
   schedules: Schedule[];
 }
 
-function MapUpdater({ center }: { center: [number, number] }) {
+function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
   const map = useMap();
-  map.setView(center, 13);
+  
+  useEffect(() => {
+    if (markers.length > 0) {
+      const bounds = L.latLngBounds(markers.map(m => m.pos));
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+  }, [markers, map]);
+
   return null;
 }
 
@@ -344,8 +351,11 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     if (!expandedDay) return [];
     const day = assignments.find(a => a.date === expandedDay);
     if (!day) return [];
-    return day.items.map(item => ({
-      pos: [item.applicant.lat || 41.675, item.applicant.lng || 26.570] as [number, number],
+    return day.items.map((item, i) => ({
+      pos: [
+        item.applicant.lat || (41.675 + (i * 0.002)), 
+        item.applicant.lng || (26.570 + (i * 0.002))
+      ] as [number, number],
       name: `${item.applicant.name} ${item.applicant.surname}`,
       address: item.applicant.address
     }));
@@ -400,14 +410,14 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
           <MapContainer center={[41.675, 26.570]} zoom={13} style={{ height: '100%', width: '100%' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             {activeMarkers.map((m, i) => (
-                  <Marker key={i} position={m.pos}>
-                    <Popup>
-                      <div className="font-bold">{m.name}</div>
-                      <div className="text-xs text-gray-500">{m.address}</div>
-                    </Popup>
-                  </Marker>
+              <Marker key={`${expandedDay}-${i}`} position={m.pos}>
+                <Popup>
+                  <div className="font-bold">{m.name}</div>
+                  <div className="text-xs text-gray-500">{m.address}</div>
+                </Popup>
+              </Marker>
             ))}
-            {expandedDay && activeMarkers.length > 0 && <MapUpdater center={activeMarkers[0].pos} />}
+            {expandedDay && activeMarkers.length > 0 && <MapUpdater markers={activeMarkers} />}
           </MapContainer>
           {!expandedDay && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10 pointer-events-none">

@@ -24,7 +24,9 @@ export default function Documentation() {
         phone: `05${Math.floor(100000000 + Math.random() * 900000000)}`,
         address: `Edirne Merkez, No: ${i + 1}`,
         neighborhood: EDIRNE_NEIGHBORHOODS[Math.floor(Math.random() * EDIRNE_NEIGHBORHOODS.length)],
-        householdSize: Math.floor(Math.random() * 5) + 1
+        householdSize: Math.floor(Math.random() * 5) + 1,
+        lat: 41.675 + (Math.random() - 0.5) * 0.05,
+        lng: 26.570 + (Math.random() - 0.5) * 0.05
       }));
 
       const mockStaff = Array.from({ length: 6 }).map((_, i) => ({

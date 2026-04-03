@@ -91,7 +91,9 @@ export default function ApplicantList({ applicants }: Props) {
             phone: (row['telefon'] || row['Telefon'] || '').toString(),
             address: (row['adres'] || row['Adres'] || '').toString(),
             householdSize: parseInt(row['kişi sayısı'] || row['Kişi Sayısı'] || '1'),
-            neighborhood: EDIRNE_NEIGHBORHOODS[0] // Default to first neighborhood if not in Excel
+            neighborhood: EDIRNE_NEIGHBORHOODS[0],
+            lat: 41.675 + (Math.random() - 0.5) * 0.05,
+            lng: 26.570 + (Math.random() - 0.5) * 0.05
           };
         });
 
