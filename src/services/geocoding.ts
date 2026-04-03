@@ -15,71 +15,79 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
   if (!address) return null;
 
-  // 1. OFFLINE CHECK: Try to find village or neighborhood in the address string
   const upperAddress = address.toLocaleUpperCase('tr-TR');
-  
-  // Check villages
-  for (const [village, coords] of Object.entries(EDIRNE_VILLAGES)) {
-    if (upperAddress.includes(village.toLocaleUpperCase('tr-TR'))) {
-      return { lat: coords[0], lng: coords[1], display_name: `${village} Köyü, Edirne` };
-    }
-  }
-
-  // Check neighborhoods
-  for (const [neighborhood, coords] of Object.entries(EDIRNE_NEIGHBORHOOD_COORDS)) {
-    if (upperAddress.includes(neighborhood.toLocaleUpperCase('tr-TR'))) {
-      // If it's a neighborhood, we still want to try API for exact street, 
-      // but we have a very good fallback.
-      // For now, let's proceed to API but keep this in mind.
-    }
-  }
 
   try {
-    // 2. API CHECK via Server Proxy (to avoid CORS and manage rate limits)
+    // 1. Try API with full address first for maximum precision
     let query = `${address}, Edirne, Turkey`;
     let result = await fetchProxyGeocode(query);
-    
-    // If we hit rate limit, don't keep trying API, just use fallback
-    if (result === null && lastStatus === 429) {
-      return getNeighborhoodFallback(upperAddress);
-    }
-
     if (result) return result;
 
     await delay(1200); // Respect rate limit
     
-    // 3. CLEANED QUERY
+    // 2. Try API with cleaned address (remove No, Daire, etc.)
     const cleanedAddress = address
-      .replace(/No:\s*\d+/gi, '')
+      .replace(/No:\s*\d+[a-z]?(\/\d+)?/gi, '')
       .replace(/Daire:\s*\d+/gi, '')
+      .replace(/Kat:\s*\d+/gi, '')
       .replace(/\(.*\)/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
     
-    if (cleanedAddress !== address) {
+    if (cleanedAddress !== address && cleanedAddress.length > 5) {
       query = `${cleanedAddress}, Edirne, Turkey`;
       result = await fetchProxyGeocode(query);
       if (result) return result;
+      await delay(1200);
     }
 
-    // 4. FINAL FALLBACK: Neighborhood center
-    return getNeighborhoodFallback(upperAddress);
+    // 3. Try simplifying to just Neighborhood and Street
+    // Pattern: "X Mah. Y Sok."
+    const mahMatch = address.match(/([a-zA-Z0-9çğıöşüÇĞİÖŞÜ\s]+Mah\.)/i);
+    const streetMatch = address.match(/([a-zA-Z0-9çğıöşüÇĞİÖŞÜ\s]+(Cad\.|Sok\.|Bulvarı|Sokağı|Caddesi))/i);
+    
+    if (mahMatch && streetMatch) {
+      query = `${mahMatch[0]} ${streetMatch[0]}, Edirne, Turkey`;
+      result = await fetchProxyGeocode(query);
+      if (result) return result;
+      await delay(1200);
+    }
+
+    // 4. OFFLINE FALLBACK: If API fails, use our local database
+    
+    // Check villages (High priority for villages as they often fail in API)
+    for (const [village, coords] of Object.entries(EDIRNE_VILLAGES)) {
+      if (upperAddress.includes(village.toLocaleUpperCase('tr-TR'))) {
+        return { 
+          lat: coords[0] + (Math.random() - 0.5) * 0.002, 
+          lng: coords[1] + (Math.random() - 0.5) * 0.002, 
+          display_name: `${village} Köyü, Edirne (Yerel Veri)` 
+        };
+      }
+    }
+
+    // Check neighborhoods center
+    for (const [neighborhood, coords] of Object.entries(EDIRNE_NEIGHBORHOOD_COORDS)) {
+      if (upperAddress.includes(neighborhood.toLocaleUpperCase('tr-TR'))) {
+        return { 
+          lat: coords[0] + (Math.random() - 0.5) * 0.005, 
+          lng: coords[1] + (Math.random() - 0.5) * 0.005,
+          display_name: `${neighborhood} Mah., Edirne (Mahalle Merkezi)`
+        };
+      }
+    }
+
+    return null;
   } catch (error) {
     console.error('Geocoding error:', error);
-    return getNeighborhoodFallback(upperAddress);
-  }
-}
-
-function getNeighborhoodFallback(upperAddress: string): GeocodeResult | null {
-  for (const [neighborhood, coords] of Object.entries(EDIRNE_NEIGHBORHOOD_COORDS)) {
-    if (upperAddress.includes(neighborhood.toLocaleUpperCase('tr-TR'))) {
-      return { 
-        lat: coords[0] + (Math.random() - 0.5) * 0.005, 
-        lng: coords[1] + (Math.random() - 0.5) * 0.005,
-        display_name: `${neighborhood} Mah., Edirne (Yaklaşık)`
-      };
+    // Final attempt at fallback on error
+    for (const [neighborhood, coords] of Object.entries(EDIRNE_NEIGHBORHOOD_COORDS)) {
+      if (upperAddress.includes(neighborhood.toLocaleUpperCase('tr-TR'))) {
+        return { lat: coords[0], lng: coords[1] };
+      }
     }
+    return null;
   }
-  return null;
 }
 
 let lastStatus = 0;
