@@ -153,27 +153,57 @@ export default function ApplicantList({ applicants }: Props) {
           const row = data[i];
           setImportProgress(prev => ({ ...prev, current: i + 1 }));
           
-          const fullName = (row['isim-soyisim'] || row['Ad Soyad'] || '').toString().trim();
-          const parts = fullName.split(' ');
-          const surname = parts.length > 1 ? parts.pop() : '';
-          const name = parts.join(' ');
-          const address = (row['adres'] || row['Adres'] || '').toString();
+          const fullName = (row['isim-soyisim'] || row['İsim Soyisim'] || row['Ad Soyad'] || '').toString().trim();
+          const parts = fullName.split(/\s+/);
+          let name = '';
+          let surname = '';
+          
+          if (parts.length > 1) {
+            surname = parts.pop() || '';
+            name = parts.join(' ');
+          } else {
+            name = fullName;
+          }
 
-          // Try to detect neighborhood from address or row
-          let detectedNeighborhood = EDIRNE_NEIGHBORHOODS[0];
+          const address = (row['adres'] || row['Adres'] || '').toString();
+          const neighborhoodFromExcel = (row['mahalle-köy'] || row['Mahalle/Köy'] || row['Mahalle'] || '').toString().trim();
+
+          // Try to detect neighborhood from Excel column first, then from address
+          let detectedNeighborhood = '';
+          const upperNeighborhoodExcel = neighborhoodFromExcel.toLocaleUpperCase('tr-TR');
           const upperAddress = address.toLocaleUpperCase('tr-TR');
-          for (const n of EDIRNE_NEIGHBORHOODS) {
-            if (upperAddress.includes(n.toLocaleUpperCase('tr-TR'))) {
-              detectedNeighborhood = n;
-              break;
+
+          // 1. Check if the provided neighborhood matches any in our list
+          if (upperNeighborhoodExcel) {
+            for (const n of EDIRNE_NEIGHBORHOODS) {
+              const nUpper = n.toLocaleUpperCase('tr-TR');
+              if (upperNeighborhoodExcel.includes(nUpper) || nUpper.includes(upperNeighborhoodExcel)) {
+                detectedNeighborhood = n;
+                break;
+              }
             }
+          }
+
+          // 2. If not found, try to detect from address
+          if (!detectedNeighborhood) {
+            for (const n of EDIRNE_NEIGHBORHOODS) {
+              if (upperAddress.includes(n.toLocaleUpperCase('tr-TR'))) {
+                detectedNeighborhood = n;
+                break;
+              }
+            }
+          }
+
+          // Default to first neighborhood if still not found
+          if (!detectedNeighborhood) {
+            detectedNeighborhood = EDIRNE_NEIGHBORHOODS[0];
           }
 
           const coords = await geocodeAddress('', detectedNeighborhood);
 
           newApplicants.push({
-            name: name || fullName,
-            surname: surname || '',
+            name: name,
+            surname: surname,
             tcNo: (row['tc kimlik no'] || row['TC No'] || '').toString().replace(/\D/g, ''),
             phone: (row['telefon'] || row['Telefon'] || '').toString(),
             address: address,
