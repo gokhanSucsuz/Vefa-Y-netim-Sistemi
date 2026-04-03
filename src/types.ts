@@ -16,6 +16,7 @@ export interface Staff {
   name: string;
   surname: string;
   phone: string;
+  partnerId?: number; // ID of the other staff member in the team
 }
 
 export interface WorkDay {

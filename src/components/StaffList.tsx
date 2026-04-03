@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { dbLocal } from '../db';
 import { Staff } from '../types';
-import { Plus, Trash2, Edit2, X, Check, UserPlus } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, Users } from 'lucide-react';
 
 interface Props {
   staff: Staff[];
@@ -13,20 +13,43 @@ export default function StaffList({ staff }: Props) {
   const [formData, setFormData] = useState<Staff>({
     name: '',
     surname: '',
-    phone: ''
+    phone: '',
+    partnerId: undefined
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let newId: number;
       if (editingId) {
         await dbLocal.staff.update(editingId, formData);
-        setEditingId(null);
+        newId = editingId;
       } else {
-        await dbLocal.staff.add(formData);
-        setIsAdding(false);
+        newId = await dbLocal.staff.add(formData) as number;
       }
-      setFormData({ name: '', surname: '', phone: '' });
+
+      // Handle bidirectional partner link
+      if (formData.partnerId) {
+        const partner = staff.find(s => s.id === formData.partnerId);
+        if (partner) {
+          // Clear old partner's link if any
+          if (partner.partnerId && partner.partnerId !== newId) {
+            await dbLocal.staff.update(partner.partnerId, { partnerId: undefined });
+          }
+          // Set new link
+          await dbLocal.staff.update(partner.id!, { partnerId: newId });
+        }
+      } else if (editingId) {
+        // If partner was cleared, clear the other side too
+        const oldStaff = staff.find(s => s.id === editingId);
+        if (oldStaff?.partnerId) {
+          await dbLocal.staff.update(oldStaff.partnerId, { partnerId: undefined });
+        }
+      }
+
+      setEditingId(null);
+      setIsAdding(false);
+      setFormData({ name: '', surname: '', phone: '', partnerId: undefined });
     } catch (error) {
       console.error("Error saving staff:", error);
     }
@@ -40,6 +63,10 @@ export default function StaffList({ staff }: Props) {
 
   const handleDelete = async (id: number) => {
     if (confirm('Bu personeli silmek istediğinize emin misiniz?')) {
+      const s = staff.find(item => item.id === id);
+      if (s?.partnerId) {
+        await dbLocal.staff.update(s.partnerId, { partnerId: undefined });
+      }
       await dbLocal.staff.delete(id);
     }
   };
@@ -102,6 +129,23 @@ export default function StaffList({ staff }: Props) {
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Ekip Arkadaşı (Opsiyonel)</label>
+              <select
+                value={formData.partnerId || ''}
+                onChange={e => setFormData({ ...formData, partnerId: e.target.value ? parseInt(e.target.value) : undefined })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              >
+                <option value="">Ekip Arkadaşı Yok</option>
+                {staff
+                  .filter(s => s.id !== editingId) // Don't show self
+                  .map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} {s.surname} {s.partnerId ? '(Zaten Ekibi Var)' : ''}
+                    </option>
+                  ))}
+              </select>
+            </div>
             <div className="md:col-span-2 flex justify-end gap-3 pt-2">
               <button
                 type="button"
@@ -129,24 +173,37 @@ export default function StaffList({ staff }: Props) {
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ad Soyad</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Telefon</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ekip Arkadaşı</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">İşlemler</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {staff.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                     Henüz kayıtlı personel bulunmuyor.
                   </td>
                 </tr>
               ) : (
-                staff.map(s => (
-                  <tr key={s.id} className="hover:bg-gray-50 transition-all group">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{s.name} {s.surname}</div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{s.phone || '-'}</td>
-                    <td className="px-6 py-4 text-right">
+                staff.map(s => {
+                  const partner = staff.find(p => p.id === s.partnerId);
+                  return (
+                    <tr key={s.id} className="hover:bg-gray-50 transition-all group">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">{s.name} {s.surname}</div>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{s.phone || '-'}</td>
+                      <td className="px-6 py-4">
+                        {partner ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            <Users className="w-3 h-3" />
+                            {partner.name} {partner.surname}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Bireysel</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
                         <button
                           onClick={() => handleEdit(s)}
@@ -163,9 +220,10 @@ export default function StaffList({ staff }: Props) {
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
+                );
+              })
+            )}
+          </tbody>
           </table>
         </div>
       </div>

@@ -119,34 +119,43 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
       // Sort applicants by neighborhood to keep them together
       const sortedApplicants = [...applicants].sort((a, b) => a.neighborhood.localeCompare(b.neighborhood));
-      const sortedStaff = [...staff];
+      
+      // Group staff into teams
+      const teams: number[][] = [];
+      const processedStaff = new Set<number>();
+      
+      // First, add defined teams
+      staff.forEach(s => {
+        if (processedStaff.has(s.id!)) return;
+        if (s.partnerId) {
+          teams.push([s.id!, s.partnerId]);
+          processedStaff.add(s.id!);
+          processedStaff.add(s.partnerId);
+        }
+      });
+      
+      // Then, add individuals (pair them up for the schedule)
+      const individuals = staff.filter(s => !processedStaff.has(s.id!));
+      for (let i = 0; i < individuals.length; i += 2) {
+        const pair = [individuals[i].id!];
+        if (individuals[i+1]) pair.push(individuals[i+1].id!);
+        teams.push(pair);
+      }
 
       let applicantIndex = 0;
       for (const wd of currentMonthWorkDays) {
         const dailyAssignments: { applicantId: number, staffIds: number[] }[] = [];
         
-        // We assign 6 applicants per day
-        // Each applicant gets 2 staff members
-        // Each staff member visits 2 applicants
-        // So for 6 applicants, we need 6 staff members (3 pairs)
-        // Pair 1 (Staff 0, 1) -> Applicants 0, 1
-        // Pair 2 (Staff 2, 3) -> Applicants 2, 3
-        // Pair 3 (Staff 4, 5) -> Applicants 4, 5
-        
         for (let i = 0; i < 6; i++) {
           const applicant = sortedApplicants[applicantIndex];
-          const pairIndex = Math.floor(i / 2); // 0, 0, 1, 1, 2, 2
-          
-          const staff1 = sortedStaff[pairIndex * 2];
-          const staff2 = sortedStaff[pairIndex * 2 + 1];
-          
-          const staffIds: number[] = [];
-          if (staff1) staffIds.push(staff1.id!);
-          if (staff2) staffIds.push(staff2.id!);
+          // Each team visits 2 applicants per day
+          // So for 6 applicants, we use 3 teams
+          const teamIndex = Math.floor(i / 2) % teams.length;
+          const team = teams[teamIndex];
 
           dailyAssignments.push({ 
             applicantId: applicant.id!,
-            staffIds: staffIds
+            staffIds: team || []
           });
           
           applicantIndex = (applicantIndex + 1) % sortedApplicants.length;
@@ -168,10 +177,19 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     const schedule = schedules.find(s => s.date === date);
     if (!schedule) return;
 
+    const selectedStaff = staff.find(s => s.id === staffId);
+
     const newAssignments = schedule.assignments.map(a => {
       if (a.applicantId === applicantId) {
         const newStaffIds = [...(a.staffIds || [])];
         newStaffIds[staffIndex] = staffId;
+
+        // If this staff has a partner, automatically set the partner in the other slot
+        if (selectedStaff?.partnerId) {
+          const otherIndex = staffIndex === 0 ? 1 : 0;
+          newStaffIds[otherIndex] = selectedStaff.partnerId;
+        }
+
         return { ...a, staffIds: newStaffIds };
       }
       return a;

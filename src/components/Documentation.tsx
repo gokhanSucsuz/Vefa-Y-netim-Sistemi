@@ -34,8 +34,20 @@ export default function Documentation() {
       }));
 
       await dbLocal.transaction('rw', dbLocal.applicants, dbLocal.staff, async () => {
-        await dbLocal.applicants.bulkAdd(mockApplicants);
-        await dbLocal.staff.bulkAdd(mockStaff);
+        const applicantIds = await dbLocal.applicants.bulkAdd(mockApplicants, { allKeys: true });
+        const staffIds = await dbLocal.staff.bulkAdd(mockStaff, { allKeys: true }) as number[];
+        
+        // Create 3 teams (pairs)
+        if (staffIds.length >= 6) {
+          await dbLocal.staff.update(staffIds[0], { partnerId: staffIds[1] });
+          await dbLocal.staff.update(staffIds[1], { partnerId: staffIds[0] });
+          
+          await dbLocal.staff.update(staffIds[2], { partnerId: staffIds[3] });
+          await dbLocal.staff.update(staffIds[3], { partnerId: staffIds[2] });
+          
+          await dbLocal.staff.update(staffIds[4], { partnerId: staffIds[5] });
+          await dbLocal.staff.update(staffIds[5], { partnerId: staffIds[4] });
+        }
       });
 
       console.log('Seed data process completed successfully');
@@ -154,7 +166,11 @@ export default function Documentation() {
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              Her müracaatçıya 2 personel atanır. Bir personel günde en fazla 2 eve gidebilir.
+              Her müracaatçıya 2 personel atanır. Personelleri "Personel Listesi" üzerinden <b>ikili ekipler</b> halinde eşleştirebilirsiniz. Bir ekip üyesi atandığında ortağı otomatik olarak eklenir.
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
+              Bir personel (veya ekip) günde en fazla 2 eve gidebilir.
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
