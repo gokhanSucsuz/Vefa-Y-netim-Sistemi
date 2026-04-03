@@ -44,9 +44,9 @@ export interface DailyAssignment {
 }
 
 export const EDIRNE_NEIGHBORHOODS = [
-  "1. Murat", "Abdurrahman", "Babademirtaş", "Barutluk", "Çavuşbey", 
-  "Dilaverbey", "Fatih", "İstasyon", "Karaağaç", "Kocasinan", 
-  "Medrese Alibey", "Menzilahir", "Mithatpaşa", "Nişancıpaşa", 
+  "1. Murat", "Abdurrahman", "Atatürk", "Babademirtaş", "Barutluk", "Çavuşbey", 
+  "Cumhuriyet", "Dilaverbey", "Fatih", "İstasyon", "100. Yıl", "Karaağaç", "Kocasinan", 
+  "Kurtuluş", "Medrese Alibey", "Menzilahir", "Meydan", "Mithatpaşa", "Nişancıpaşa", 
   "Sabuni", "Sarıcapaşa", "Şükrüpaşa", "Talatpaşa", "Umurbey", 
   "Yeniimaret", "Yıldırım Beyazıt", "Yıldırım Hacı Sarraf",
   // Köyler
