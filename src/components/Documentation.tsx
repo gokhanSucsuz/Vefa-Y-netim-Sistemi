@@ -31,12 +31,17 @@ export default function Documentation() {
         'Dilaverbey Mah. Maarif Cad. No: 22'
       ];
 
-      const mockApplicants: Applicant[] = await Promise.all(Array.from({ length: 30 }).map(async (_, i) => {
+      const mockApplicants: Applicant[] = [];
+      for (let i = 0; i < 30; i++) {
         const address = edirneAddresses[i % edirneAddresses.length];
         // We don't geocode all 30 to avoid rate limits, just a few real ones and jitter the rest
-        const geocode = i < 10 ? await geocodeAddress(address) : null;
+        let geocode = null;
+        if (i < 5) {
+          geocode = await geocodeAddress(address);
+          if (i < 4) await new Promise(resolve => setTimeout(resolve, 1100));
+        }
         
-        return {
+        mockApplicants.push({
           name: firstNames[Math.floor(Math.random() * firstNames.length)],
           surname: lastNames[Math.floor(Math.random() * lastNames.length)],
           tcNo: (10000000000 + Math.floor(Math.random() * 90000000000)).toString(),
@@ -46,8 +51,8 @@ export default function Documentation() {
           householdSize: Math.floor(Math.random() * 5) + 1,
           lat: geocode ? geocode.lat : (41.675 + (Math.random() - 0.5) * 0.05),
           lng: geocode ? geocode.lng : (26.570 + (Math.random() - 0.5) * 0.05)
-        };
-      }));
+        });
+      }
 
       const mockStaff = Array.from({ length: 6 }).map((_, i) => ({
         name: firstNames[Math.floor(Math.random() * firstNames.length)],

@@ -61,7 +61,9 @@ export default function ApplicantList({ applicants }: Props) {
     lng: 26.570
   });
 
+  const [isImporting, setIsImporting] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
 
   const handleGeocode = async () => {
     if (!formData.address) return;
@@ -120,23 +122,39 @@ export default function ApplicantList({ applicants }: Props) {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+        setIsImporting(true);
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws) as any[];
+        
+        setImportProgress({ current: 0, total: data.length });
 
-        const newApplicants: Applicant[] = await Promise.all(data.map(async row => {
+        const newApplicants: Applicant[] = [];
+        
+        for (let i = 0; i < data.length; i++) {
+          const row = data[i];
+          setImportProgress(prev => ({ ...prev, current: i + 1 }));
+          
           const fullName = (row['isim-soyisim'] || row['Ad Soyad'] || '').toString().trim();
           const parts = fullName.split(' ');
           const surname = parts.length > 1 ? parts.pop() : '';
           const name = parts.join(' ');
           const address = (row['adres'] || row['Adres'] || '').toString();
 
-          // Try geocoding for each row (rate limit may apply but for small lists it's okay)
-          const geocode = await geocodeAddress(address);
+          // Try geocoding for each row sequentially with a delay to avoid 429
+          let geocode = null;
+          if (address) {
+            geocode = await geocodeAddress(address);
+            // Nominatim allows 1 request per second. 
+            // Our geocodeAddress already has some delay, but let's be safe.
+            if (i < data.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1100));
+            }
+          }
 
-          return {
+          newApplicants.push({
             name: name || fullName,
             surname: surname || '',
             tcNo: (row['tc kimlik no'] || row['TC No'] || '').toString().replace(/\D/g, ''),
@@ -146,8 +164,8 @@ export default function ApplicantList({ applicants }: Props) {
             neighborhood: EDIRNE_NEIGHBORHOODS[0],
             lat: geocode ? geocode.lat : (41.675 + (Math.random() - 0.5) * 0.05),
             lng: geocode ? geocode.lng : (26.570 + (Math.random() - 0.5) * 0.05)
-          };
-        }));
+          });
+        }
 
         if (newApplicants.length > 0) {
           await dbLocal.applicants.bulkAdd(newApplicants);
@@ -156,6 +174,9 @@ export default function ApplicantList({ applicants }: Props) {
       } catch (error) {
         console.error("Excel import error:", error);
         alert("Excel dosyası okunurken bir hata oluştu. Lütfen sütun başlıklarını kontrol edin.");
+      } finally {
+        setIsImporting(false);
+        setImportProgress({ current: 0, total: 0 });
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -170,6 +191,14 @@ export default function ApplicantList({ applicants }: Props) {
           <p className="text-gray-500">Temizlik hizmeti alan vatandaşların kayıtlarını yönetin.</p>
         </div>
         <div className="flex gap-3">
+          {isImporting && (
+            <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 animate-pulse">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-medium text-blue-700">
+                Yükleniyor: {importProgress.current} / {importProgress.total}
+              </span>
+            </div>
+          )}
           <input
             type="file"
             ref={fileInputRef}
@@ -177,7 +206,7 @@ export default function ApplicantList({ applicants }: Props) {
             accept=".xlsx, .xls"
             className="hidden"
           />
-          {!isAdding && (
+          {!isAdding && !isImporting && (
             <button
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200"
@@ -186,7 +215,7 @@ export default function ApplicantList({ applicants }: Props) {
               Excel'den Yükle
             </button>
           )}
-          {applicants.length > 0 && !isAdding && (
+          {applicants.length > 0 && !isAdding && !isImporting && (
             <button
               onClick={handleDeleteAll}
               className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all font-semibold"
@@ -195,7 +224,7 @@ export default function ApplicantList({ applicants }: Props) {
               Tümünü Sil
             </button>
           )}
-          {!isAdding && (
+          {!isAdding && !isImporting && (
             <button
               onClick={() => setIsAdding(true)}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"

@@ -8,6 +8,8 @@ export interface GeocodeResult {
   display_name?: string;
 }
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
   if (!address) return null;
 
@@ -17,7 +19,7 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
     let result = await fetchNominatim(query);
     if (result) return result;
 
-    // 2. Try cleaning up the address (remove "No: X", "Daire: Y")
+    await delay(1000); // Respect rate limit before retry
     const cleanedAddress = address
       .replace(/No:\s*\d+/gi, '')
       .replace(/Daire:\s*\d+/gi, '')
