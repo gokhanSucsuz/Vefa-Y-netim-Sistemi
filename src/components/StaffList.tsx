@@ -72,16 +72,30 @@ export default function StaffList({ staff }: Props) {
         const data = XLSX.utils.sheet_to_json(ws) as any[];
 
         const newStaff: Staff[] = data.map(row => {
-          const fullName = (row['ad-soyad'] || row['Ad Soyad'] || '').toString().trim();
-          const parts = fullName.split(' ');
-          const surname = parts.length > 1 ? parts.pop() : '';
-          const name = parts.join(' ');
+          // 1. Try separate columns first
+          let name = (row['ad'] || row['Ad'] || row['AD'] || row['isim'] || row['İsim'] || '').toString().trim();
+          let surname = (row['soyad'] || row['Soyad'] || row['SOYAD'] || '').toString().trim();
+
+          // 2. If separate columns are empty, try combined column
+          if (!name && !surname) {
+            const fullName = (row['ad-soyad'] || row['Ad Soyad'] || row['AD SOYAD'] || row['isim-soyisim'] || row['İsim Soyisim'] || row['Personel'] || '').toString().trim();
+            if (fullName) {
+              const parts = fullName.split(/\s+/);
+              if (parts.length > 1) {
+                surname = parts.pop() || '';
+                name = parts.join(' ');
+              } else {
+                name = fullName;
+                surname = '';
+              }
+            }
+          }
 
           return {
-            name: name || fullName,
-            surname: surname || '',
-            tcNo: (row['tc'] || row['TC No'] || '').toString().replace(/\D/g, ''),
-            phone: (row['telefon'] || row['Telefon'] || '').toString(),
+            name: name,
+            surname: surname,
+            tcNo: (row['tc'] || row['TC No'] || row['tc kimlik no'] || row['TC Kimlik'] || '').toString().replace(/\D/g, ''),
+            phone: (row['telefon'] || row['Telefon'] || row['tel'] || '').toString(),
           };
         });
 
