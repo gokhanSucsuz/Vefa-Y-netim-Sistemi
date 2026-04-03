@@ -1,10 +1,46 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, EDIRNE_NEIGHBORHOODS } from '../types';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
 import { geocodeAddress } from '../services/geocoding';
+
+// Fix Leaflet icon issue
+const icon = new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href;
+const iconShadow = new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href;
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+function LocationPicker({ position, setPosition }: { position: [number, number], setPosition: (pos: [number, number]) => void }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    map.setView(position, 15);
+  }, [position, map]);
+
+  useMapEvents({
+    click(e) {
+      setPosition([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+
+  return <Marker position={position} draggable={true} eventHandlers={{
+    dragend: (e) => {
+      const marker = e.target;
+      const pos = marker.getLatLng();
+      setPosition([pos.lat, pos.lng]);
+    }
+  }} />;
+}
 
 interface Props {
   applicants: Applicant[];
@@ -20,27 +56,36 @@ export default function ApplicantList({ applicants }: Props) {
     tcNo: '',
     phone: '',
     address: '',
-    neighborhood: ''
+    neighborhood: '',
+    lat: 41.675,
+    lng: 26.570
   });
+
+  const [isGeocoding, setIsGeocoding] = useState(false);
+
+  const handleGeocode = async () => {
+    if (!formData.address) return;
+    setIsGeocoding(true);
+    const result = await geocodeAddress(formData.address);
+    if (result) {
+      setFormData(prev => ({ ...prev, lat: result.lat, lng: result.lng }));
+    } else {
+      alert('Adres bulunamadı. Lütfen adresi kontrol edin veya harita üzerinden manuel işaretleyin.');
+    }
+    setIsGeocoding(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Real geocoding based on address
-      const geocode = await geocodeAddress(formData.address);
-      const lat = geocode ? geocode.lat : (41.675 + (Math.random() - 0.5) * 0.05);
-      const lng = geocode ? geocode.lng : (26.570 + (Math.random() - 0.5) * 0.05);
-      
-      const dataToSave = { ...formData, lat, lng };
-
       if (editingId) {
-        await dbLocal.applicants.update(editingId, dataToSave);
+        await dbLocal.applicants.update(editingId, formData);
         setEditingId(null);
       } else {
-        await dbLocal.applicants.add(dataToSave);
+        await dbLocal.applicants.add(formData);
         setIsAdding(false);
       }
-      setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '' });
+      setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '', lat: 41.675, lng: 26.570 });
     } catch (error) {
       console.error("Error saving applicant:", error);
     }
@@ -206,13 +251,43 @@ export default function ApplicantList({ applicants }: Props) {
             </div>
             <div className="md:col-span-2 space-y-1">
               <label className="text-sm font-medium text-gray-700">Adres</label>
-              <textarea
-                required
-                placeholder="Örn: Abdurrahman Mah. Şehit Emniyet Müdürü Ertan Nezihi Turhan Cad. No: 5"
-                value={formData.address}
-                onChange={e => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24"
-              />
+              <div className="flex gap-2">
+                <textarea
+                  required
+                  placeholder="Örn: Abdurrahman Mah. Şehit Emniyet Müdürü Ertan Nezihi Turhan Cad. No: 5"
+                  value={formData.address}
+                  onChange={e => setFormData({ ...formData, address: e.target.value })}
+                  className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24"
+                />
+                <button
+                  type="button"
+                  onClick={handleGeocode}
+                  disabled={isGeocoding}
+                  className="px-4 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all flex flex-col items-center justify-center gap-1 border border-blue-100"
+                >
+                  <Search className={`w-5 h-5 ${isGeocoding ? 'animate-spin' : ''}`} />
+                  <span className="text-[10px] font-bold">Konumu Bul</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <MapIcon className="w-4 h-4 text-blue-600" />
+                Harita Üzerinde Konum (Tıklayarak veya İşaretçiyi Kaydırarak Ayarlayın)
+              </label>
+              <div className="h-[300px] rounded-2xl border border-gray-200 overflow-hidden relative z-0">
+                <MapContainer center={[formData.lat || 41.675, formData.lng || 26.570]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <LocationPicker 
+                    position={[formData.lat || 41.675, formData.lng || 26.570]} 
+                    setPosition={(pos) => setFormData(prev => ({ ...prev, lat: pos[0], lng: pos[1] }))} 
+                  />
+                </MapContainer>
+              </div>
+              <div className="text-[10px] text-gray-400 font-mono">
+                Koordinatlar: {formData.lat?.toFixed(6)}, {formData.lng?.toFixed(6)}
+              </div>
             </div>
             <div className="md:col-span-2 flex justify-end gap-3 pt-2">
               <button
