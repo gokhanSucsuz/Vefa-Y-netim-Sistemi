@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Book, CheckCircle, Info, HelpCircle, Database } from 'lucide-react';
 import { dbLocal } from '../db';
-import { EDIRNE_NEIGHBORHOODS } from '../types';
+import { EDIRNE_NEIGHBORHOODS, Applicant } from '../types';
+import { geocodeAddress } from '../services/geocoding';
 
 export default function Documentation() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -17,16 +18,35 @@ export default function Documentation() {
       const firstNames = ['Ahmet', 'Mehmet', 'Ayşe', 'Fatma', 'Mustafa', 'Emine', 'Ali', 'Hatice', 'Hüseyin', 'Zeynep', 'Murat', 'Elif', 'İbrahim', 'Meryem', 'Hasan', 'Zehra', 'Osman', 'Özlem', 'Gökhan', 'Esra', 'Can', 'Selin', 'Burak', 'Derya', 'Deniz', 'Ebru', 'Fatih', 'Gamze', 'Hakan', 'İrem'];
       const lastNames = ['Yılmaz', 'Kaya', 'Demir', 'Şahin', 'Çelik', 'Yıldız', 'Yıldırım', 'Öztürk', 'Aydın', 'Özdemir', 'Arslan', 'Doğan', 'Kılıç', 'Aslan', 'Çetin', 'Kara', 'Koç', 'Kurt', 'Özkan', 'Şimşek', 'Polat', 'Özcan', 'Korkmaz', 'Çakır', 'Erdoğan', 'Yavuz', 'Sarı', 'Avcı', 'Yüksel', 'Aksoy'];
 
-      const mockApplicants = Array.from({ length: 50 }).map((_, i) => ({
-        name: firstNames[Math.floor(Math.random() * firstNames.length)],
-        surname: lastNames[Math.floor(Math.random() * lastNames.length)],
-        tcNo: (10000000000 + Math.floor(Math.random() * 90000000000)).toString(),
-        phone: `05${Math.floor(100000000 + Math.random() * 900000000)}`,
-        address: `Edirne Merkez, No: ${i + 1}`,
-        neighborhood: EDIRNE_NEIGHBORHOODS[Math.floor(Math.random() * EDIRNE_NEIGHBORHOODS.length)],
-        householdSize: Math.floor(Math.random() * 5) + 1,
-        lat: 41.675 + (Math.random() - 0.5) * 0.05,
-        lng: 26.570 + (Math.random() - 0.5) * 0.05
+      const edirneAddresses = [
+        'Abdurrahman Mah. Şehit Emniyet Müdürü Ertan Nezihi Turhan Cad. No: 5',
+        'Şükrüpaşa Mah. Şehit Lütfü Küçükyorulmaz Cad. No: 12',
+        'Kocasinan Mah. Muammer Aksoy Cad. No: 8',
+        'Fatih Mah. Alparslan Türkeş Bulvarı No: 20',
+        '1. Murat Mah. Haşim İşcan Cad. No: 15',
+        'İstasyon Mah. Talatpaşa Asfaltı No: 45',
+        'Karaağaç Mah. Ortaköy Cad. No: 10',
+        'Abdurrahman Mah. Tarlakapı Cad. No: 3',
+        'Çavuşbey Mah. Manyas 1. Sok. No: 7',
+        'Dilaverbey Mah. Maarif Cad. No: 22'
+      ];
+
+      const mockApplicants: Applicant[] = await Promise.all(Array.from({ length: 30 }).map(async (_, i) => {
+        const address = edirneAddresses[i % edirneAddresses.length];
+        // We don't geocode all 30 to avoid rate limits, just a few real ones and jitter the rest
+        const geocode = i < 10 ? await geocodeAddress(address) : null;
+        
+        return {
+          name: firstNames[Math.floor(Math.random() * firstNames.length)],
+          surname: lastNames[Math.floor(Math.random() * lastNames.length)],
+          tcNo: (10000000000 + Math.floor(Math.random() * 90000000000)).toString(),
+          phone: `05${Math.floor(100000000 + Math.random() * 900000000)}`,
+          address: address + ` (Daire: ${i + 1})`,
+          neighborhood: EDIRNE_NEIGHBORHOODS[Math.floor(Math.random() * EDIRNE_NEIGHBORHOODS.length)],
+          householdSize: Math.floor(Math.random() * 5) + 1,
+          lat: geocode ? geocode.lat : (41.675 + (Math.random() - 0.5) * 0.05),
+          lng: geocode ? geocode.lng : (26.570 + (Math.random() - 0.5) * 0.05)
+        };
       }));
 
       const mockStaff = Array.from({ length: 6 }).map((_, i) => ({

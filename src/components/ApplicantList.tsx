@@ -4,6 +4,8 @@ import { Applicant, EDIRNE_NEIGHBORHOODS } from '../types';
 import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+import { geocodeAddress } from '../services/geocoding';
+
 interface Props {
   applicants: Applicant[];
 }
@@ -24,9 +26,10 @@ export default function ApplicantList({ applicants }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Mock geocoding based on address
-      const lat = 41.675 + (Math.random() - 0.5) * 0.05;
-      const lng = 26.570 + (Math.random() - 0.5) * 0.05;
+      // Real geocoding based on address
+      const geocode = await geocodeAddress(formData.address);
+      const lat = geocode ? geocode.lat : (41.675 + (Math.random() - 0.5) * 0.05);
+      const lng = geocode ? geocode.lng : (26.570 + (Math.random() - 0.5) * 0.05);
       
       const dataToSave = { ...formData, lat, lng };
 
@@ -78,24 +81,28 @@ export default function ApplicantList({ applicants }: Props) {
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws) as any[];
 
-        const newApplicants: Applicant[] = data.map(row => {
+        const newApplicants: Applicant[] = await Promise.all(data.map(async row => {
           const fullName = (row['isim-soyisim'] || row['Ad Soyad'] || '').toString().trim();
           const parts = fullName.split(' ');
           const surname = parts.length > 1 ? parts.pop() : '';
           const name = parts.join(' ');
+          const address = (row['adres'] || row['Adres'] || '').toString();
+
+          // Try geocoding for each row (rate limit may apply but for small lists it's okay)
+          const geocode = await geocodeAddress(address);
 
           return {
             name: name || fullName,
             surname: surname || '',
             tcNo: (row['tc kimlik no'] || row['TC No'] || '').toString().replace(/\D/g, ''),
             phone: (row['telefon'] || row['Telefon'] || '').toString(),
-            address: (row['adres'] || row['Adres'] || '').toString(),
+            address: address,
             householdSize: parseInt(row['kişi sayısı'] || row['Kişi Sayısı'] || '1'),
             neighborhood: EDIRNE_NEIGHBORHOODS[0],
-            lat: 41.675 + (Math.random() - 0.5) * 0.05,
-            lng: 26.570 + (Math.random() - 0.5) * 0.05
+            lat: geocode ? geocode.lat : (41.675 + (Math.random() - 0.5) * 0.05),
+            lng: geocode ? geocode.lng : (26.570 + (Math.random() - 0.5) * 0.05)
           };
-        });
+        }));
 
         if (newApplicants.length > 0) {
           await dbLocal.applicants.bulkAdd(newApplicants);
