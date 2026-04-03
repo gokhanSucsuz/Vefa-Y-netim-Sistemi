@@ -14,14 +14,17 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 let isProxyAvailable = true; // Track if the server-side proxy exists
 
-export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
+export async function geocodeAddress(address: string, neighborhood?: string): Promise<GeocodeResult | null> {
   if (!address) return null;
 
   const upperAddress = address.toLocaleUpperCase('tr-TR');
+  const upperNeighborhood = neighborhood?.toLocaleUpperCase('tr-TR');
 
   // 1. OFFLINE-FIRST: Check villages (High priority)
+  // Check if neighborhood is a village OR if address contains village name
   for (const [village, coords] of Object.entries(EDIRNE_VILLAGES)) {
-    if (upperAddress.includes(village.toLocaleUpperCase('tr-TR'))) {
+    const vUpper = village.toLocaleUpperCase('tr-TR');
+    if (upperNeighborhood === vUpper || upperAddress.includes(vUpper)) {
       return { 
         lat: coords[0] + (Math.random() - 0.5) * 0.001, 
         lng: coords[1] + (Math.random() - 0.5) * 0.001, 
@@ -32,22 +35,37 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
 
   // 2. PREPARE FALLBACK: Neighborhood center
   let neighborhoodFallback: GeocodeResult | null = null;
-  for (const [neighborhood, coords] of Object.entries(EDIRNE_NEIGHBORHOOD_COORDS)) {
-    if (upperAddress.includes(neighborhood.toLocaleUpperCase('tr-TR'))) {
-      neighborhoodFallback = { 
-        lat: coords[0] + (Math.random() - 0.5) * 0.004, 
-        lng: coords[1] + (Math.random() - 0.5) * 0.004,
-        display_name: `${neighborhood} Mah., Edirne (Mahalle Merkezi)`
-      };
-      break;
+  if (neighborhood && EDIRNE_NEIGHBORHOOD_COORDS[neighborhood]) {
+    const coords = EDIRNE_NEIGHBORHOOD_COORDS[neighborhood];
+    neighborhoodFallback = { 
+      lat: coords[0] + (Math.random() - 0.5) * 0.004, 
+      lng: coords[1] + (Math.random() - 0.5) * 0.004,
+      display_name: `${neighborhood} Mah., Edirne (Mahalle Merkezi)`
+    };
+  } else {
+    // Try to find neighborhood in address string if not provided
+    for (const [n, coords] of Object.entries(EDIRNE_NEIGHBORHOOD_COORDS)) {
+      if (upperAddress.includes(n.toLocaleUpperCase('tr-TR'))) {
+        neighborhoodFallback = { 
+          lat: coords[0] + (Math.random() - 0.5) * 0.004, 
+          lng: coords[1] + (Math.random() - 0.5) * 0.004,
+          display_name: `${n} Mah., Edirne (Mahalle Merkezi)`
+        };
+        break;
+      }
     }
   }
 
   // 3. ONLINE CHECK (Only if proxy is likely available and we want street precision)
   if (isProxyAvailable) {
     try {
-      // Try API with full address
-      let query = `${address}, Edirne, Turkey`;
+      // Build a better query using neighborhood context
+      let query = address;
+      if (neighborhood && !upperAddress.includes(upperNeighborhood!)) {
+        query = `${neighborhood} Mah. ${address}`;
+      }
+      query = `${query}, Edirne, Turkey`;
+
       let result = await fetchProxyGeocode(query);
       if (result) return result;
 
@@ -64,8 +82,11 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
         .trim();
       
       if (cleanedAddress !== address && cleanedAddress.length > 5) {
-        query = `${cleanedAddress}, Edirne, Turkey`;
-        result = await fetchProxyGeocode(query);
+        let cleanQuery = cleanedAddress;
+        if (neighborhood) cleanQuery = `${neighborhood} Mah. ${cleanedAddress}`;
+        cleanQuery = `${cleanQuery}, Edirne, Turkey`;
+        
+        result = await fetchProxyGeocode(cleanQuery);
         if (result) return result;
       }
     } catch (error) {

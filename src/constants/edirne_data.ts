@@ -61,7 +61,7 @@ export const EDIRNE_NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
   "Sabuni": [41.679, 26.554],
   "Sarıcapaşa": [41.674, 26.562],
   "Şükrüpaşa": [41.680, 26.585],
-  "Talataşa": [41.671, 26.555],
+  "Talatpaşa": [41.671, 26.555],
   "Umurbey": [41.673, 26.548],
   "Yeniimaret": [41.685, 26.530],
   "Yıldırım Beyazıt": [41.690, 26.540],

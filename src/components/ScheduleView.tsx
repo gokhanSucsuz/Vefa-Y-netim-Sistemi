@@ -239,7 +239,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         try {
           for (let i = 0; i < itemsWithMissingCoords.length; i++) {
             const item = itemsWithMissingCoords[i];
-            const result = await geocodeAddress(item.applicant.address);
+            const result = await geocodeAddress(item.applicant.address, item.applicant.neighborhood);
             
             if (result) {
               await dbLocal.applicants.update(item.applicant.id!, {

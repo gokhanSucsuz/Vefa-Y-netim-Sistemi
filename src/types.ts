@@ -47,7 +47,7 @@ export const EDIRNE_NEIGHBORHOODS = [
   "1. Murat", "Abdurrahman", "Babademirtaş", "Barutluk", "Çavuşbey", 
   "Dilaverbey", "Fatih", "İstasyon", "Karaağaç", "Kocasinan", 
   "Medrese Alibey", "Menzilahir", "Mithatpaşa", "Nişancıpaşa", 
-  "Sabuni", "Sarıcapaşa", "Şükrüpaşa", "Talataşa", "Umurbey", 
+  "Sabuni", "Sarıcapaşa", "Şükrüpaşa", "Talatpaşa", "Umurbey", 
   "Yeniimaret", "Yıldırım Beyazıt", "Yıldırım Hacı Sarraf",
   // Köyler
   "Ahi", "Avarız", "Bosna", "Budakdoğanca", "Büyükdöllük", "Büyükismailçe", 

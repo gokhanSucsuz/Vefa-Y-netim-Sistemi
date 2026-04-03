@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, EDIRNE_NEIGHBORHOODS } from '../types';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -68,7 +68,7 @@ export default function ApplicantList({ applicants }: Props) {
   const handleGeocode = async () => {
     if (!formData.address) return;
     setIsGeocoding(true);
-    const result = await geocodeAddress(formData.address);
+    const result = await geocodeAddress(formData.address, formData.neighborhood);
     if (result) {
       setFormData(prev => ({ ...prev, lat: result.lat, lng: result.lng }));
     } else {
@@ -115,6 +115,29 @@ export default function ApplicantList({ applicants }: Props) {
     }
   };
 
+  const fixNeighborhoods = async () => {
+    if (!confirm('Mevcut tüm müracaatçıların mahalle bilgileri adreslerine göre yeniden taranacak. Onaylıyor musunuz?')) return;
+    
+    let fixedCount = 0;
+    for (const applicant of applicants) {
+      const upperAddress = applicant.address.toLocaleUpperCase('tr-TR');
+      let detectedNeighborhood = applicant.neighborhood;
+      
+      for (const n of EDIRNE_NEIGHBORHOODS) {
+        if (upperAddress.includes(n.toLocaleUpperCase('tr-TR'))) {
+          detectedNeighborhood = n;
+          break;
+        }
+      }
+      
+      if (detectedNeighborhood !== applicant.neighborhood) {
+        await dbLocal.applicants.update(applicant.id!, { neighborhood: detectedNeighborhood });
+        fixedCount++;
+      }
+    }
+    alert(`${fixedCount} müracaatçının mahalle bilgisi düzeltildi.`);
+  };
+
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -143,6 +166,16 @@ export default function ApplicantList({ applicants }: Props) {
           const name = parts.join(' ');
           const address = (row['adres'] || row['Adres'] || '').toString();
 
+          // Try to detect neighborhood from address or row
+          let detectedNeighborhood = EDIRNE_NEIGHBORHOODS[0];
+          const upperAddress = address.toLocaleUpperCase('tr-TR');
+          for (const n of EDIRNE_NEIGHBORHOODS) {
+            if (upperAddress.includes(n.toLocaleUpperCase('tr-TR'))) {
+              detectedNeighborhood = n;
+              break;
+            }
+          }
+
           newApplicants.push({
             name: name || fullName,
             surname: surname || '',
@@ -150,7 +183,7 @@ export default function ApplicantList({ applicants }: Props) {
             phone: (row['telefon'] || row['Telefon'] || '').toString(),
             address: address,
             householdSize: parseInt(row['kişi sayısı'] || row['Kişi Sayısı'] || '1'),
-            neighborhood: EDIRNE_NEIGHBORHOODS[0]
+            neighborhood: detectedNeighborhood
           });
         }
 
@@ -200,6 +233,16 @@ export default function ApplicantList({ applicants }: Props) {
             >
               <FileSpreadsheet className="w-5 h-5" />
               Excel'den Yükle
+            </button>
+          )}
+          {applicants.length > 0 && !isAdding && !isImporting && (
+            <button
+              onClick={fixNeighborhoods}
+              className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all font-semibold border border-amber-200"
+              title="Adres metninden mahalleyi otomatik tespit eder"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Mahalleleri Düzelt
             </button>
           )}
           {applicants.length > 0 && !isAdding && !isImporting && (
@@ -262,6 +305,30 @@ export default function ApplicantList({ applicants }: Props) {
                 maxLength={11}
                 value={formData.tcNo}
                 onChange={e => setFormData({ ...formData, tcNo: e.target.value.replace(/\D/g, '') })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Mahalle / Köy</label>
+              <select
+                required
+                value={formData.neighborhood}
+                onChange={e => setFormData({ ...formData, neighborhood: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              >
+                {EDIRNE_NEIGHBORHOODS.map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Kişi Sayısı (Hane)</label>
+              <input
+                required
+                type="number"
+                min="1"
+                value={formData.householdSize || 1}
+                onChange={e => setFormData({ ...formData, householdSize: parseInt(e.target.value) })}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
@@ -331,6 +398,7 @@ export default function ApplicantList({ applicants }: Props) {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ad Soyad</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Mahalle/Köy</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Adres Bilgisi</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">TC Kimlik No</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Kişi Sayısı</th>
@@ -340,7 +408,7 @@ export default function ApplicantList({ applicants }: Props) {
             <tbody className="divide-y divide-gray-50">
               {applicants.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     Henüz kayıtlı müracaatçı bulunmuyor.
                   </td>
                 </tr>
@@ -350,6 +418,11 @@ export default function ApplicantList({ applicants }: Props) {
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{applicant.name} {applicant.surname}</div>
                       <div className="text-xs text-gray-500">{applicant.phone}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100">
+                        {applicant.neighborhood}
+                      </span>
                     </td>
                     <td className="px-6 py-4 max-w-xs">
                       <div className="flex items-start gap-1 text-sm text-gray-600">
