@@ -6,6 +6,7 @@ export interface Applicant {
   phone: string;
   address: string;
   neighborhood: string; // Mahalle
+  householdSize?: number; // Kişi Sayısı
   lat?: number;
   lng?: number;
 }

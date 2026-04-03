@@ -240,6 +240,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       'Mahalle': item.applicant.neighborhood,
       'Müracaatçı': `${item.applicant.name} ${item.applicant.surname}`,
       'TC No': item.applicant.tcNo,
+      'Hane Kişi Sayısı': item.applicant.householdSize || 1,
       'Görevli Personeller': item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || 'Atanmamış'
     })));
 

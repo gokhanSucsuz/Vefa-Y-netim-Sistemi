@@ -23,7 +23,8 @@ export default function Documentation() {
         tcNo: (10000000000 + Math.floor(Math.random() * 90000000000)).toString(),
         phone: `05${Math.floor(100000000 + Math.random() * 900000000)}`,
         address: `Edirne Merkez, No: ${i + 1}`,
-        neighborhood: EDIRNE_NEIGHBORHOODS[Math.floor(Math.random() * EDIRNE_NEIGHBORHOODS.length)]
+        neighborhood: EDIRNE_NEIGHBORHOODS[Math.floor(Math.random() * EDIRNE_NEIGHBORHOODS.length)],
+        householdSize: Math.floor(Math.random() * 5) + 1
       }));
 
       const mockStaff = Array.from({ length: 6 }).map((_, i) => ({

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, EDIRNE_NEIGHBORHOODS } from '../types';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Props {
   applicants: Applicant[];
@@ -9,6 +10,7 @@ interface Props {
 
 export default function ApplicantList({ applicants }: Props) {
   const [isAdding, setIsAdding] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<Applicant>({
     name: '',
@@ -57,6 +59,49 @@ export default function ApplicantList({ applicants }: Props) {
     }
   };
 
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        const newApplicants: Applicant[] = data.map(row => {
+          const fullName = (row['isim-soyisim'] || row['Ad Soyad'] || '').toString().trim();
+          const parts = fullName.split(' ');
+          const surname = parts.length > 1 ? parts.pop() : '';
+          const name = parts.join(' ');
+
+          return {
+            name: name || fullName,
+            surname: surname || '',
+            tcNo: (row['tc kimlik no'] || row['TC No'] || '').toString().replace(/\D/g, ''),
+            phone: (row['telefon'] || row['Telefon'] || '').toString(),
+            address: (row['adres'] || row['Adres'] || '').toString(),
+            householdSize: parseInt(row['kişi sayısı'] || row['Kişi Sayısı'] || '1'),
+            neighborhood: EDIRNE_NEIGHBORHOODS[0] // Default to first neighborhood if not in Excel
+          };
+        });
+
+        if (newApplicants.length > 0) {
+          await dbLocal.applicants.bulkAdd(newApplicants);
+          alert(`${newApplicants.length} müracaatçı başarıyla yüklendi.`);
+        }
+      } catch (error) {
+        console.error("Excel import error:", error);
+        alert("Excel dosyası okunurken bir hata oluştu. Lütfen sütun başlıklarını kontrol edin.");
+      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsBinaryString(file);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -65,6 +110,22 @@ export default function ApplicantList({ applicants }: Props) {
           <p className="text-gray-500">Temizlik hizmeti alan vatandaşların kayıtlarını yönetin.</p>
         </div>
         <div className="flex gap-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleExcelImport}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+          {!isAdding && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200"
+            >
+              <FileSpreadsheet className="w-5 h-5" />
+              Excel'den Yükle
+            </button>
+          )}
           {applicants.length > 0 && !isAdding && (
             <button
               onClick={handleDeleteAll}
@@ -147,6 +208,16 @@ export default function ApplicantList({ applicants }: Props) {
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Kişi Sayısı (Hane)</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.householdSize || 1}
+                onChange={e => setFormData({ ...formData, householdSize: parseInt(e.target.value) })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
             <div className="md:col-span-2 space-y-1">
               <label className="text-sm font-medium text-gray-700">Adres</label>
               <textarea
@@ -183,6 +254,7 @@ export default function ApplicantList({ applicants }: Props) {
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ad Soyad</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Mahalle</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">TC Kimlik No</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Kişi Sayısı</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">İşlemler</th>
               </tr>
             </thead>
@@ -207,6 +279,7 @@ export default function ApplicantList({ applicants }: Props) {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-600 font-mono text-sm">{applicant.tcNo}</td>
+                    <td className="px-6 py-4 text-gray-600 text-sm">{applicant.householdSize || 1} Kişi</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
                         <button
