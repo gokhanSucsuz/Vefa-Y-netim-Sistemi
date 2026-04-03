@@ -12,90 +12,85 @@ export interface GeocodeResult {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+let isProxyAvailable = true; // Track if the server-side proxy exists
+
 export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
   if (!address) return null;
 
   const upperAddress = address.toLocaleUpperCase('tr-TR');
 
-  try {
-    // 1. Try API with full address first for maximum precision
-    let query = `${address}, Edirne, Turkey`;
-    let result = await fetchProxyGeocode(query);
-    if (result) return result;
-
-    await delay(1200); // Respect rate limit
-    
-    // 2. Try API with cleaned address (remove No, Daire, etc.)
-    const cleanedAddress = address
-      .replace(/No:\s*\d+[a-z]?(\/\d+)?/gi, '')
-      .replace(/Daire:\s*\d+/gi, '')
-      .replace(/Kat:\s*\d+/gi, '')
-      .replace(/\(.*\)/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    if (cleanedAddress !== address && cleanedAddress.length > 5) {
-      query = `${cleanedAddress}, Edirne, Turkey`;
-      result = await fetchProxyGeocode(query);
-      if (result) return result;
-      await delay(1200);
+  // 1. OFFLINE-FIRST: Check villages (High priority)
+  for (const [village, coords] of Object.entries(EDIRNE_VILLAGES)) {
+    if (upperAddress.includes(village.toLocaleUpperCase('tr-TR'))) {
+      return { 
+        lat: coords[0] + (Math.random() - 0.5) * 0.001, 
+        lng: coords[1] + (Math.random() - 0.5) * 0.001, 
+        display_name: `${village} Köyü, Edirne (Yerel Veri)` 
+      };
     }
-
-    // 3. Try simplifying to just Neighborhood and Street
-    // Pattern: "X Mah. Y Sok."
-    const mahMatch = address.match(/([a-zA-Z0-9çğıöşüÇĞİÖŞÜ\s]+Mah\.)/i);
-    const streetMatch = address.match(/([a-zA-Z0-9çğıöşüÇĞİÖŞÜ\s]+(Cad\.|Sok\.|Bulvarı|Sokağı|Caddesi))/i);
-    
-    if (mahMatch && streetMatch) {
-      query = `${mahMatch[0]} ${streetMatch[0]}, Edirne, Turkey`;
-      result = await fetchProxyGeocode(query);
-      if (result) return result;
-      await delay(1200);
-    }
-
-    // 4. OFFLINE FALLBACK: If API fails, use our local database
-    
-    // Check villages (High priority for villages as they often fail in API)
-    for (const [village, coords] of Object.entries(EDIRNE_VILLAGES)) {
-      if (upperAddress.includes(village.toLocaleUpperCase('tr-TR'))) {
-        return { 
-          lat: coords[0] + (Math.random() - 0.5) * 0.002, 
-          lng: coords[1] + (Math.random() - 0.5) * 0.002, 
-          display_name: `${village} Köyü, Edirne (Yerel Veri)` 
-        };
-      }
-    }
-
-    // Check neighborhoods center
-    for (const [neighborhood, coords] of Object.entries(EDIRNE_NEIGHBORHOOD_COORDS)) {
-      if (upperAddress.includes(neighborhood.toLocaleUpperCase('tr-TR'))) {
-        return { 
-          lat: coords[0] + (Math.random() - 0.5) * 0.005, 
-          lng: coords[1] + (Math.random() - 0.5) * 0.005,
-          display_name: `${neighborhood} Mah., Edirne (Mahalle Merkezi)`
-        };
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Geocoding error:', error);
-    // Final attempt at fallback on error
-    for (const [neighborhood, coords] of Object.entries(EDIRNE_NEIGHBORHOOD_COORDS)) {
-      if (upperAddress.includes(neighborhood.toLocaleUpperCase('tr-TR'))) {
-        return { lat: coords[0], lng: coords[1] };
-      }
-    }
-    return null;
   }
+
+  // 2. PREPARE FALLBACK: Neighborhood center
+  let neighborhoodFallback: GeocodeResult | null = null;
+  for (const [neighborhood, coords] of Object.entries(EDIRNE_NEIGHBORHOOD_COORDS)) {
+    if (upperAddress.includes(neighborhood.toLocaleUpperCase('tr-TR'))) {
+      neighborhoodFallback = { 
+        lat: coords[0] + (Math.random() - 0.5) * 0.004, 
+        lng: coords[1] + (Math.random() - 0.5) * 0.004,
+        display_name: `${neighborhood} Mah., Edirne (Mahalle Merkezi)`
+      };
+      break;
+    }
+  }
+
+  // 3. ONLINE CHECK (Only if proxy is likely available and we want street precision)
+  if (isProxyAvailable) {
+    try {
+      // Try API with full address
+      let query = `${address}, Edirne, Turkey`;
+      let result = await fetchProxyGeocode(query);
+      if (result) return result;
+
+      // If we got a 404 or 429, fetchProxyGeocode handles it and we use fallback
+      if (!isProxyAvailable) return neighborhoodFallback;
+
+      await delay(1000);
+      
+      // Try API with cleaned address
+      const cleanedAddress = address
+        .replace(/No:\s*\d+[a-z]?(\/\d+)?/gi, '')
+        .replace(/Daire:\s*\d+/gi, '')
+        .replace(/\(.*\)/g, '')
+        .trim();
+      
+      if (cleanedAddress !== address && cleanedAddress.length > 5) {
+        query = `${cleanedAddress}, Edirne, Turkey`;
+        result = await fetchProxyGeocode(query);
+        if (result) return result;
+      }
+    } catch (error) {
+      console.error('Geocoding API error, switching to offline mode');
+    }
+  }
+
+  // 4. FINAL FALLBACK
+  return neighborhoodFallback || { lat: 41.675, lng: 26.570, display_name: 'Edirne Merkez' };
 }
 
 let lastStatus = 0;
 
 async function fetchProxyGeocode(query: string): Promise<GeocodeResult | null> {
+  if (!isProxyAvailable) return null;
+
   try {
     const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
     lastStatus = response.status;
+
+    if (response.status === 404) {
+      console.warn('Geocoding proxy not found (404). Running in offline-only mode.');
+      isProxyAvailable = false;
+      return null;
+    }
 
     if (response.status === 429) {
       console.warn('Geocoding proxy rate limit hit.');
