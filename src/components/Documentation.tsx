@@ -34,12 +34,6 @@ export default function Documentation() {
       const mockApplicants: Applicant[] = [];
       for (let i = 0; i < 30; i++) {
         const address = edirneAddresses[i % edirneAddresses.length];
-        // We don't geocode all 30 to avoid rate limits, just a few real ones and jitter the rest
-        let geocode = null;
-        if (i < 5) {
-          geocode = await geocodeAddress(address);
-          if (i < 4) await new Promise(resolve => setTimeout(resolve, 1100));
-        }
         
         mockApplicants.push({
           name: firstNames[Math.floor(Math.random() * firstNames.length)],
@@ -48,9 +42,7 @@ export default function Documentation() {
           phone: `05${Math.floor(100000000 + Math.random() * 900000000)}`,
           address: address + ` (Daire: ${i + 1})`,
           neighborhood: EDIRNE_NEIGHBORHOODS[Math.floor(Math.random() * EDIRNE_NEIGHBORHOODS.length)],
-          householdSize: Math.floor(Math.random() * 5) + 1,
-          lat: geocode ? geocode.lat : (41.675 + (Math.random() - 0.5) * 0.05),
-          lng: geocode ? geocode.lng : (26.570 + (Math.random() - 0.5) * 0.05)
+          householdSize: Math.floor(Math.random() * 5) + 1
         });
       }
 

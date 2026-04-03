@@ -10,6 +10,7 @@ import autoTable from 'jspdf-autotable';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { geocodeAddress } from '../services/geocoding';
 
 // Fix Leaflet icon issue
 const icon = new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href;
@@ -74,6 +75,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [showMap, setShowMap] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [isGeocodingDay, setIsGeocodingDay] = useState(false);
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
@@ -247,6 +249,53 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     setTimeout(() => setLastSavedDay(null), 3000);
   };
 
+  // On-demand geocoding when a day is expanded
+  useEffect(() => {
+    const geocodeMissingAddresses = async () => {
+      if (!expandedDay) return;
+      
+      const day = assignments.find(a => a.date === expandedDay);
+      if (!day) return;
+
+      const itemsWithMissingCoords = day.items.filter(item => !item.applicant.lat || !item.applicant.lng);
+      
+      if (itemsWithMissingCoords.length > 0) {
+        setIsGeocodingDay(true);
+        try {
+          for (let i = 0; i < itemsWithMissingCoords.length; i++) {
+            const item = itemsWithMissingCoords[i];
+            const result = await geocodeAddress(item.applicant.address);
+            
+            if (result) {
+              await dbLocal.applicants.update(item.applicant.id!, {
+                lat: result.lat,
+                lng: result.lng
+              });
+            } else {
+              // Fallback to neighborhood coordinates if geocoding fails
+              const fallback = NEIGHBORHOOD_COORDS[item.applicant.neighborhood || ''] || [41.675, 26.570];
+              await dbLocal.applicants.update(item.applicant.id!, {
+                lat: fallback[0] + (Math.random() - 0.5) * 0.01,
+                lng: fallback[1] + (Math.random() - 0.5) * 0.01
+              });
+            }
+            
+            // Respect rate limit
+            if (i < itemsWithMissingCoords.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1200));
+            }
+          }
+        } catch (error) {
+          console.error("Error geocoding day addresses:", error);
+        } finally {
+          setIsGeocodingDay(false);
+        }
+      }
+    };
+
+    geocodeMissingAddresses();
+  }, [expandedDay, assignments]);
+
   const reflowSchedules = async () => {
     if (!confirm('İş günleri değiştiği için programı kaydırmak istiyor musunuz? Bu işlem mevcut atamaları yeni iş günlerine sırasıyla dağıtacaktır.')) return;
     
@@ -362,7 +411,25 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   }, [expandedDay, assignments]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {isGeocodingDay && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-6 max-w-sm w-full text-center animate-in zoom-in duration-300">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+              <MapIcon className="w-6 h-6 text-blue-600 absolute inset-0 m-auto" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Lütfen Bekleyin</h3>
+              <p className="text-gray-500 leading-relaxed">Konumlar harita üzerinde işaretleniyor. Bu işlem birkaç saniye sürebilir...</p>
+            </div>
+            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-blue-600 h-full animate-progress" style={{ width: '60%' }} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Program Planlama</h2>

@@ -58,9 +58,15 @@ async function fetchNominatim(query: string): Promise<GeocodeResult | null> {
     const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
       headers: {
         'Accept-Language': 'tr',
-        'User-Agent': 'EdirneSYDV-Vefa-App'
+        'User-Agent': 'EdirneSYDV-Vefa-App-v2'
       }
     });
+
+    if (response.status === 429) {
+      console.warn('Nominatim rate limit hit (429). Waiting longer...');
+      await delay(2500); // Wait longer if rate limited
+      return null;
+    }
 
     if (!response.ok) return null;
 

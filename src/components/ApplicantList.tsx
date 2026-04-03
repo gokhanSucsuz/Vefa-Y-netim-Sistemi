@@ -143,17 +143,6 @@ export default function ApplicantList({ applicants }: Props) {
           const name = parts.join(' ');
           const address = (row['adres'] || row['Adres'] || '').toString();
 
-          // Try geocoding for each row sequentially with a delay to avoid 429
-          let geocode = null;
-          if (address) {
-            geocode = await geocodeAddress(address);
-            // Nominatim allows 1 request per second. 
-            // Our geocodeAddress already has some delay, but let's be safe.
-            if (i < data.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 1100));
-            }
-          }
-
           newApplicants.push({
             name: name || fullName,
             surname: surname || '',
@@ -161,9 +150,7 @@ export default function ApplicantList({ applicants }: Props) {
             phone: (row['telefon'] || row['Telefon'] || '').toString(),
             address: address,
             householdSize: parseInt(row['kişi sayısı'] || row['Kişi Sayısı'] || '1'),
-            neighborhood: EDIRNE_NEIGHBORHOODS[0],
-            lat: geocode ? geocode.lat : (41.675 + (Math.random() - 0.5) * 0.05),
-            lng: geocode ? geocode.lng : (26.570 + (Math.random() - 0.5) * 0.05)
+            neighborhood: EDIRNE_NEIGHBORHOODS[0]
           });
         }
 
