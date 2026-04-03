@@ -246,18 +246,6 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                 lat: result.lat,
                 lng: result.lng
               });
-            } else {
-              // Fallback to neighborhood coordinates if geocoding fails
-              const fallback = EDIRNE_NEIGHBORHOOD_COORDS[item.applicant.neighborhood || ''] || [41.675, 26.570];
-              await dbLocal.applicants.update(item.applicant.id!, {
-                lat: fallback[0] + (Math.random() - 0.5) * 0.01,
-                lng: fallback[1] + (Math.random() - 0.5) * 0.01
-              });
-            }
-            
-            // Respect rate limit
-            if (i < itemsWithMissingCoords.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 1200));
             }
           }
         } catch (error) {

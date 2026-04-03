@@ -66,13 +66,14 @@ export default function ApplicantList({ applicants }: Props) {
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
 
   const handleGeocode = async () => {
-    if (!formData.address) return;
+    if (!formData.neighborhood) {
+      alert('Lütfen önce bir mahalle veya köy seçin.');
+      return;
+    }
     setIsGeocoding(true);
     const result = await geocodeAddress(formData.address, formData.neighborhood);
     if (result) {
       setFormData(prev => ({ ...prev, lat: result.lat, lng: result.lng }));
-    } else {
-      alert('Adres bulunamadı. Lütfen adresi kontrol edin veya harita üzerinden manuel işaretleyin.');
     }
     setIsGeocoding(false);
   };
@@ -131,7 +132,12 @@ export default function ApplicantList({ applicants }: Props) {
       }
       
       if (detectedNeighborhood !== applicant.neighborhood) {
-        await dbLocal.applicants.update(applicant.id!, { neighborhood: detectedNeighborhood });
+        const coords = await geocodeAddress('', detectedNeighborhood);
+        await dbLocal.applicants.update(applicant.id!, { 
+          neighborhood: detectedNeighborhood,
+          lat: coords?.lat,
+          lng: coords?.lng
+        });
         fixedCount++;
       }
     }
@@ -176,6 +182,8 @@ export default function ApplicantList({ applicants }: Props) {
             }
           }
 
+          const coords = await geocodeAddress('', detectedNeighborhood);
+
           newApplicants.push({
             name: name || fullName,
             surname: surname || '',
@@ -183,7 +191,9 @@ export default function ApplicantList({ applicants }: Props) {
             phone: (row['telefon'] || row['Telefon'] || '').toString(),
             address: address,
             householdSize: parseInt(row['kişi sayısı'] || row['Kişi Sayısı'] || '1'),
-            neighborhood: detectedNeighborhood
+            neighborhood: detectedNeighborhood,
+            lat: coords?.lat,
+            lng: coords?.lng
           });
         }
 
@@ -313,9 +323,19 @@ export default function ApplicantList({ applicants }: Props) {
               <select
                 required
                 value={formData.neighborhood}
-                onChange={e => setFormData({ ...formData, neighborhood: e.target.value })}
+                onChange={async (e) => {
+                  const n = e.target.value;
+                  const coords = await geocodeAddress('', n);
+                  setFormData({ 
+                    ...formData, 
+                    neighborhood: n,
+                    lat: coords?.lat || formData.lat,
+                    lng: coords?.lng || formData.lng
+                  });
+                }}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               >
+                <option value="" disabled>Seçiniz...</option>
                 {EDIRNE_NEIGHBORHOODS.map(n => (
                   <option key={n} value={n}>{n}</option>
                 ))}
