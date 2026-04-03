@@ -117,14 +117,25 @@ export default function Documentation() {
           </p>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-purple-100">
           <div className="bg-purple-100 w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
             <CheckCircle className="text-purple-600 w-6 h-6" />
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-3">4. Personel Atama ve Kısıtlar</h3>
           <p className="text-gray-600 leading-relaxed">
-            Planlanan günlerin üzerine tıklayarak detayları açabilir, her müracaatçıya özel personel atayabilirsiniz. 
-            Sistem, bir personelin aynı gün içinde birden fazla müracaatçıya atanmasını engeller.
+            Her müracaatçıya <b>2 temizlik görevlisi</b> atanır. Bir personel günde en fazla <b>2 farklı müracaatçıya</b> gidebilir. 
+            Sistem bu kısıtları otomatik olarak denetler ve çakışmaları engeller.
+          </p>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-orange-100">
+          <div className="bg-orange-100 w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+            <CheckCircle className="text-orange-600 w-6 h-6" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-3">5. Program Kaydırma (Reflow)</h3>
+          <p className="text-gray-600 leading-relaxed">
+            İş günleri takviminden gün sildiğinizde, mevcut planlamayı bozmadan sıradaki boş günlere kaydırmak için 
+            <b>"Programı Kaydır"</b> butonunu kullanabilirsiniz.
           </p>
         </div>
       </div>
@@ -142,7 +153,7 @@ export default function Documentation() {
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              Aynı gün içinde bir personel sadece bir kez görevlendirilebilir. Personel atama listesinde sadece o gün boşta olan personeller görünür.
+              Her müracaatçıya 2 personel atanır. Bir personel günde en fazla 2 eve gidebilir.
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
@@ -150,7 +161,7 @@ export default function Documentation() {
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              Oluşturulan programlar Excel ve PDF formatında resmi döküman olarak indirilebilir.
+              "Günü Kaydet ve Onayla" butonu, yaptığınız manuel değişiklikleri görsel olarak onaylamanızı sağlar.
             </li>
           </ul>
         </div>

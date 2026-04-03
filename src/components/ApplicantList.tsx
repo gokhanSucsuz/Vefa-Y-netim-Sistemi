@@ -47,6 +47,16 @@ export default function ApplicantList({ applicants }: Props) {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (confirm('TÜM müracaatçı kayıtlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) {
+      try {
+        await dbLocal.applicants.clear();
+      } catch (error) {
+        console.error("Error clearing applicants:", error);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -54,15 +64,26 @@ export default function ApplicantList({ applicants }: Props) {
           <h2 className="text-2xl font-bold text-gray-900">Müracaatçı Listesi</h2>
           <p className="text-gray-500">Temizlik hizmeti alan vatandaşların kayıtlarını yönetin.</p>
         </div>
-        {!isAdding && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
-          >
-            <UserPlus className="w-5 h-5" />
-            Yeni Müracaatçı Ekle
-          </button>
-        )}
+        <div className="flex gap-3">
+          {applicants.length > 0 && !isAdding && (
+            <button
+              onClick={handleDeleteAll}
+              className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all font-semibold"
+            >
+              <Trash2 className="w-5 h-5" />
+              Tümünü Sil
+            </button>
+          )}
+          {!isAdding && (
+            <button
+              onClick={() => setIsAdding(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+            >
+              <UserPlus className="w-5 h-5" />
+              Yeni Müracaatçı Ekle
+            </button>
+          )}
+        </div>
       </div>
 
       {isAdding && (

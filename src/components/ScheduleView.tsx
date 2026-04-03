@@ -63,6 +63,7 @@ function MapUpdater({ center }: { center: [number, number] }) {
 
 export default function ScheduleView({ applicants, staff, workDays, schedules }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [showMap, setShowMap] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
@@ -180,9 +181,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   };
 
   const saveDay = async (date: string) => {
-    // In this implementation, changes are saved immediately to Dexie.
-    // This button can serve as a "Confirmation" or "Visual feedback" for the user.
-    alert(`${format(parseISO(date), 'dd MMMM', { locale: tr })} programı başarıyla kaydedildi.`);
+    setLastSavedDay(date);
+    setTimeout(() => setLastSavedDay(null), 3000);
   };
 
   const reflowSchedules = async () => {
@@ -474,10 +474,14 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                           </div>
                           <button 
                             onClick={() => saveDay(a.date)}
-                            className="w-full mt-4 py-2 bg-blue-50 text-blue-600 text-xs font-bold rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+                            className={`w-full mt-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                              lastSavedDay === a.date 
+                                ? 'bg-green-600 text-white shadow-lg shadow-green-100' 
+                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                            }`}
                           >
                             <CheckCircle2 className="w-4 h-4" />
-                            Günü Kaydet ve Onayla
+                            {lastSavedDay === a.date ? 'Kaydedildi!' : 'Günü Kaydet ve Onayla'}
                           </button>
                         </div>
                       ))}
