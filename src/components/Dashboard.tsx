@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from '../db';
+import { Staff } from '../types';
 import { format, isToday, isFuture, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Users, Briefcase, Calendar, CheckCircle2, Clock, AlertCircle, ArrowRight } from 'lucide-react';
@@ -77,7 +78,7 @@ export default function Dashboard({ onNavigate }: Props) {
               <div className="space-y-4">
                 {todaySchedule.assignments.map((a, i) => {
                   const applicant = applicants.find(app => app.id === a.applicantId);
-                  const staffMember = staff.find(s => s.id === a.staffId);
+                  const staffMembers = (a.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[];
                   return (
                     <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100">
                       <div className="flex items-center gap-3">
@@ -91,9 +92,9 @@ export default function Dashboard({ onNavigate }: Props) {
                           {applicant && <p className="text-[10px] text-blue-600 font-medium">{applicant.neighborhood}</p>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+                      <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500">
                         <Briefcase className="w-3 h-3" />
-                        {staffMember ? `${staffMember.name} ${staffMember.surname}` : 'Atanmamış'}
+                        {staffMembers.length > 0 ? staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') : 'Atanmamış'}
                       </div>
                     </div>
                   );

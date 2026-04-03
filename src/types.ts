@@ -28,7 +28,7 @@ export interface Schedule {
   date: string; // ISO YYYY-MM-DD
   assignments: {
     applicantId: number;
-    staffId?: number;
+    staffIds: number[]; // Array of staff IDs
   }[];
 }
 
@@ -36,7 +36,7 @@ export interface DailyAssignment {
   date: string;
   items: {
     applicant: Applicant;
-    staff?: Staff;
+    staffMembers: Staff[]; // Array of staff objects
   }[];
 }
 

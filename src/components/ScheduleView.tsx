@@ -3,7 +3,7 @@ import { dbLocal } from '../db';
 import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS } from '../types';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -85,7 +85,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       const items = schedule 
         ? schedule.assignments.map(a => ({
             applicant: applicants.find(p => p.id === a.applicantId)!,
-            staff: staff.find(s => s.id === a.staffId)
+            staffMembers: (a.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[]
           })).filter(i => i.applicant)
         : [];
       return { date: wd.date, items };
@@ -118,12 +118,36 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
       // Sort applicants by neighborhood to keep them together
       const sortedApplicants = [...applicants].sort((a, b) => a.neighborhood.localeCompare(b.neighborhood));
+      const sortedStaff = [...staff];
 
       let applicantIndex = 0;
       for (const wd of currentMonthWorkDays) {
-        const dailyAssignments: { applicantId: number }[] = [];
+        const dailyAssignments: { applicantId: number, staffIds: number[] }[] = [];
+        
+        // We assign 6 applicants per day
+        // Each applicant gets 2 staff members
+        // Each staff member visits 2 applicants
+        // So for 6 applicants, we need 6 staff members (3 pairs)
+        // Pair 1 (Staff 0, 1) -> Applicants 0, 1
+        // Pair 2 (Staff 2, 3) -> Applicants 2, 3
+        // Pair 3 (Staff 4, 5) -> Applicants 4, 5
+        
         for (let i = 0; i < 6; i++) {
-          dailyAssignments.push({ applicantId: sortedApplicants[applicantIndex].id! });
+          const applicant = sortedApplicants[applicantIndex];
+          const pairIndex = Math.floor(i / 2); // 0, 0, 1, 1, 2, 2
+          
+          const staff1 = sortedStaff[pairIndex * 2];
+          const staff2 = sortedStaff[pairIndex * 2 + 1];
+          
+          const staffIds: number[] = [];
+          if (staff1) staffIds.push(staff1.id!);
+          if (staff2) staffIds.push(staff2.id!);
+
+          dailyAssignments.push({ 
+            applicantId: applicant.id!,
+            staffIds: staffIds
+          });
+          
           applicantIndex = (applicantIndex + 1) % sortedApplicants.length;
         }
         
@@ -139,16 +163,76 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     }
   };
 
-  const updateStaffAssignment = async (date: string, applicantId: number, staffId: number) => {
+  const updateStaffAssignment = async (date: string, applicantId: number, staffIndex: number, staffId: number) => {
     const schedule = schedules.find(s => s.date === date);
     if (!schedule) return;
 
-    const newAssignments = schedule.assignments.map(a => 
-      a.applicantId === applicantId ? { ...a, staffId } : a
-    );
+    const newAssignments = schedule.assignments.map(a => {
+      if (a.applicantId === applicantId) {
+        const newStaffIds = [...(a.staffIds || [])];
+        newStaffIds[staffIndex] = staffId;
+        return { ...a, staffIds: newStaffIds };
+      }
+      return a;
+    });
 
     await dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
   };
+
+  const saveDay = async (date: string) => {
+    // In this implementation, changes are saved immediately to Dexie.
+    // This button can serve as a "Confirmation" or "Visual feedback" for the user.
+    alert(`${format(parseISO(date), 'dd MMMM', { locale: tr })} programı başarıyla kaydedildi.`);
+  };
+
+  const reflowSchedules = async () => {
+    if (!confirm('İş günleri değiştiği için programı kaydırmak istiyor musunuz? Bu işlem mevcut atamaları yeni iş günlerine sırasıyla dağıtacaktır.')) return;
+    
+    setIsGenerating(true);
+    try {
+      // Get all schedules for this month
+      const monthSchedules = schedules
+        .filter(s => {
+          const d = parseISO(s.date);
+          return d >= monthStart && d <= monthEnd;
+        })
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Get all work days for this month
+      const monthWorkDays = currentMonthWorkDays;
+
+      // Extract all assignments in order
+      const allAssignments = monthSchedules.flatMap(s => s.assignments);
+      
+      // Delete old schedules
+      await dbLocal.schedules.bulkDelete(monthSchedules.map(s => s.id!));
+
+      // Re-distribute assignments to new work days (6 per day)
+      let assignmentIndex = 0;
+      for (const wd of monthWorkDays) {
+        const dailyAssignments = allAssignments.slice(assignmentIndex, assignmentIndex + 6);
+        if (dailyAssignments.length > 0) {
+          await dbLocal.schedules.add({
+            date: wd.date,
+            assignments: dailyAssignments
+          });
+        }
+        assignmentIndex += 6;
+      }
+    } catch (error) {
+      console.error("Error reflowing schedule:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const hasOrphanedSchedules = useMemo(() => {
+    const monthSchedules = schedules.filter(s => {
+      const d = parseISO(s.date);
+      return d >= monthStart && d <= monthEnd;
+    });
+    return monthSchedules.some(s => !currentMonthWorkDays.some(wd => wd.date === s.date));
+  }, [schedules, currentMonthWorkDays, monthStart, monthEnd]);
 
   const exportToExcel = () => {
     const data = assignments.flatMap(a => a.items.map(item => ({
@@ -156,13 +240,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       'Mahalle': item.applicant.neighborhood,
       'Müracaatçı': `${item.applicant.name} ${item.applicant.surname}`,
       'TC No': item.applicant.tcNo,
-      'Görevli Personel': item.staff ? `${item.staff.name} ${item.staff.surname}` : 'Atanmamış'
+      'Görevli Personeller': item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || 'Atanmamış'
     })));
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Temizlik Programı");
-    XLSX.writeFile(wb, `SYDV_Temizlik_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Vefa Programı");
+    XLSX.writeFile(wb, `SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.xlsx`);
   };
 
   const exportToPDF = () => {
@@ -185,12 +269,12 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       format(parseISO(a.date), 'dd.MM.yyyy'),
       trFix(item.applicant.neighborhood),
       trFix(`${item.applicant.name} ${item.applicant.surname}`),
-      item.staff ? trFix(`${item.staff.name} ${item.staff.surname}`) : 'Atanmamis'
+      trFix(item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || 'Atanmamis')
     ]));
 
     autoTable(doc, {
       startY: 25,
-      head: [[trFix('Tarih'), trFix('Mahalle'), trFix('Muracaatci'), trFix('Gorevli Personel')]],
+      head: [[trFix('Tarih'), trFix('Mahalle'), trFix('Muracaatci'), trFix('Gorevli Personeller')]],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [37, 99, 235] },
@@ -234,6 +318,16 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             <Wand2 className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
             Otomatik Planla
           </button>
+          {hasOrphanedSchedules && (
+            <button
+              onClick={reflowSchedules}
+              disabled={isGenerating}
+              className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-100 animate-pulse"
+            >
+              <CalendarIcon className="w-5 h-5" />
+              Programı Kaydır
+            </button>
+          )}
           <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white">
             <button onClick={exportToExcel} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-green-700 border-r border-gray-200">
               <FileSpreadsheet className="w-5 h-5" /> Excel
@@ -344,29 +438,47 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Temizlik Görevlisi</label>
-                              <select
-                                value={item.staff?.id || ''}
-                                onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, parseInt(e.target.value))}
-                                className="w-full text-sm bg-gray-50 border-none rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                              >
-                                <option value="">Personel Seçin...</option>
-                                {staff.map(s => {
-                                  const isAssignedToOther = a.items.some(i => i.staff?.id === s.id && i.applicant.id !== item.applicant.id);
-                                  return (
-                                    <option 
-                                      key={s.id} 
-                                      value={s.id} 
-                                      disabled={isAssignedToOther}
-                                      className={isAssignedToOther ? 'text-gray-300' : ''}
-                                    >
-                                      {s.name} {s.surname} {isAssignedToOther ? '(Meşgul)' : ''}
-                                    </option>
-                                  );
-                                })}
-                              </select>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Temizlik Görevlileri (2 Kişi)</label>
+                              <div className="grid grid-cols-2 gap-2">
+                                {[0, 1].map(sIdx => (
+                                  <select
+                                    key={sIdx}
+                                    value={item.staffMembers[sIdx]?.id || ''}
+                                    onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, sIdx, parseInt(e.target.value))}
+                                    className="w-full text-xs bg-gray-50 border-none rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="">Seç...</option>
+                                    {staff.map(s => {
+                                      // Check if this staff is already assigned to THIS applicant in the OTHER slot
+                                      const isAlreadyInThisApp = item.staffMembers.some((sm, idx) => sm.id === s.id && idx !== sIdx);
+                                      // Check if this staff is assigned to OTHER applicants on the SAME day
+                                      // (A staff member can visit 2 applicants per day)
+                                      const assignmentsOnSameDay = a.items.filter(i => i.staffMembers.some(sm => sm.id === s.id));
+                                      const isAssignedElsewhere = assignmentsOnSameDay.length >= 2 && !assignmentsOnSameDay.some(i => i.applicant.id === item.applicant.id);
+                                      
+                                      return (
+                                        <option 
+                                          key={s.id} 
+                                          value={s.id} 
+                                          disabled={isAlreadyInThisApp || isAssignedElsewhere}
+                                          className={(isAlreadyInThisApp || isAssignedElsewhere) ? 'text-gray-300' : ''}
+                                        >
+                                          {s.name} {s.surname} {isAssignedElsewhere ? '(Dolu)' : ''}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                ))}
+                              </div>
                             </div>
                           </div>
+                          <button 
+                            onClick={() => saveDay(a.date)}
+                            className="w-full mt-4 py-2 bg-blue-50 text-blue-600 text-xs font-bold rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            Günü Kaydet ve Onayla
+                          </button>
                         </div>
                       ))}
                     </div>
