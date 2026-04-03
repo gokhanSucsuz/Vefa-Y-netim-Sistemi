@@ -7,22 +7,12 @@ import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, C
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import { Map, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { geocodeAddress } from '../services/geocoding';
 import { EDIRNE_NEIGHBORHOOD_COORDS } from '../constants/edirne_data';
 
-// Fix Leaflet icon issue
-const icon = new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href;
-const iconShadow = new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href;
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+// MapLibre GL JS doesn't need the Leaflet icon fix
 
 interface Props {
   applicants: Applicant[];
@@ -32,12 +22,21 @@ interface Props {
 }
 
 function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
-  const map = useMap();
+  const { current: map } = useMap();
   
   useEffect(() => {
-    if (markers.length > 0) {
-      const bounds = L.latLngBounds(markers.map(m => m.pos));
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    if (map && markers.length > 0) {
+      const lats = markers.map(m => m.pos[0]);
+      const lngs = markers.map(m => m.pos[1]);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+      
+      map.fitBounds(
+        [[minLng, minLat], [maxLng, maxLat]],
+        { padding: 50, maxZoom: 15, duration: 1000 }
+      );
     }
   }, [markers, map]);
 
@@ -437,18 +436,33 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
       {showMap && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden h-[400px] relative z-0">
-          <MapContainer center={[41.675, 26.570]} zoom={13} style={{ height: '100%', width: '100%' }}>
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <Map
+            initialViewState={{
+              latitude: 41.675,
+              longitude: 26.570,
+              zoom: 13
+            }}
+            mapStyle="https://tiles.openfreemap.org/styles/liberty"
+            style={{ width: '100%', height: '100%' }}
+          >
+            <NavigationControl position="top-right" />
             {activeMarkers.map((m, i) => (
-              <Marker key={`${expandedDay}-${i}`} position={m.pos}>
-                <Popup>
-                  <div className="font-bold">{m.name}</div>
-                  <div className="text-xs text-gray-500">{m.address}</div>
-                </Popup>
+              <Marker key={`${expandedDay}-${i}`} latitude={m.pos[0]} longitude={m.pos[1]}>
+                <div className="group relative">
+                  <div className="w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
+                    <MapIcon className="w-3 h-3 text-white" />
+                  </div>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+                    <div className="bg-white px-3 py-2 rounded-lg shadow-xl border border-gray-100 whitespace-nowrap">
+                      <div className="font-bold text-xs text-gray-900">{m.name}</div>
+                      <div className="text-[10px] text-gray-500">{m.address}</div>
+                    </div>
+                  </div>
+                </div>
               </Marker>
             ))}
             {expandedDay && activeMarkers.length > 0 && <MapUpdater markers={activeMarkers} />}
-          </MapContainer>
+          </Map>
           {!expandedDay && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10 pointer-events-none">
               <p className="text-white font-bold bg-black/60 px-4 py-2 rounded-full">Haritada görmek için bir gün seçin</p>

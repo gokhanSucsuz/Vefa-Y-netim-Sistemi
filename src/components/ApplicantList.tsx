@@ -3,43 +3,30 @@ import { dbLocal } from '../db';
 import { Applicant, EDIRNE_NEIGHBORHOODS } from '../types';
 import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { geocodeAddress } from '../services/geocoding';
 
-// Fix Leaflet icon issue
-const icon = new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href;
-const iconShadow = new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href;
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+// Leaflet icon fix removed as it's not needed for MapLibre
 
 function LocationPicker({ position, setPosition }: { position: [number, number], setPosition: (pos: [number, number]) => void }) {
-  const map = useMap();
+  const { current: map } = useMap();
   
   useEffect(() => {
-    map.setView(position, 15);
+    if (map) {
+      map.flyTo({ center: [position[1], position[0]], zoom: 15 });
+    }
   }, [position, map]);
 
-  useMapEvents({
-    click(e) {
-      setPosition([e.latlng.lat, e.latlng.lng]);
-    },
-  });
-
-  return <Marker position={position} draggable={true} eventHandlers={{
-    dragend: (e) => {
-      const marker = e.target;
-      const pos = marker.getLatLng();
-      setPosition([pos.lat, pos.lng]);
-    }
-  }} />;
+  return (
+    <Marker 
+      latitude={position[0]} 
+      longitude={position[1]} 
+      draggable 
+      onDragEnd={(e) => setPosition([e.lngLat.lat, e.lngLat.lng])}
+    />
+  );
 }
 
 interface Props {
@@ -380,13 +367,22 @@ export default function ApplicantList({ applicants }: Props) {
                 Harita Üzerinde Konum (Tıklayarak veya İşaretçiyi Kaydırarak Ayarlayın)
               </label>
               <div className="h-[300px] rounded-2xl border border-gray-200 overflow-hidden relative z-0">
-                <MapContainer center={[formData.lat || 41.675, formData.lng || 26.570]} zoom={15} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <Map
+                  initialViewState={{
+                    latitude: formData.lat || 41.675,
+                    longitude: formData.lng || 26.570,
+                    zoom: 15
+                  }}
+                  mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                  style={{ width: '100%', height: '100%' }}
+                  onClick={(e) => setFormData(prev => ({ ...prev, lat: e.lngLat.lat, lng: e.lngLat.lng }))}
+                >
+                  <NavigationControl position="top-right" />
                   <LocationPicker 
                     position={[formData.lat || 41.675, formData.lng || 26.570]} 
                     setPosition={(pos) => setFormData(prev => ({ ...prev, lat: pos[0], lng: pos[1] }))} 
                   />
-                </MapContainer>
+                </Map>
               </div>
               <div className="text-[10px] text-gray-400 font-mono">
                 Koordinatlar: {formData.lat?.toFixed(6)}, {formData.lng?.toFixed(6)}
