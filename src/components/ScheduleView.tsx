@@ -11,6 +11,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { geocodeAddress } from '../services/geocoding';
+import { EDIRNE_NEIGHBORHOOD_COORDS } from '../constants/edirne_data';
 
 // Fix Leaflet icon issue
 const icon = new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href;
@@ -22,32 +23,6 @@ let DefaultIcon = L.icon({
     iconAnchor: [12, 41]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
-
-// Rough coordinates for Edirne neighborhoods for the "offline" map feel
-const NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
-  "1. Murat": [41.675, 26.570],
-  "Abdurrahman": [41.670, 26.560],
-  "Babademirtaş": [41.678, 26.555],
-  "Barutluk": [41.685, 26.550],
-  "Çavuşbey": [41.672, 26.545],
-  "Dilaverbey": [41.676, 26.552],
-  "Fatih": [41.665, 26.580],
-  "İstasyon": [41.660, 26.575],
-  "Karaağaç": [41.650, 26.520],
-  "Kocasinan": [41.672, 26.565],
-  "Medrese Alibey": [41.680, 26.562],
-  "Menzilahir": [41.675, 26.540],
-  "Mithatpaşa": [41.677, 26.558],
-  "Nişancıpaşa": [41.682, 26.568],
-  "Sabuni": [41.679, 26.554],
-  "Sarıcapaşa": [41.674, 26.562],
-  "Şükrüpaşa": [41.680, 26.585],
-  "Talataşa": [41.671, 26.555],
-  "Umurbey": [41.673, 26.548],
-  "Yeniimaret": [41.685, 26.530],
-  "Yıldırım Beyazıt": [41.690, 26.540],
-  "Yıldırım Hacı Sarraf": [41.695, 26.545]
-};
 
 interface Props {
   applicants: Applicant[];
@@ -273,7 +248,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               });
             } else {
               // Fallback to neighborhood coordinates if geocoding fails
-              const fallback = NEIGHBORHOOD_COORDS[item.applicant.neighborhood || ''] || [41.675, 26.570];
+              const fallback = EDIRNE_NEIGHBORHOOD_COORDS[item.applicant.neighborhood || ''] || [41.675, 26.570];
               await dbLocal.applicants.update(item.applicant.id!, {
                 lat: fallback[0] + (Math.random() - 0.5) * 0.01,
                 lng: fallback[1] + (Math.random() - 0.5) * 0.01

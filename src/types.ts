@@ -48,5 +48,13 @@ export const EDIRNE_NEIGHBORHOODS = [
   "Dilaverbey", "Fatih", "İstasyon", "Karaağaç", "Kocasinan", 
   "Medrese Alibey", "Menzilahir", "Mithatpaşa", "Nişancıpaşa", 
   "Sabuni", "Sarıcapaşa", "Şükrüpaşa", "Talataşa", "Umurbey", 
-  "Yeniimaret", "Yıldırım Beyazıt", "Yıldırım Hacı Sarraf"
+  "Yeniimaret", "Yıldırım Beyazıt", "Yıldırım Hacı Sarraf",
+  // Köyler
+  "Ahi", "Avarız", "Bosna", "Budakdoğanca", "Büyükdöllük", "Büyükismailçe", 
+  "Değirmenyeni", "Demirhanlı", "Doyran", "Ekmekçi", "Elçili", "Eskikadın", 
+  "Hacıumur", "Hasanağa", "Hatipköy", "Hıdıraga", "İskender", "Karabulut", 
+  "Karakasım", "Karatren", "Kemalköy", "Kocahıdır", "Korucu", "Köşen", 
+  "Küküler", "Menekşesofular", "Muratçalı", "Musabeyli", "Orhaniye", 
+  "Sarayakpınar", "Sazlıdere", "Suakacağı", "Tayakadın", "Üyüklütatar", 
+  "Uzgaç", "Yolageldi"
 ];
