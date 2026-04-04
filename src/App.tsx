@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from './db';
 import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
@@ -35,6 +35,66 @@ export default function App() {
   const workDays = useLiveQuery(() => dbLocal.workDays.toArray()) || [];
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
   const programs = useLiveQuery(() => dbLocal.programs.toArray()) || [];
+
+  // Otomatik Onaylama Mantığı (17:30 kuralı)
+  useEffect(() => {
+    const checkAutoCompletion = () => {
+      if (!schedules.length) return;
+
+      const now = new Date();
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+      
+      // 17:30 kontrolü
+      const isPast1730 = now.getHours() > 17 || (now.getHours() === 17 && now.getMinutes() >= 30);
+
+      const updates: any[] = [];
+
+      schedules.forEach(schedule => {
+        const scheduleDate = new Date(schedule.date);
+        scheduleDate.setHours(0, 0, 0, 0);
+
+        let hasChanges = false;
+        const updatedAssignments = schedule.assignments.map(assignment => {
+          if (!assignment.isCompleted) {
+            const isPastDate = scheduleDate < today;
+            const isTodayAndPast1730 = scheduleDate.getTime() === today.getTime() && isPast1730;
+
+            if (isPastDate || isTodayAndPast1730) {
+              hasChanges = true;
+              return {
+                ...assignment,
+                isCompleted: true,
+                completionDate: schedule.date,
+                completionNote: assignment.completionNote || 'Sistem tarafından otomatik onaylandı (17:30)'
+              };
+            }
+          }
+          return assignment;
+        });
+
+        if (hasChanges) {
+          updates.push({
+            ...schedule,
+            assignments: updatedAssignments
+          });
+        }
+      });
+
+      if (updates.length > 0) {
+        // Toplu güncelleme
+        dbLocal.transaction('rw', dbLocal.schedules, async () => {
+          for (const update of updates) {
+            await dbLocal.schedules.put(update);
+          }
+        }).catch(err => console.error('Otomatik onaylama hatası:', err));
+      }
+    };
+
+    checkAutoCompletion();
+    const interval = setInterval(checkAutoCompletion, 60000); // Her dakika kontrol et
+    return () => clearInterval(interval);
+  }, [schedules]);
 
   if (isAuthenticated === false || (isAuthenticated === true && userEmail !== AUTHORIZED_EMAIL)) {
     return (
