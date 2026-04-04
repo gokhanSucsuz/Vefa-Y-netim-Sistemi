@@ -157,12 +157,12 @@ export default function StaffList({ staff }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Personel Listesi</h2>
           <p className="text-gray-500">Temizlik görevlilerini yönetin.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <input
             type="file"
             ref={fileInputRef}
@@ -173,7 +173,7 @@ export default function StaffList({ staff }: Props) {
           {!isAdding && (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200 text-sm"
             >
               <FileSpreadsheet className="w-5 h-5" />
               Excel'den Yükle
@@ -182,7 +182,7 @@ export default function StaffList({ staff }: Props) {
           {!isAdding && (
             <button
               onClick={() => setIsAdding(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 text-sm"
             >
               <UserPlus className="w-5 h-5" />
               Yeni Personel Ekle
@@ -313,9 +313,9 @@ export default function StaffList({ staff }: Props) {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full text-left border-collapse min-w-[700px] lg:min-w-full">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
+        <div className="overflow-x-auto scrollbar-hide w-full">
+          <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ad Soyad</th>
@@ -356,7 +356,7 @@ export default function StaffList({ staff }: Props) {
                         )}
                       </td>
                       <td className="px-4 lg:px-6 py-4 text-right">
-                        <div className="flex justify-end gap-1 lg:gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        <div className="flex justify-end gap-1 lg:gap-2 opacity-100 transition-all">
                           <button
                             onClick={() => setSelectedStatsStaff(s)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"

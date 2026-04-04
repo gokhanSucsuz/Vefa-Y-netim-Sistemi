@@ -122,14 +122,14 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row overflow-hidden">
+    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row overflow-x-hidden">
       {/* Mobile Header */}
-      <header className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+      <header className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-[60] w-full">
         <div className="flex items-center gap-2">
           <div className="bg-blue-600 p-1.5 rounded-lg">
             <Building2 className="text-white w-4 h-4" />
           </div>
-          <span className="font-bold text-sm text-gray-900">Edirne SYDV Vefa</span>
+          <span className="font-bold text-sm text-gray-900 truncate max-w-[150px]">Edirne SYDV Vefa</span>
         </div>
         <button 
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -196,8 +196,8 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-8 w-full">
-        <div className="max-w-6xl mx-auto pb-12">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-8 w-full">
+        <div className="max-w-6xl mx-auto pb-12 w-full">
           {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
           {activeTab === 'applicants' && <ApplicantList applicants={applicants} />}
           {activeTab === 'staff' && <StaffList staff={staff} />}

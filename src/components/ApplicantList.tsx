@@ -318,14 +318,14 @@ export default function ApplicantList({ applicants }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Müracaatçı Listesi</h2>
           <p className="text-gray-500">Temizlik hizmeti alan vatandaşların kayıtlarını yönetin.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {isImporting && (
-            <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 animate-pulse">
+            <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 animate-pulse w-full sm:w-auto">
               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
               <span className="text-sm font-medium text-blue-700">
                 Yükleniyor: {importProgress.current} / {importProgress.total}
@@ -342,7 +342,7 @@ export default function ApplicantList({ applicants }: Props) {
           {!isAdding && !isImporting && (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200 text-sm"
             >
               <FileSpreadsheet className="w-5 h-5" />
               Excel'den Yükle
@@ -351,7 +351,7 @@ export default function ApplicantList({ applicants }: Props) {
           {applicants.length > 0 && !isAdding && !isImporting && (
             <button
               onClick={fixNeighborhoods}
-              className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all font-semibold border border-amber-200"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all font-semibold border border-amber-200 text-sm"
               title="Adres metninden mahalleyi otomatik tespit eder"
             >
               <RefreshCw className="w-5 h-5" />
@@ -361,7 +361,7 @@ export default function ApplicantList({ applicants }: Props) {
           {applicants.length > 0 && !isAdding && !isImporting && (
             <button
               onClick={handleDeleteAll}
-              className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all font-semibold"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all font-semibold text-sm"
             >
               <Trash2 className="w-5 h-5" />
               Tümünü Sil
@@ -370,7 +370,7 @@ export default function ApplicantList({ applicants }: Props) {
           {!isAdding && !isImporting && (
             <button
               onClick={() => setIsAdding(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 text-sm"
             >
               <UserPlus className="w-5 h-5" />
               Yeni Müracaatçı Ekle
@@ -570,9 +570,9 @@ export default function ApplicantList({ applicants }: Props) {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-full">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
+        <div className="overflow-x-auto scrollbar-hide w-full">
+          <table className="w-full text-left border-collapse min-w-[900px] lg:min-w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 w-20 lg:w-24 uppercase tracking-wider">Sıra</th>
@@ -599,7 +599,7 @@ export default function ApplicantList({ applicants }: Props) {
                         <div className="font-bold text-blue-600 bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center border border-blue-100 text-xs shadow-sm">
                           {applicant.priority}
                         </div>
-                        <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                        <div className="flex flex-col gap-0.5 opacity-100 transition-all">
                           <button 
                             onClick={() => movePriority(applicant, 'up')}
                             className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
@@ -635,7 +635,7 @@ export default function ApplicantList({ applicants }: Props) {
                     <td className="px-4 lg:px-6 py-4 text-gray-600 font-mono text-xs font-bold">{applicant.tcNo}</td>
                     <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{applicant.householdSize || 1} Kişi</td>
                     <td className="px-4 lg:px-6 py-4 text-right">
-                      <div className="flex justify-end gap-1 lg:gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                      <div className="flex justify-end gap-1 lg:gap-2 opacity-100 transition-all">
                         <button
                           onClick={() => setSelectedStatsApplicant(applicant)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"

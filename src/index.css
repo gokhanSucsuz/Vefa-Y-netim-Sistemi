@@ -5,6 +5,13 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+@layer base {
+  html, body {
+    @apply overflow-x-hidden w-full;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
 @layer utilities {
   @keyframes progress {
     0% { transform: translateX(-100%); }
@@ -13,5 +20,12 @@
   }
   .animate-progress {
     animation: progress 2s infinite linear;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

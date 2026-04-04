@@ -157,20 +157,20 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
         animate={{ scale: 1, opacity: 1 }}
         className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden"
       >
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-blue-50/50">
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-blue-50/50">
           <div>
-            <h3 className="text-xl font-bold text-gray-900">{staff.name} {staff.surname}</h3>
-            <p className="text-sm text-gray-500">Personel Performans ve Raporu</p>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900">{staff.name} {staff.surname}</h3>
+            <p className="text-xs sm:text-sm text-gray-500">Personel Performans ve Raporu</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button 
               onClick={generatePDF}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 text-sm font-semibold"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 text-xs sm:text-sm font-semibold"
             >
               <Download className="w-4 h-4" />
               PDF Rapor
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors shadow-sm">
+            <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors shadow-sm shrink-0">
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
@@ -184,7 +184,7 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
           ) : (
             <>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="p-2 bg-blue-100 rounded-lg text-blue-600">

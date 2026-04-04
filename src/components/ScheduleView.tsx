@@ -644,7 +644,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all border text-sm font-bold ${showMap ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
           >
             <MapIcon className="w-4 h-4 lg:w-5 lg:h-5" />
-            <span className="hidden xs:inline">Harita</span>
+            <span>Harita</span>
           </button>
           <button
             onClick={generateSchedule}
@@ -652,7 +652,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:opacity-50 text-sm font-bold"
           >
             <Wand2 className={`w-4 h-4 lg:w-5 lg:h-5 ${isGenerating ? 'animate-spin' : ''}`} />
-            <span className="hidden xs:inline">Planla</span>
+            <span>Planla</span>
           </button>
           {hasOrphanedSchedules && (
             <button
@@ -661,15 +661,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-100 animate-pulse text-sm font-bold"
             >
               <CalendarIcon className="w-4 h-4 lg:w-5 lg:h-5" />
-              <span className="hidden xs:inline">Kaydır</span>
+              <span>Kaydır</span>
             </button>
           )}
           <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white w-full sm:w-auto">
             <button onClick={exportToExcel} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-50 text-green-700 border-r border-gray-200 text-sm font-bold">
-              <FileSpreadsheet className="w-4 h-4 lg:w-5 lg:h-5" /> <span className="xs:inline">Excel</span>
+              <FileSpreadsheet className="w-4 h-4 lg:w-5 lg:h-5" /> <span>Excel</span>
             </button>
             <button onClick={exportToPDF} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-50 text-red-700 text-sm font-bold">
-              <FileText className="w-4 h-4 lg:w-5 lg:h-5" /> <span className="xs:inline">PDF</span>
+              <FileText className="w-4 h-4 lg:w-5 lg:h-5" /> <span>PDF</span>
             </button>
           </div>
         </div>
