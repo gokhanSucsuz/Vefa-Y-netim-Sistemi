@@ -1,6 +1,7 @@
 {
   "rewrites": [
-    { "source": "/auth/(.*)", "destination": "/api/index" },
-    { "source": "/((?!api|auth|favicon.ico).*)", "destination": "/index.html" }
+    { "source": "/api/(.*)", "destination": "/api/server" },
+    { "source": "/auth/(.*)", "destination": "/api/server" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
