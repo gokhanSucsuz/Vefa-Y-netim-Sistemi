@@ -1,4 +1,4 @@
-import { useState, useMemo, ReactNode } from 'react';
+import { useState, useMemo, ReactNode, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from '../db';
 import { format, parseISO, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
@@ -13,13 +13,14 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'];
 
 export default function Statistics() {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const setQuickFilter = (type: 'month' | 'year') => {
     const now = new Date();
@@ -167,67 +168,93 @@ export default function Statistics() {
     XLSX.writeFile(workbook, `Vefa_Istatistikleri_${startDate}_${endDate}.xlsx`);
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    const trFix = (text: string) => {
-      const chars: Record<string, string> = {
-        'ğ': 'g', 'Ğ': 'G', 'ü': 'u', 'Ü': 'U', 'ş': 's', 'Ş': 'S', 
-        'ı': 'i', 'İ': 'I', 'ö': 'o', 'Ö': 'O', 'ç': 'c', 'Ç': 'C'
-      };
-      return text.replace(/[ğĞüÜşŞıİöÖçÇ]/g, m => chars[m] || m);
-    };
-
-    doc.setFont("helvetica", "bold");
-    doc.text(trFix(`Edirne Merkez SYDV Vefa Istatistik Raporu`), 14, 15);
-    doc.setFontSize(10);
-    doc.text(trFix(`Donem: ${startDate} - ${endDate}`), 14, 22);
-
-    // Summary Table
-    autoTable(doc, {
-      startY: 30,
-      head: [[trFix('Metrik'), trFix('Deger')]],
-      body: [
-        [trFix('Toplam Temizlik'), stats.totalCleanings],
-        [trFix('Mahalle Sayisi'), stats.totalNeighborhoods],
-        [trFix('Muracaatci Sayisi'), stats.totalUniqueApplicants]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [37, 99, 235] }
+  const exportToPDF = async () => {
+    if (!reportRef.current) return;
+    
+    const canvas = await html2canvas(reportRef.current, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff'
     });
-
-    // Staff Table
-    doc.text(trFix('Personel Performans Verileri'), 14, (doc as any).lastAutoTable.finalY + 10);
-    autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 15,
-      head: [[trFix('Personel'), trFix('Is Sayisi'), trFix('Farkli Muracaatci')]],
-      body: stats.staffData.map(s => [trFix(s.name), s.jobCount, s.uniqueApplicantsCount]),
-      theme: 'striped',
-      headStyles: { fillColor: [79, 70, 229] }
-    });
-
-    // Detailed Cleaning Log
-    doc.addPage();
-    doc.setFont("helvetica", "bold");
-    doc.text(trFix('Detayli Temizlik Kayitlari (Muracaatci Bazli)'), 14, 15);
-    autoTable(doc, {
-      startY: 25,
-      head: [[trFix('Tarih'), trFix('Muracaatci'), trFix('Mahalle'), trFix('Personeller')]],
-      body: stats.completedAssignments.map(a => [
-        format(parseISO(a.date), 'dd.MM.yyyy'),
-        trFix(`${a.applicant?.name} ${a.applicant?.surname}`),
-        trFix(a.applicant?.neighborhood || '-'),
-        trFix(a.staffMembers.map(s => `${s.name} ${s.surname}`).join(', '))
-      ]),
-      theme: 'grid',
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [16, 185, 129] }
-    });
-
-    doc.save(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
+    
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
   };
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Hidden Report for PDF Generation */}
+      <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', fontFamily: 'Verdana, sans-serif', fontSize: '12pt' }}>
+        <div ref={reportRef} className="bg-white p-10 text-gray-900">
+          <h1 className="text-2xl font-bold text-center mb-6 border-b-2 border-blue-600 pb-4">Edirne Merkez SYDV Vefa İstatistik Raporu</h1>
+          <p className="text-center mb-8 text-gray-600">Dönem: {startDate} - {endDate}</p>
+
+          <div className="grid grid-cols-3 gap-4 mb-10">
+            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
+              <div className="text-xs text-blue-600 font-bold uppercase mb-1">Toplam Temizlik</div>
+              <div className="text-xl font-bold text-blue-900">{stats.totalCleanings}</div>
+            </div>
+            <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 text-center">
+              <div className="text-xs text-orange-600 font-bold uppercase mb-1">Mahalle Sayısı</div>
+              <div className="text-xl font-bold text-orange-900">{stats.totalNeighborhoods}</div>
+            </div>
+            <div className="p-4 bg-green-50 rounded-xl border border-green-100 text-center">
+              <div className="text-xs text-green-600 font-bold uppercase mb-1">Müracaatçı Sayısı</div>
+              <div className="text-xl font-bold text-green-900">{stats.totalUniqueApplicants}</div>
+            </div>
+          </div>
+
+          <h2 className="text-lg font-bold mb-4 border-l-4 border-blue-600 pl-3">Personel Performans Verileri</h2>
+          <table className="w-full border-collapse mb-10">
+            <thead>
+              <tr className="bg-blue-600 text-white">
+                <th className="p-2 text-left border border-blue-700">Personel</th>
+                <th className="p-2 text-center border border-blue-700">İş Sayısı</th>
+                <th className="p-2 text-center border border-blue-700">Farklı Müracaatçı</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.staffData.map((s, idx) => (
+                <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="p-2 border border-gray-200">{s.name}</td>
+                  <td className="p-2 border border-gray-200 text-center">{s.jobCount}</td>
+                  <td className="p-2 border border-gray-200 text-center">{s.uniqueApplicantsCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="text-lg font-bold mb-4 border-l-4 border-green-600 pl-3">Detaylı Temizlik Kayıtları</h2>
+          <table className="w-full border-collapse mb-10" style={{ fontSize: '10pt' }}>
+            <thead>
+              <tr className="bg-green-600 text-white">
+                <th className="p-2 text-left border border-green-700">Tarih</th>
+                <th className="p-2 text-left border border-green-700">Müracaatçı</th>
+                <th className="p-2 text-left border border-green-700">Mahalle</th>
+                <th className="p-2 text-left border border-green-700">Personeller</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.completedAssignments.map((a, idx) => (
+                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="p-2 border border-gray-200">{format(parseISO(a.date), 'dd.MM.yyyy')}</td>
+                  <td className="p-2 border border-gray-200">{a.applicant?.name} {a.applicant?.surname}</td>
+                  <td className="p-2 border border-gray-200">{a.applicant?.neighborhood || '-'}</td>
+                  <td className="p-2 border border-gray-200">{a.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Header & Date Filter */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>

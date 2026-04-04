@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Applicant, Schedule } from '../types';
 import { dbLocal } from '../db';
 import { X, Calendar, CheckCircle2, Clock, BarChart3, TrendingUp, Download, FileText } from 'lucide-react';
@@ -6,7 +6,7 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 
 interface Props {
   applicant: Applicant;
@@ -16,6 +16,7 @@ interface Props {
 export default function ApplicantStatsModal({ applicant, onClose }: Props) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -42,58 +43,24 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
     ? differenceInDays(new Date(), parseISO(lastVisit.date))
     : null;
 
-  const generatePDF = () => {
-    const doc = new jsPDF();
+  const generatePDF = async () => {
+    if (!reportRef.current) return;
     
-    // Title
-    doc.setFontSize(20);
-    doc.text('Müracaatçı Hizmet Raporu', 105, 15, { align: 'center' });
-    
-    // Applicant Info
-    doc.setFontSize(12);
-    doc.text(`Ad Soyad: ${applicant.name} ${applicant.surname}`, 14, 30);
-    doc.text(`TC Kimlik No: ${applicant.tcNo}`, 14, 37);
-    doc.text(`Mahalle: ${applicant.neighborhood || '-'}`, 14, 44);
-    doc.text(`Adres: ${applicant.address}`, 14, 51, { maxWidth: 180 });
-    
-    // Stats Summary
-    doc.setFontSize(14);
-    doc.text('İstatistik Özeti', 14, 70);
-    doc.setFontSize(10);
-    doc.text(`Toplam Planlanan Ziyaret: ${totalVisits}`, 14, 78);
-    doc.text(`Tamamlanan Hizmet Sayısı: ${completedVisits}`, 14, 84);
-    doc.text(`Ziyaret Başarı Oranı: ${totalVisits > 0 ? `%${Math.round((completedVisits / totalVisits) * 100)}` : '%0'}`, 14, 90);
-    doc.text(`Son Ziyaret Tarihi: ${lastVisit ? format(parseISO(lastVisit.date), 'd MMMM yyyy', { locale: tr }) : 'Yok'}`, 14, 96);
-    
-    // Visit History Table
-    const tableData = schedules.map((s, idx) => {
-      const assignment = s.assignments.find(a => a.applicantId === applicant.id);
-      return [
-        schedules.length - idx,
-        format(parseISO(s.date), 'd MMMM yyyy, EEEE', { locale: tr }),
-        assignment?.isCompleted ? 'Tamamlandı' : 'Beklemede'
-      ];
+    const canvas = await html2canvas(reportRef.current, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff'
     });
-
-    autoTable(doc, {
-      startY: 105,
-      head: [['No', 'Ziyaret Tarihi', 'Durum']],
-      body: tableData,
-      theme: 'striped',
-      headStyles: { fillStyle: 'F', fillColor: [37, 99, 235] }, // Blue-600
-      styles: { font: 'helvetica', fontSize: 10 }
-    });
-
-    // Footer
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Rapor Tarihi: ${format(new Date(), 'd MMMM yyyy HH:mm', { locale: tr })}`, 14, 285);
-      doc.text(`Sayfa ${i} / ${pageCount}`, 196, 285, { align: 'right' });
-    }
-
-    doc.save(`Rapor_${applicant.name}_${applicant.surname}.pdf`);
+    
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`Rapor_${applicant.name}_${applicant.surname}.pdf`);
   };
 
   return (
@@ -103,6 +70,84 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
       exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
     >
+      {/* Hidden Report for PDF Generation */}
+      <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '20mm', fontFamily: 'Verdana, sans-serif', fontSize: '12pt' }}>
+        <div ref={reportRef} className="bg-white p-10 text-gray-900">
+          <h1 className="text-3xl font-bold text-center mb-10 border-b-2 border-blue-600 pb-4">Müracaatçı Hizmet Raporu</h1>
+          
+          <div className="grid grid-cols-2 gap-8 mb-10">
+            <div className="space-y-2">
+              <p><strong>Ad Soyad:</strong> {applicant.name} {applicant.surname}</p>
+              <p><strong>TC Kimlik No:</strong> {applicant.tcNo}</p>
+              <p><strong>Mahalle:</strong> {applicant.neighborhood || '-'}</p>
+            </div>
+            <div className="space-y-2">
+              <p><strong>Rapor Tarihi:</strong> {format(new Date(), 'd MMMM yyyy HH:mm', { locale: tr })}</p>
+              <p><strong>Telefon:</strong> {applicant.phone}</p>
+            </div>
+          </div>
+
+          <div className="mb-10">
+            <p className="mb-4"><strong>Adres:</strong> {applicant.address}</p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 mb-10">
+            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
+              <div className="text-xs text-blue-600 font-bold uppercase mb-1">Toplam Ziyaret</div>
+              <div className="text-2xl font-bold text-blue-900">{totalVisits}</div>
+            </div>
+            <div className="p-4 bg-green-50 rounded-xl border border-green-100 text-center">
+              <div className="text-xs text-green-600 font-bold uppercase mb-1">Tamamlanan</div>
+              <div className="text-2xl font-bold text-green-900">{completedVisits}</div>
+            </div>
+            <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 text-center">
+              <div className="text-xs text-purple-600 font-bold uppercase mb-1">Başarı Oranı</div>
+              <div className="text-2xl font-bold text-purple-900">
+                {totalVisits > 0 ? `%${Math.round((completedVisits / totalVisits) * 100)}` : '%0'}
+              </div>
+            </div>
+          </div>
+
+          <h2 className="text-xl font-bold mb-4 border-l-4 border-blue-600 pl-3">Ziyaret Geçmişi</h2>
+          <table className="w-full border-collapse mb-10">
+            <thead>
+              <tr className="bg-blue-600 text-white">
+                <th className="p-3 text-left border border-blue-700">No</th>
+                <th className="p-3 text-left border border-blue-700">Ziyaret Tarihi</th>
+                <th className="p-3 text-left border border-blue-700">Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {schedules.map((s, idx) => {
+                const assignment = s.assignments.find(a => a.applicantId === applicant.id);
+                return (
+                  <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="p-3 border border-gray-200">{schedules.length - idx}</td>
+                    <td className="p-3 border border-gray-200">{format(parseISO(s.date), 'd MMMM yyyy, EEEE', { locale: tr })}</td>
+                    <td className="p-3 border border-gray-200 font-medium">
+                      {assignment?.isCompleted ? (
+                        <span className="text-green-600">Tamamlandı</span>
+                      ) : (
+                        <span className="text-amber-600">Beklemede</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {schedules.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="p-10 text-center text-gray-500 italic">Henüz bir ziyaret kaydı bulunmuyor.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          <div className="mt-20 pt-10 border-t border-gray-200 text-center text-sm text-gray-400 italic">
+            Bu rapor Edirne Merkez SYDV Vefa Programı Yönetim Sistemi tarafından otomatik olarak oluşturulmuştur.
+          </div>
+        </div>
+      </div>
+
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
