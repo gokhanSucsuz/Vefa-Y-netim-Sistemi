@@ -1,12 +1,13 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program } from '../types';
 import { format, startOfMonth, endOfMonth, parseISO, addDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
+import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import { Map, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { geocodeAddress } from '../services/geocoding';
@@ -53,6 +54,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const [swapSelection, setSwapSelection] = useState<{ date: string; applicantId: number } | null>(null);
   const [completionModal, setCompletionModal] = useState<{ date: string; applicantId: number; name: string } | null>(null);
   const [completionNote, setCompletionNote] = useState('');
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
@@ -424,39 +426,24 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     XLSX.writeFile(wb, `SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.xlsx`);
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    const monthName = format(selectedMonth, 'MMMM yyyy', { locale: tr });
+  const exportToPDF = async () => {
+    if (!reportRef.current) return;
     
-    // Helper to replace Turkish characters for standard PDF fonts
-    const trFix = (text: string) => {
-      const chars: Record<string, string> = {
-        'ğ': 'g', 'Ğ': 'G', 'ü': 'u', 'Ü': 'U', 'ş': 's', 'Ş': 'S', 
-        'ı': 'i', 'İ': 'I', 'ö': 'o', 'Ö': 'O', 'ç': 'c', 'Ç': 'C'
-      };
-      return text.replace(/[ğĞüÜşŞıİöÖçÇ]/g, m => chars[m] || m);
-    };
-
-    doc.setFont("helvetica", "bold");
-    doc.text(trFix(`Edirne Merkez SYDV Vefa Programi - ${monthName}`), 14, 15);
-    
-    const tableData = assignments.flatMap(a => a.items.map(item => [
-      format(parseISO(a.date), 'dd.MM.yyyy'),
-      trFix(item.applicant.neighborhood),
-      trFix(`${item.applicant.name} ${item.applicant.surname}`),
-      trFix(item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || 'Atanmamis')
-    ]));
-
-    autoTable(doc, {
-      startY: 25,
-      head: [[trFix('Tarih'), trFix('Mahalle'), trFix('Muracaatci'), trFix('Gorevli Personeller')]],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [37, 99, 235] },
-      styles: { fontSize: 8, cellPadding: 2 }
+    const canvas = await html2canvas(reportRef.current, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff'
     });
-
-    doc.save(`SYDV_Vefa_Programi_${monthName}.pdf`);
+    
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
   };
 
   const activeMarkers = useMemo(() => {
@@ -480,6 +467,50 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
   return (
     <div className="space-y-6 relative">
+      {/* Hidden Report for PDF Generation */}
+      <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '25mm', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.5' }}>
+        <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '20px', color: '#000000' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <h1 style={{ fontSize: '16pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>T.C.</h1>
+            <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>EDİRNE VALİLİĞİ</h2>
+            <h3 style={{ fontSize: '12pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid #000', paddingBottom: '10px' }}>Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı</h3>
+            <h4 style={{ fontSize: '13pt', fontWeight: 'bold', marginTop: '20px' }}>{format(selectedMonth, 'MMMM yyyy', { locale: tr }).toUpperCase()} AYI VEFA PROGRAMI ÇİZELGESİ</h4>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '9pt' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f1f5f9' }}>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Tarih</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Mahalle</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Müracaatçı</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Görevli Personeller</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assignments.flatMap(a => a.items.map((item, idx) => (
+                <tr key={`${a.date}-${idx}`}>
+                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{format(parseISO(a.date), 'dd.MM.yyyy')}</td>
+                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.neighborhood}</td>
+                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.name} {item.applicant.surname}</td>
+                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'}</td>
+                </tr>
+              )))}
+            </tbody>
+          </table>
+
+          <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ textAlign: 'center', width: '200px' }}>
+              <p style={{ fontWeight: 'bold', marginBottom: '40px' }}>Vakıf Müdürü</p>
+              <p>(İmza)</p>
+            </div>
+          </div>
+
+          <div style={{ position: 'absolute', bottom: '15mm', left: '20mm', right: '20mm', textAlign: 'center', fontSize: '8pt', color: '#94a3b8', borderTop: '0.5px solid #cbd5e1', paddingTop: '10px' }}>
+            Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır.
+          </div>
+        </div>
+      </div>
+
       {/* Completion Note Modal */}
       {completionModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">

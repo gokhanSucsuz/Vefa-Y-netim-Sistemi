@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Staff } from '../types';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { AnimatePresence } from 'motion/react';
+import StaffStatsModal from './StaffStatsModal';
 
 interface Props {
   staff: Staff[];
@@ -19,6 +21,11 @@ export default function StaffList({ staff }: Props) {
     phone: '',
     partnerId: undefined
   });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'tcNo'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedStatsStaff, setSelectedStatsStaff] = useState<Staff | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,6 +134,26 @@ export default function StaffList({ staff }: Props) {
       await dbLocal.staff.delete(id);
     }
   };
+
+  const filteredAndSortedStaff = [...staff]
+    .filter(s => {
+      const search = searchTerm.toLowerCase();
+      return (
+        s.name.toLowerCase().includes(search) ||
+        s.surname.toLowerCase().includes(search) ||
+        s.tcNo.includes(search) ||
+        (s.phone || '').includes(search)
+      );
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'name') {
+        comparison = (a.name + a.surname).localeCompare(b.name + b.surname);
+      } else if (sortBy === 'tcNo') {
+        comparison = a.tcNo.localeCompare(b.tcNo);
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   return (
     <div className="space-y-6">
@@ -252,6 +279,40 @@ export default function StaffList({ staff }: Props) {
         </div>
       )}
 
+      {/* Search and Sort Bar */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Personel ara (Ad, Soyad, TC, Tel)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+          />
+        </div>
+        <div className="flex gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+            <ArrowUpDown className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-600 font-medium">Sırala:</span>
+            <select 
+              value={sortBy} 
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-transparent text-sm font-semibold text-gray-900 outline-none cursor-pointer"
+            >
+              <option value="name">Ad Soyad</option>
+              <option value="tcNo">TC Kimlik No</option>
+            </select>
+            <button 
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="ml-2 p-1 hover:bg-gray-200 rounded transition-colors"
+            >
+              {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -265,14 +326,14 @@ export default function StaffList({ staff }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {staff.length === 0 ? (
+              {filteredAndSortedStaff.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    Henüz kayıtlı personel bulunmuyor.
+                    Arama kriterlerine uygun personel bulunamadı.
                   </td>
                 </tr>
               ) : (
-                staff.map(s => {
+                filteredAndSortedStaff.map(s => {
                   const partner = staff.find(p => p.id === s.partnerId);
                   return (
                     <tr key={s.id} className="hover:bg-gray-50 transition-all group">
@@ -294,14 +355,23 @@ export default function StaffList({ staff }: Props) {
                       <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
                         <button
-                          onClick={() => handleEdit(s)}
+                          onClick={() => setSelectedStatsStaff(s)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                          title="Performans ve Rapor"
+                        >
+                          <BarChart3 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleEdit(s)}
+                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                          title="Düzenle"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(s.id!)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          title="Sil"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -315,6 +385,15 @@ export default function StaffList({ staff }: Props) {
           </table>
         </div>
       </div>
+
+      <AnimatePresence>
+        {selectedStatsStaff && (
+          <StaffStatsModal 
+            staff={selectedStatsStaff} 
+            onClose={() => setSelectedStatsStaff(null)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
