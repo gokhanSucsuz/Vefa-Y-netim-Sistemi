@@ -192,62 +192,62 @@ export default function Statistics() {
     <div className="space-y-6 pb-12">
       {/* Hidden Report for PDF Generation */}
       <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', fontFamily: 'Verdana, sans-serif', fontSize: '12pt' }}>
-        <div ref={reportRef} className="bg-white p-10 text-gray-900">
-          <h1 className="text-2xl font-bold text-center mb-6 border-b-2 border-blue-600 pb-4">Edirne Merkez SYDV Vefa İstatistik Raporu</h1>
-          <p className="text-center mb-8 text-gray-600">Dönem: {startDate} - {endDate}</p>
+        <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '40px', color: '#111827' }}>
+          <h1 style={{ fontSize: '24pt', fontWeight: 'bold', textAlign: 'center', marginBottom: '24px', borderBottom: '2px solid #2563eb', paddingBottom: '16px' }}>Edirne Merkez SYDV Vefa İstatistik Raporu</h1>
+          <p style={{ textAlign: 'center', marginBottom: '32px', color: '#4b5563' }}>Dönem: {startDate} - {endDate}</p>
 
-          <div className="grid grid-cols-3 gap-4 mb-10">
-            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
-              <div className="text-xs text-blue-600 font-bold uppercase mb-1">Toplam Temizlik</div>
-              <div className="text-xl font-bold text-blue-900">{stats.totalCleanings}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '40px' }}>
+            <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #dbeafe', textAlign: 'center' }}>
+              <div style={{ fontSize: '10pt', color: '#2563eb', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Toplam Temizlik</div>
+              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#1e3a8a' }}>{stats.totalCleanings}</div>
             </div>
-            <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 text-center">
-              <div className="text-xs text-orange-600 font-bold uppercase mb-1">Mahalle Sayısı</div>
-              <div className="text-xl font-bold text-orange-900">{stats.totalNeighborhoods}</div>
+            <div style={{ padding: '16px', backgroundColor: '#fff7ed', borderRadius: '12px', border: '1px solid #ffedd5', textAlign: 'center' }}>
+              <div style={{ fontSize: '10pt', color: '#ea580c', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Mahalle Sayısı</div>
+              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#7c2d12' }}>{stats.totalNeighborhoods}</div>
             </div>
-            <div className="p-4 bg-green-50 rounded-xl border border-green-100 text-center">
-              <div className="text-xs text-green-600 font-bold uppercase mb-1">Müracaatçı Sayısı</div>
-              <div className="text-xl font-bold text-green-900">{stats.totalUniqueApplicants}</div>
+            <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7', textAlign: 'center' }}>
+              <div style={{ fontSize: '10pt', color: '#16a34a', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Müracaatçı Sayısı</div>
+              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#14532d' }}>{stats.totalUniqueApplicants}</div>
             </div>
           </div>
 
-          <h2 className="text-lg font-bold mb-4 border-l-4 border-blue-600 pl-3">Personel Performans Verileri</h2>
-          <table className="w-full border-collapse mb-10">
+          <h2 style={{ fontSize: '14pt', fontWeight: 'bold', marginBottom: '16px', borderLeft: '4px solid #2563eb', paddingLeft: '12px' }}>Personel Performans Verileri</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
             <thead>
-              <tr className="bg-blue-600 text-white">
-                <th className="p-2 text-left border border-blue-700">Personel</th>
-                <th className="p-2 text-center border border-blue-700">İş Sayısı</th>
-                <th className="p-2 text-center border border-blue-700">Farklı Müracaatçı</th>
+              <tr style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #1d4ed8' }}>Personel</th>
+                <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #1d4ed8' }}>İş Sayısı</th>
+                <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #1d4ed8' }}>Farklı Müracaatçı</th>
               </tr>
             </thead>
             <tbody>
               {stats.staffData.map((s, idx) => (
-                <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="p-2 border border-gray-200">{s.name}</td>
-                  <td className="p-2 border border-gray-200 text-center">{s.jobCount}</td>
-                  <td className="p-2 border border-gray-200 text-center">{s.uniqueApplicantsCount}</td>
+                <tr key={s.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
+                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{s.name}</td>
+                  <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{s.jobCount}</td>
+                  <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{s.uniqueApplicantsCount}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <h2 className="text-lg font-bold mb-4 border-l-4 border-green-600 pl-3">Detaylı Temizlik Kayıtları</h2>
-          <table className="w-full border-collapse mb-10" style={{ fontSize: '10pt' }}>
+          <h2 style={{ fontSize: '14pt', fontWeight: 'bold', marginBottom: '16px', borderLeft: '4px solid #16a34a', paddingLeft: '12px' }}>Detaylı Temizlik Kayıtları</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px', fontSize: '10pt' }}>
             <thead>
-              <tr className="bg-green-600 text-white">
-                <th className="p-2 text-left border border-green-700">Tarih</th>
-                <th className="p-2 text-left border border-green-700">Müracaatçı</th>
-                <th className="p-2 text-left border border-green-700">Mahalle</th>
-                <th className="p-2 text-left border border-green-700">Personeller</th>
+              <tr style={{ backgroundColor: '#16a34a', color: '#ffffff' }}>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #15803d' }}>Tarih</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #15803d' }}>Müracaatçı</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #15803d' }}>Mahalle</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #15803d' }}>Personeller</th>
               </tr>
             </thead>
             <tbody>
               {stats.completedAssignments.map((a, idx) => (
-                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="p-2 border border-gray-200">{format(parseISO(a.date), 'dd.MM.yyyy')}</td>
-                  <td className="p-2 border border-gray-200">{a.applicant?.name} {a.applicant?.surname}</td>
-                  <td className="p-2 border border-gray-200">{a.applicant?.neighborhood || '-'}</td>
-                  <td className="p-2 border border-gray-200">{a.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ')}</td>
+                <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
+                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{format(parseISO(a.date), 'dd.MM.yyyy')}</td>
+                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{a.applicant?.name} {a.applicant?.surname}</td>
+                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{a.applicant?.neighborhood || '-'}</td>
+                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{a.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ')}</td>
                 </tr>
               ))}
             </tbody>

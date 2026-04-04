@@ -72,63 +72,63 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
     >
       {/* Hidden Report for PDF Generation */}
       <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '20mm', fontFamily: 'Verdana, sans-serif', fontSize: '12pt' }}>
-        <div ref={reportRef} className="bg-white p-10 text-gray-900">
-          <h1 className="text-3xl font-bold text-center mb-10 border-b-2 border-blue-600 pb-4">Müracaatçı Hizmet Raporu</h1>
+        <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '40px', color: '#111827' }}>
+          <h1 style={{ fontSize: '24pt', fontWeight: 'bold', textAlign: 'center', marginBottom: '40px', borderBottom: '2px solid #2563eb', paddingBottom: '20px' }}>Müracaatçı Hizmet Raporu</h1>
           
-          <div className="grid grid-cols-2 gap-8 mb-10">
-            <div className="space-y-2">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '40px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <p><strong>Ad Soyad:</strong> {applicant.name} {applicant.surname}</p>
               <p><strong>TC Kimlik No:</strong> {applicant.tcNo}</p>
               <p><strong>Mahalle:</strong> {applicant.neighborhood || '-'}</p>
             </div>
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <p><strong>Rapor Tarihi:</strong> {format(new Date(), 'd MMMM yyyy HH:mm', { locale: tr })}</p>
               <p><strong>Telefon:</strong> {applicant.phone}</p>
             </div>
           </div>
 
-          <div className="mb-10">
-            <p className="mb-4"><strong>Adres:</strong> {applicant.address}</p>
+          <div style={{ marginBottom: '40px' }}>
+            <p><strong>Adres:</strong> {applicant.address}</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-10">
-            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
-              <div className="text-xs text-blue-600 font-bold uppercase mb-1">Toplam Ziyaret</div>
-              <div className="text-2xl font-bold text-blue-900">{totalVisits}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '40px' }}>
+            <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #dbeafe', textAlign: 'center' }}>
+              <div style={{ fontSize: '10pt', color: '#2563eb', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Toplam Ziyaret</div>
+              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#1e3a8a' }}>{totalVisits}</div>
             </div>
-            <div className="p-4 bg-green-50 rounded-xl border border-green-100 text-center">
-              <div className="text-xs text-green-600 font-bold uppercase mb-1">Tamamlanan</div>
-              <div className="text-2xl font-bold text-green-900">{completedVisits}</div>
+            <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7', textAlign: 'center' }}>
+              <div style={{ fontSize: '10pt', color: '#16a34a', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Tamamlanan</div>
+              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#14532d' }}>{completedVisits}</div>
             </div>
-            <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 text-center">
-              <div className="text-xs text-purple-600 font-bold uppercase mb-1">Başarı Oranı</div>
-              <div className="text-2xl font-bold text-purple-900">
+            <div style={{ padding: '16px', backgroundColor: '#faf5ff', borderRadius: '12px', border: '1px solid #f3e8ff', textAlign: 'center' }}>
+              <div style={{ fontSize: '10pt', color: '#9333ea', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Başarı Oranı</div>
+              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#581c87' }}>
                 {totalVisits > 0 ? `%${Math.round((completedVisits / totalVisits) * 100)}` : '%0'}
               </div>
             </div>
           </div>
 
-          <h2 className="text-xl font-bold mb-4 border-l-4 border-blue-600 pl-3">Ziyaret Geçmişi</h2>
-          <table className="w-full border-collapse mb-10">
+          <h2 style={{ fontSize: '16pt', fontWeight: 'bold', marginBottom: '16px', borderLeft: '4px solid #2563eb', paddingLeft: '12px' }}>Ziyaret Geçmişi</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
             <thead>
-              <tr className="bg-blue-600 text-white">
-                <th className="p-3 text-left border border-blue-700">No</th>
-                <th className="p-3 text-left border border-blue-700">Ziyaret Tarihi</th>
-                <th className="p-3 text-left border border-blue-700">Durum</th>
+              <tr style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>
+                <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #1d4ed8' }}>No</th>
+                <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #1d4ed8' }}>Ziyaret Tarihi</th>
+                <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #1d4ed8' }}>Durum</th>
               </tr>
             </thead>
             <tbody>
               {schedules.map((s, idx) => {
                 const assignment = s.assignments.find(a => a.applicantId === applicant.id);
                 return (
-                  <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="p-3 border border-gray-200">{schedules.length - idx}</td>
-                    <td className="p-3 border border-gray-200">{format(parseISO(s.date), 'd MMMM yyyy, EEEE', { locale: tr })}</td>
-                    <td className="p-3 border border-gray-200 font-medium">
+                  <tr key={s.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
+                    <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{schedules.length - idx}</td>
+                    <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{format(parseISO(s.date), 'd MMMM yyyy, EEEE', { locale: tr })}</td>
+                    <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: '500' }}>
                       {assignment?.isCompleted ? (
-                        <span className="text-green-600">Tamamlandı</span>
+                        <span style={{ color: '#16a34a' }}>Tamamlandı</span>
                       ) : (
-                        <span className="text-amber-600">Beklemede</span>
+                        <span style={{ color: '#d97706' }}>Beklemede</span>
                       )}
                     </td>
                   </tr>
@@ -136,13 +136,13 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
               })}
               {schedules.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="p-10 text-center text-gray-500 italic">Henüz bir ziyaret kaydı bulunmuyor.</td>
+                  <td colSpan={3} style={{ padding: '40px', textAlign: 'center', color: '#6b7280', fontStyle: 'italic' }}>Henüz bir ziyaret kaydı bulunmuyor.</td>
                 </tr>
               )}
             </tbody>
           </table>
 
-          <div className="mt-20 pt-10 border-t border-gray-200 text-center text-sm text-gray-400 italic">
+          <div style={{ marginTop: '80px', paddingTop: '40px', borderTop: '1px solid #e5e7eb', textAlign: 'center', fontSize: '10pt', color: '#9ca3af', fontStyle: 'italic' }}>
             Bu rapor Edirne Merkez SYDV Vefa Programı Yönetim Sistemi tarafından otomatik olarak oluşturulmuştur.
           </div>
         </div>
