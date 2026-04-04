@@ -273,49 +273,53 @@ export default function Statistics() {
       </div>
 
       {/* Header & Date Filter */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">İstatistik ve Raporlar</h2>
-          <p className="text-gray-500">Sistem verilerinin görsel analizi ve performans takibi.</p>
+          <h2 className="text-xl lg:text-2xl font-bold text-gray-900">İstatistik ve Raporlar</h2>
+          <p className="text-xs lg:text-sm text-gray-500 font-medium">Sistem verilerinin görsel analizi ve performans takibi.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="flex gap-1 border-r border-gray-100 pr-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm w-full sm:w-auto">
+          <div className="flex gap-1 border-b sm:border-b-0 sm:border-r border-gray-100 pb-2 sm:pb-0 sm:pr-2">
             <button 
               onClick={() => setQuickFilter('month')}
-              className="px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             >
               Bu Ay
             </button>
             <button 
               onClick={() => setQuickFilter('year')}
-              className="px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              className="flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
             >
               Bu Yıl
             </button>
           </div>
-          <div className="flex items-center gap-2 px-3">
-            <Calendar className="w-4 h-4 text-gray-400" />
-            <input 
-              type="date" 
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="text-sm font-medium text-gray-700 outline-none border-none bg-transparent"
-            />
-            <ChevronRight className="w-4 h-4 text-gray-300" />
+          <div className="flex items-center justify-between sm:justify-start gap-2 px-3 py-1 sm:py-0">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="text-[11px] sm:text-sm font-bold text-gray-700 outline-none border-none bg-transparent w-24 sm:w-auto"
+              />
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
             <input 
               type="date" 
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="text-sm font-medium text-gray-700 outline-none border-none bg-transparent"
+              className="text-[11px] sm:text-sm font-bold text-gray-700 outline-none border-none bg-transparent w-24 sm:w-auto"
             />
           </div>
-          <div className="h-6 w-px bg-gray-100 mx-1" />
-          <div className="flex gap-1">
-            <button onClick={exportToExcel} className="p-2 text-green-600 hover:bg-green-50 rounded-xl transition-colors" title="Excel İndir">
+          <div className="hidden sm:block h-6 w-px bg-gray-100 mx-1" />
+          <div className="flex gap-1 border-t sm:border-t-0 border-gray-100 pt-2 sm:pt-0">
+            <button onClick={exportToExcel} className="flex-1 sm:flex-none flex items-center justify-center gap-2 p-2 text-green-600 hover:bg-green-50 rounded-xl transition-colors" title="Excel İndir">
               <FileSpreadsheet className="w-5 h-5" />
+              <span className="sm:hidden text-[10px] font-bold">EXCEL</span>
             </button>
-            <button onClick={exportToPDF} className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-colors" title="PDF İndir">
+            <button onClick={exportToPDF} className="flex-1 sm:flex-none flex items-center justify-center gap-2 p-2 text-red-600 hover:bg-red-50 rounded-xl transition-colors" title="PDF İndir">
               <FileText className="w-5 h-5" />
+              <span className="sm:hidden text-[10px] font-bold">PDF</span>
             </button>
           </div>
         </div>

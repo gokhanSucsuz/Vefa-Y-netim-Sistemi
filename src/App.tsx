@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from './db';
-import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
+import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp, Menu, X as CloseIcon } from 'lucide-react';
 import ApplicantList from './components/ApplicantList';
 import StaffList from './components/StaffList';
 import WorkDayCalendar from './components/WorkDayCalendar';
@@ -22,6 +22,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'completed' | 'docs' | 'stats'>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const AUTHORIZED_EMAIL = 'edirnesydv@gmail.com';
 
@@ -121,10 +122,37 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row overflow-hidden">
+      {/* Mobile Header */}
+      <header className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-2">
+          <div className="bg-blue-600 p-1.5 rounded-lg">
+            <Building2 className="text-white w-4 h-4" />
+          </div>
+          <span className="font-bold text-sm text-gray-900">Edirne SYDV Vefa</span>
+        </div>
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+        >
+          {isSidebarOpen ? <CloseIcon className="w-6 h-6 text-gray-600" /> : <Menu className="w-6 h-6 text-gray-600" />}
+        </button>
+      </header>
+
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-full lg:w-72 bg-white border-b lg:border-r border-gray-200 flex flex-col">
-        <div className="p-6 border-b border-gray-100">
+      <aside className={`
+        fixed inset-y-0 left-0 w-72 bg-white border-r border-gray-200 flex flex-col z-50 transition-transform duration-300 lg:relative lg:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="p-6 border-b border-gray-100 hidden lg:block">
           <div className="flex items-start gap-3 mb-1">
             <div className="bg-blue-600 p-2 rounded-lg shrink-0">
               <Building2 className="text-white w-5 h-5" />
@@ -136,80 +164,40 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <LayoutDashboard className="w-5 h-5" />
-            Genel Durum
-          </button>
-          <button
-            onClick={() => setActiveTab('applicants')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'applicants' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <Users className="w-5 h-5" />
-            Müracaatçı Listesi
-          </button>
-          <button
-            onClick={() => setActiveTab('staff')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'staff' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <Briefcase className="w-5 h-5" />
-            Personel Listesi
-          </button>
-          <button
-            onClick={() => setActiveTab('workdays')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'workdays' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <Calendar className="w-5 h-5" />
-            İş Günleri
-          </button>
-          <button
-            onClick={() => setActiveTab('schedule')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'schedule' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <ClipboardList className="w-5 h-5" />
-            Program Planlama
-          </button>
-          <button
-            onClick={() => setActiveTab('programs')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'programs' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <Calendar className="w-5 h-5" />
-            Yapılan Programlar
-          </button>
-          <button
-            onClick={() => setActiveTab('completed')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'completed' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            Tamamlanan Temizlikler
-          </button>
-          <button
-            onClick={() => setActiveTab('stats')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'stats' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <TrendingUp className="w-5 h-5" />
-            İstatistik ve Raporlar
-          </button>
-          <button
-            onClick={() => setActiveTab('docs')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'docs' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <BookOpen className="w-5 h-5" />
-            Kullanım Kılavuzu
-          </button>
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {[
+            { id: 'dashboard', label: 'Genel Durum', icon: LayoutDashboard },
+            { id: 'applicants', label: 'Müracaatçı Listesi', icon: Users },
+            { id: 'staff', label: 'Personel Listesi', icon: Briefcase },
+            { id: 'workdays', label: 'İş Günleri', icon: Calendar },
+            { id: 'schedule', label: 'Program Planlama', icon: ClipboardList },
+            { id: 'programs', label: 'Yapılan Programlar', icon: Calendar },
+            { id: 'completed', label: 'Tamamlanan Temizlikler', icon: CheckCircle2 },
+            { id: 'stats', label: 'İstatistik ve Raporlar', icon: TrendingUp },
+            { id: 'docs', label: 'Kullanım Kılavuzu', icon: BookOpen },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id as any);
+                setIsSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === item.id ? 'bg-blue-50 text-blue-700 font-bold shadow-sm shadow-blue-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+            >
+              <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'text-blue-600' : 'text-gray-400'}`} />
+              <span className="text-sm">{item.label}</span>
+            </button>
+          ))}
         </nav>
 
-        <div className="p-6 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100">
           <BackupManager onAuthChange={handleAuthChange} />
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-8">
-        <div className="max-w-6xl mx-auto">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-8 w-full">
+        <div className="max-w-6xl mx-auto pb-12">
           {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
           {activeTab === 'applicants' && <ApplicantList applicants={applicants} />}
           {activeTab === 'staff' && <StaffList staff={staff} />}

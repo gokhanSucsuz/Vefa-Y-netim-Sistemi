@@ -571,32 +571,32 @@ export default function ApplicantList({ applicants }: Props) {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto scrollbar-hide">
+          <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-24">Sıra</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ad Soyad</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Mahalle/Köy</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Adres Bilgisi</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">TC Kimlik No</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Kişi Sayısı</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">İşlemler</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 w-20 lg:w-24 uppercase tracking-wider">Sıra</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ad Soyad</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Mahalle/Köy</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Adres Bilgisi</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">TC Kimlik No</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Kişi Sayısı</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 text-right uppercase tracking-wider">İşlemler</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {applicants.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 font-medium">
                     Henüz kayıtlı müracaatçı bulunmuyor.
                   </td>
                 </tr>
               ) : (
                 filteredAndSortedApplicants.map(applicant => (
-                  <tr key={applicant.id} className="hover:bg-gray-50 transition-all group">
-                    <td className="px-6 py-4">
+                  <tr key={applicant.id} className="hover:bg-gray-50/50 transition-all group">
+                    <td className="px-4 lg:px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <div className="font-bold text-blue-600 bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center border border-blue-100">
+                        <div className="font-bold text-blue-600 bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center border border-blue-100 text-xs shadow-sm">
                           {applicant.priority}
                         </div>
                         <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
@@ -617,49 +617,45 @@ export default function ApplicantList({ applicants }: Props) {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{applicant.name} {applicant.surname}</div>
-                      <div className="text-xs text-gray-500">{applicant.phone}</div>
+                    <td className="px-4 lg:px-6 py-4">
+                      <div className="font-bold text-gray-900 text-sm">{applicant.name} {applicant.surname}</div>
+                      <div className="text-[10px] text-gray-400 font-medium">{applicant.phone}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100">
+                    <td className="px-4 lg:px-6 py-4">
+                      <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100 uppercase tracking-wider">
                         {applicant.neighborhood}
                       </span>
                     </td>
-                    <td className="px-6 py-4 max-w-xs">
-                      <div className="flex items-start gap-1 text-sm text-gray-600">
-                        <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-500" />
-                        <span className="line-clamp-2">{applicant.address}</span>
+                    <td className="px-4 lg:px-6 py-4 max-w-xs">
+                      <div className="flex items-start gap-1.5 text-xs text-gray-600">
+                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-500" />
+                        <span className="line-clamp-2 leading-relaxed">{applicant.address}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-600 font-mono text-sm">{applicant.tcNo}</td>
-                    <td className="px-6 py-4 text-gray-600 text-sm">{applicant.householdSize || 1} Kişi</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <td className="px-4 lg:px-6 py-4 text-gray-600 font-mono text-xs font-bold">{applicant.tcNo}</td>
+                    <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{applicant.householdSize || 1} Kişi</td>
+                    <td className="px-4 lg:px-6 py-4 text-right">
+                      <div className="flex justify-end gap-1 lg:gap-2 opacity-0 group-hover:opacity-100 transition-all">
                         <button
                           onClick={() => setSelectedStatsApplicant(applicant)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                           title="İstatistik ve Rapor"
                         >
-                          <BarChart3 className="w-5 h-5" />
+                          <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5" />
                         </button>
                         <button
-                          onClick={() => {
-                            setFormData(applicant);
-                            setEditingId(applicant.id!);
-                            setIsAdding(true);
-                          }}
+                          onClick={() => handleEdit(applicant)}
                           className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
                           title="Düzenle"
                         >
-                          <Edit2 className="w-5 h-5" />
+                          <Edit2 className="w-4 h-4 lg:w-5 lg:h-5" />
                         </button>
                         <button
                           onClick={() => handleDelete(applicant.id!)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                           title="Sil"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
                         </button>
                       </div>
                     </td>

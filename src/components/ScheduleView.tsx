@@ -561,43 +561,43 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Program Planlama</h2>
-          <p className="text-gray-500">Mahalle bazlı otomatik planlama ve personel ataması.</p>
+          <h2 className="text-xl lg:text-2xl font-bold text-gray-900">Program Planlama</h2>
+          <p className="text-xs lg:text-sm text-gray-500">Mahalle bazlı otomatik planlama ve personel ataması.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowMap(!showMap)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all border ${showMap ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all border text-sm font-bold ${showMap ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
           >
-            <MapIcon className="w-5 h-5" />
-            Harita Görünümü
+            <MapIcon className="w-4 h-4 lg:w-5 lg:h-5" />
+            <span className="hidden xs:inline">Harita</span>
           </button>
           <button
             onClick={generateSchedule}
             disabled={isGenerating}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:opacity-50"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:opacity-50 text-sm font-bold"
           >
-            <Wand2 className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
-            Otomatik Planla
+            <Wand2 className={`w-4 h-4 lg:w-5 lg:h-5 ${isGenerating ? 'animate-spin' : ''}`} />
+            <span className="hidden xs:inline">Planla</span>
           </button>
           {hasOrphanedSchedules && (
             <button
               onClick={reflowSchedules}
               disabled={isGenerating}
-              className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-100 animate-pulse"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-100 animate-pulse text-sm font-bold"
             >
-              <CalendarIcon className="w-5 h-5" />
-              Programı Kaydır
+              <CalendarIcon className="w-4 h-4 lg:w-5 lg:h-5" />
+              <span className="hidden xs:inline">Kaydır</span>
             </button>
           )}
-          <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white">
-            <button onClick={exportToExcel} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-green-700 border-r border-gray-200">
-              <FileSpreadsheet className="w-5 h-5" /> Excel
+          <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white w-full sm:w-auto">
+            <button onClick={exportToExcel} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-50 text-green-700 border-r border-gray-200 text-sm font-bold">
+              <FileSpreadsheet className="w-4 h-4 lg:w-5 lg:h-5" /> <span className="xs:inline">Excel</span>
             </button>
-            <button onClick={exportToPDF} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-red-700">
-              <FileText className="w-5 h-5" /> PDF
+            <button onClick={exportToPDF} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-50 text-red-700 text-sm font-bold">
+              <FileText className="w-4 h-4 lg:w-5 lg:h-5" /> <span className="xs:inline">PDF</span>
             </button>
           </div>
         </div>
@@ -641,15 +641,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+        <div className="p-4 lg:p-6 border-b border-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/50">
           <input 
             type="month" 
             value={format(selectedMonth, 'yyyy-MM')}
             onChange={(e) => setSelectedMonth(new Date(e.target.value))}
-            className="px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full sm:w-auto px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold"
           />
-          <div className="text-sm font-medium text-gray-500">
-            <span className="text-blue-600 font-bold">{currentMonthWorkDays.length}</span> İş Günü
+          <div className="text-xs lg:text-sm font-bold text-gray-500 bg-white px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm">
+            <span className="text-blue-600">{currentMonthWorkDays.length}</span> İŞ GÜNÜ
           </div>
         </div>
 
@@ -660,28 +660,37 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             assignments.map(a => (
               <div key={a.date} className={`transition-all ${expandedDay === a.date ? 'bg-blue-50/30' : ''}`}>
                 <div 
-                  className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                  className="px-4 lg:px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
                   onClick={() => setExpandedDay(expandedDay === a.date ? null : a.date)}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 text-center">
-                      <div className="text-lg font-bold text-gray-900">{format(parseISO(a.date), 'dd')}</div>
-                      <div className="text-[10px] text-gray-500 uppercase font-bold">{format(parseISO(a.date), 'EEE', { locale: tr })}</div>
+                  <div className="flex items-center gap-3 lg:gap-4">
+                    <div className="w-10 lg:w-12 text-center">
+                      <div className="text-base lg:text-lg font-bold text-gray-900 leading-none">{format(parseISO(a.date), 'dd')}</div>
+                      <div className="text-[10px] text-gray-500 uppercase font-bold mt-1">{format(parseISO(a.date), 'EEE', { locale: tr })}</div>
                     </div>
                     <div className="h-8 w-px bg-gray-200" />
-                    <div>
-                      <div className="text-sm font-semibold text-gray-700">
-                        {a.items.length > 0 ? `${a.items[0].applicant.address.substring(0, 30)}...` : 'Atama Yapılmamış'}
+                    <div className="min-w-0">
+                      <div className="text-xs lg:text-sm font-bold text-gray-700 truncate max-w-[150px] sm:max-w-xs">
+                        {a.items.length > 0 ? `${a.items[0].applicant.address}` : 'Atama Yapılmamış'}
                       </div>
-                      <div className="text-xs text-gray-400">{a.items.length} Müracaatçı</div>
+                      <div className="text-[10px] lg:text-xs text-gray-400 font-medium">{a.items.length} Müracaatçı</div>
                     </div>
                   </div>
-                  {expandedDay === a.date ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                  <div className="flex items-center gap-2">
+                    {a.items.every(i => {
+                      const s = schedules.find(sc => sc.date === a.date);
+                      const ass = s?.assignments.find(as => as.applicantId === i.applicant.id);
+                      return ass?.isCompleted;
+                    }) && a.items.length > 0 && (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    )}
+                    {expandedDay === a.date ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                  </div>
                 </div>
 
                 {expandedDay === a.date && (
-                  <div className="px-6 pb-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="px-4 lg:px-6 pb-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {a.items.map((item, idx) => {
                         const schedule = schedules.find(s => s.date === a.date);
                         const assignment = schedule?.assignments[idx];
@@ -694,14 +703,14 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                             isSelectedForSwap ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-100'
                           }`}>
                             <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <div className="font-bold text-gray-900">{item.applicant.name} {item.applicant.surname}</div>
-                                <div className="text-[10px] text-blue-600 font-medium line-clamp-1">{item.applicant.address}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-gray-900 text-sm truncate">{item.applicant.name} {item.applicant.surname}</div>
+                                <div className="text-[10px] text-blue-600 font-bold line-clamp-1 uppercase tracking-tight">{item.applicant.neighborhood}</div>
                               </div>
-                              <div className="flex flex-col items-end gap-1">
-                                <div className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500 font-mono">{item.applicant.tcNo}</div>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <div className="text-[9px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-mono font-bold">{item.applicant.tcNo}</div>
                                 {isCompleted && (
-                                  <span className="text-[8px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold uppercase">Tamamlandı</span>
+                                  <span className="text-[8px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">BİTTİ</span>
                                 )}
                               </div>
                             </div>
@@ -730,7 +739,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                             </div>
                             <div className="space-y-3">
                               <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Müracaatçı Değiştir</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Müracaatçı</label>
                                 <select
                                   value={item.applicant.id || ''}
                                   disabled={isCompleted}
@@ -743,18 +752,18 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                       dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
                                     }
                                   }}
-                                  className="w-full text-sm bg-gray-50 border-none rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                  className="w-full text-xs font-bold bg-gray-50 border-none rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                                 >
                                     {applicants.map(app => (
                                       <option key={app.id} value={app.id}>
-                                        {app.name} {app.surname} ({app.address.substring(0, 20)}...)
+                                        {app.name} {app.surname}
                                       </option>
                                     ))}
                                 </select>
                               </div>
 
                               <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Temizlik Görevlileri (2 Kişi)</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Görevli Personeller</label>
                                 <div className="grid grid-cols-2 gap-2">
                                   {[0, 1].map(sIdx => (
                                     <select
@@ -762,7 +771,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                       value={item.staffMembers[sIdx]?.id || ''}
                                       disabled={isCompleted}
                                       onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, sIdx, parseInt(e.target.value))}
-                                      className="w-full text-xs bg-gray-50 border-none rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                      className="w-full text-[10px] font-bold bg-gray-50 border-none rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                                     >
                                       <option value="">Seç...</option>
                                       {staff.map(s => {
@@ -777,7 +786,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                             disabled={isAlreadyInThisApp || isAssignedElsewhere}
                                             className={(isAlreadyInThisApp || isAssignedElsewhere) ? 'text-gray-300' : ''}
                                           >
-                                            {s.name} {s.surname} {isAssignedElsewhere ? '(Dolu)' : ''}
+                                            {s.name} {s.surname}
                                           </option>
                                         );
                                       })}
@@ -798,23 +807,32 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                 }}
                                 className={`py-2 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
                                   isCompleted 
-                                    ? 'bg-orange-50 text-orange-600 hover:bg-orange-100' 
+                                    ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-100' 
                                     : 'bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-100'
                                 }`}
                               >
-                                {isCompleted ? <Clock className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                                {isCompleted ? 'İptal Et' : 'Temizlik Bitti'}
+                                {isCompleted ? (
+                                  <>
+                                    <AlertTriangle className="w-3 h-3" />
+                                    Geri Al
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    Tamamla
+                                  </>
+                                )}
                               </button>
                               <button 
-                                onClick={() => saveDay(a.date)}
-                                className={`py-2 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                                  lastSavedDay === a.date 
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' 
-                                    : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                                }`}
+                                onClick={() => {
+                                  const applicant = item.applicant;
+                                  const url = `https://www.google.com/maps/dir/?api=1&destination=${applicant.lat},${applicant.lng}`;
+                                  window.open(url, '_blank');
+                                }}
+                                className="py-2 text-[10px] font-bold rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
                               >
-                                <CheckCircle2 className="w-3 h-3" />
-                                {lastSavedDay === a.date ? 'Onaylandı' : 'Günü Onayla'}
+                                <MapIcon className="w-3 h-3" />
+                                Yol Tarifi
                               </button>
                             </div>
                           </div>

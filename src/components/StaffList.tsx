@@ -314,21 +314,21 @@ export default function StaffList({ staff }: Props) {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto scrollbar-hide">
+          <table className="w-full text-left border-collapse min-w-[700px] lg:min-w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ad Soyad</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">TC Kimlik No</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Telefon</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ekip Arkadaşı</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">İşlemler</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ad Soyad</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">TC Kimlik No</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Telefon</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ekip Arkadaşı</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 text-right uppercase tracking-wider">İşlemler</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredAndSortedStaff.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500 font-medium">
                     Arama kriterlerine uygun personel bulunamadı.
                   </td>
                 </tr>
@@ -336,52 +336,55 @@ export default function StaffList({ staff }: Props) {
                 filteredAndSortedStaff.map(s => {
                   const partner = staff.find(p => p.id === s.partnerId);
                   return (
-                    <tr key={s.id} className="hover:bg-gray-50 transition-all group">
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{s.name} {s.surname}</div>
+                    <tr key={s.id} className="hover:bg-gray-50/50 transition-all group">
+                      <td className="px-4 lg:px-6 py-4">
+                        <div className="font-bold text-gray-900 text-sm">{s.name} {s.surname}</div>
+                        <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Vefa Personeli</div>
                       </td>
-                      <td className="px-6 py-4 text-gray-600 font-mono text-sm">{s.tcNo}</td>
-                      <td className="px-6 py-4 text-gray-600">{s.phone || '-'}</td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 lg:px-6 py-4 text-gray-600 font-mono text-xs font-bold">{s.tcNo}</td>
+                      <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{s.phone || '-'}</td>
+                      <td className="px-4 lg:px-6 py-4">
                         {partner ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">
                             <Users className="w-3 h-3" />
                             {partner.name} {partner.surname}
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400 italic">Bireysel</span>
+                          <span className="text-[10px] font-bold bg-gray-50 text-gray-400 px-2 py-1 rounded-lg border border-gray-100 uppercase tracking-wider">
+                            Bireysel
+                          </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        <button
-                          onClick={() => setSelectedStatsStaff(s)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                          title="Performans ve Rapor"
-                        >
-                          <BarChart3 className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(s)}
-                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
-                          title="Düzenle"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(s.id!)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          title="Sil"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
+                      <td className="px-4 lg:px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1 lg:gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                          <button
+                            onClick={() => setSelectedStatsStaff(s)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            title="Performans ve Rapor"
+                          >
+                            <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(s)}
+                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                            title="Düzenle"
+                          >
+                            <Edit2 className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(s.id!)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            title="Sil"
+                          >
+                            <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
           </table>
         </div>
       </div>
