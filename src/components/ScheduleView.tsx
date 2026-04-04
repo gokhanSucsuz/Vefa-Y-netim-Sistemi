@@ -131,21 +131,54 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       return;
     }
 
-    // Check for existing active program
-    const activeProgram = await dbLocal.programs.where('status').equals('active').first();
-    if (activeProgram) {
-      if (!confirm('Hali hazırda aktif bir program bulunuyor. Yeni bir program oluşturmak mevcut programı iptal edecektir. Devam etmek istiyor musunuz?')) {
-        return;
+    // 1. Determine base planning start date (08:30 rule)
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const isAfter830 = currentHour > 8 || (currentHour === 8 && currentMinute >= 30);
+    
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');
+    const planningStartDate = isAfter830 ? tomorrowStr : todayStr;
+
+    // 2. Check for existing schedules from planningStartDate onwards
+    const existingSchedules = await dbLocal.schedules.where('date').aboveOrEqual(planningStartDate).toArray();
+    let actualPlanningStartDate = planningStartDate;
+    let isContinuing = false;
+
+    if (existingSchedules.length > 0) {
+      const lastScheduleDate = existingSchedules.sort((a, b) => b.date.localeCompare(a.date))[0].date;
+      const choice = confirm(`Bu tarihler için zaten planlama mevcut.\n\n- Mevcut planlamanın bittiği günden (${format(parseISO(lastScheduleDate), 'dd.MM.yyyy')}) sonra devam etmek için TAMAM'a basın.\n- Mevcut planlamaları silip (tamamlananlar hariç) yeniden planlamak için İPTAL'e basın.`);
+      
+      if (choice) {
+        // Continue from the end
+        actualPlanningStartDate = format(addDays(parseISO(lastScheduleDate), 1), 'yyyy-MM-dd');
+        isContinuing = true;
+      } else {
+        // Overwrite: Delete non-completed schedules
+        const schedulesToDelete = existingSchedules.filter(s => !s.assignments.some(a => a.isCompleted));
+        if (schedulesToDelete.length > 0) {
+          const programIdsToCheck = new Set(schedulesToDelete.map(s => s.programId).filter(Boolean) as number[]);
+          await dbLocal.schedules.bulkDelete(schedulesToDelete.map(s => s.id!));
+          
+          // Clean up programs that no longer have any schedules
+          for (const pid of programIdsToCheck) {
+            const count = await dbLocal.schedules.where('programId').equals(pid).count();
+            if (count === 0) {
+              await dbLocal.programs.delete(pid);
+            }
+          }
+        }
+        actualPlanningStartDate = planningStartDate;
+        isContinuing = false;
       }
-      // Cancel existing program
-      await dbLocal.programs.update(activeProgram.id!, { status: 'cancelled' });
     }
 
     setIsGenerating(true);
     try {
-      // 1. Determine starting point
-      const lastProgram = await dbLocal.programs.orderBy('id').last();
+      // 3. Determine starting applicant and cycle
       const sortedApplicants = [...applicants].sort((a, b) => (a.priority || 0) - (b.priority || 0));
+      const lastProgram = await dbLocal.programs.orderBy('id').last();
       
       let globalStartIndex = 0;
       if (lastProgram && lastProgram.lastApplicantId) {
@@ -153,48 +186,51 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         const lastIdxInCycle = sortedApplicants.findIndex(a => a.id === lastProgram.lastApplicantId);
         
         if (lastIdxInCycle !== -1) {
-          // Calculate where we left off in the 2N sequence
-          // Cycle 1 is index 0 to N-1, Cycle 2 is index N to 2N-1
           const lastGlobalIndex = (lastCycle === 1) ? lastIdxInCycle : (sortedApplicants.length + lastIdxInCycle);
           globalStartIndex = (lastGlobalIndex + 1) % (sortedApplicants.length * 2);
         }
       }
 
-      // 2. Create the full 2N visit list
+      // 4. Create the full 2N visit list
       const fullVisitList = [...sortedApplicants, ...sortedApplicants];
       
-      // Re-order the 2N list to start from globalStartIndex
-      const visitList = [
-        ...fullVisitList.slice(globalStartIndex),
-        ...fullVisitList.slice(0, globalStartIndex),
-        ...fullVisitList // Add more for safety if needed, but 2N is usually enough for a month
-      ];
+      // Calculate how many visits are left in the current 2N cycle
+      const visitsToPlanCount = (sortedApplicants.length * 2) - globalStartIndex;
+      const visitList = fullVisitList.slice(globalStartIndex);
 
-      // 3. Determine planning start date (08:30 rule)
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
-      const isAfter830 = currentHour > 8 || (currentHour === 8 && currentMinute >= 30);
-      
-      const todayStr = format(now, 'yyyy-MM-dd');
-      const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');
-      
-      const planningStartDate = isAfter830 ? tomorrowStr : todayStr;
+      // 5. Find available work days starting from actualPlanningStartDate
+      // We look for work days until we have enough to cover all visits
+      let availableWorkDays: WorkDay[] = [];
+      let searchDate = actualPlanningStartDate;
+      let visitsCovered = 0;
 
-      // 4. Get available work days in the SELECTED MONTH starting from planningStartDate
-      const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
-      let availableWorkDays = workDays
-        .filter(wd => wd.date >= planningStartDate && wd.date <= monthEndStr && wd.isWorkDay)
-        .sort((a, b) => a.date.localeCompare(b.date));
+      // We need enough days to cover visitsToPlanCount (6 visits per day)
+      const daysNeeded = Math.ceil(visitsToPlanCount / 6);
+      
+      // Search for work days in the database
+      const allFutureWorkDays = await dbLocal.workDays
+        .where('date').aboveOrEqual(actualPlanningStartDate)
+        .filter(wd => wd.isWorkDay)
+        .toArray();
+      
+      // Also filter out days that ALREADY have a schedule (which we didn't delete because they had completed assignments)
+      const existingScheduleDates = new Set((await dbLocal.schedules.toArray()).map(s => s.date));
+      
+      availableWorkDays = allFutureWorkDays
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .filter(wd => !existingScheduleDates.has(wd.date))
+        .slice(0, daysNeeded);
 
       if (availableWorkDays.length === 0) {
-        alert('Seçili ayda planlanacak iş günü bulunamadı. Lütfen önce "İş Günleri Belirleme" sayfasından günleri seçin.');
+        alert('Planlanacak uygun iş günü bulunamadı. Lütfen "İş Günleri" takviminden gelecek günler için iş günü tanımlayın.');
         return;
       }
 
-      const daysToPlan = availableWorkDays.length;
+      if (availableWorkDays.length < daysNeeded) {
+        alert(`Uyarı: Tüm müracaatçılara ayda 2 kez hizmet verebilmek için ${daysNeeded} iş günü gerekiyor, ancak sistemde sadece ${availableWorkDays.length} iş günü tanımlı. Planlama mevcut günlerle sınırlı kalacaktır.`);
+      }
 
-      // 5. Group staff into teams
+      // 6. Group staff into teams
       const teams: number[][] = [];
       const processedStaff = new Set<number>();
       staff.forEach(s => {
@@ -212,13 +248,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         teams.push(pair);
       }
 
-      // 6. Distribute into days and track the last assignment
+      // 7. Distribute into days
       let visitIndex = 0;
       let lastAssignedId: number | undefined;
       let lastAssignedGlobalIndex: number | undefined;
 
       const scheduleEntries: any[] = [];
-      for (let d = 0; d < daysToPlan; d++) {
+      for (let d = 0; d < availableWorkDays.length; d++) {
         const wd = availableWorkDays[d];
         const dailyAssignments: any[] = [];
         
@@ -246,29 +282,31 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         });
       }
 
-      // 7. Create Program Record with precise spillover tracking
-      // Determine cycle of the last assigned applicant
+      // 8. Create Program Record
       const finalCycle = (lastAssignedGlobalIndex !== undefined && lastAssignedGlobalIndex >= sortedApplicants.length) ? 2 : 1;
 
       const programId = await dbLocal.programs.add({
-        name: `${format(parseISO(availableWorkDays[0].date), 'dd MMMM yyyy', { locale: tr })} - ${format(parseISO(availableWorkDays[daysToPlan - 1].date), 'dd MMMM yyyy', { locale: tr })} Vefa Programı`,
+        name: `${format(parseISO(availableWorkDays[0].date), 'dd MMMM yyyy', { locale: tr })} - ${format(parseISO(availableWorkDays[availableWorkDays.length - 1].date), 'dd MMMM yyyy', { locale: tr })} Vefa Programı`,
         startDate: availableWorkDays[0].date,
-        endDate: availableWorkDays[daysToPlan - 1].date,
+        endDate: availableWorkDays[availableWorkDays.length - 1].date,
         createdAt: new Date().toISOString(),
         status: 'active',
         lastApplicantId: lastAssignedId,
         lastVisitCycle: finalCycle
       });
 
-      // 8. Save schedules
+      // 9. Save schedules
       for (const entry of scheduleEntries) {
         await dbLocal.schedules.add({
           ...entry,
           programId: programId as number
         });
       }
+
+      alert('Planlama başarıyla tamamlandı.');
     } catch (error) {
       console.error("Error generating schedule:", error);
+      alert('Planlama sırasında bir hata oluştu.');
     } finally {
       setIsGenerating(false);
     }
@@ -366,7 +404,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     
     setIsGenerating(true);
     try {
-      // Get all schedules for this month
+      // 1. Get all schedules for this month
       const monthSchedules = schedules
         .filter(s => {
           const d = parseISO(s.date);
@@ -374,19 +412,31 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         })
         .sort((a, b) => a.date.localeCompare(b.date));
 
-      // Get all work days for this month
-      const monthWorkDays = currentMonthWorkDays;
-
-      // Extract all assignments in order
-      const allAssignments = monthSchedules.flatMap(s => s.assignments);
+      // 2. Separate completed and non-completed
+      const completedSchedules = monthSchedules.filter(s => s.assignments.some(a => a.isCompleted));
+      const nonCompletedSchedules = monthSchedules.filter(s => !s.assignments.some(a => a.isCompleted));
       
-      // Delete old schedules
-      await dbLocal.schedules.bulkDelete(monthSchedules.map(s => s.id!));
+      const nonCompletedAssignments = nonCompletedSchedules.flatMap(s => s.assignments);
+      
+      if (nonCompletedAssignments.length === 0) {
+        alert('Kaydırılacak (tamamlanmamış) planlama bulunamadı.');
+        return;
+      }
 
-      // Re-distribute assignments to new work days (6 per day)
+      // 3. Delete old non-completed schedules
+      await dbLocal.schedules.bulkDelete(nonCompletedSchedules.map(s => s.id!));
+
+      // 4. Get all work days for this month
+      const monthWorkDays = currentMonthWorkDays;
+      const completedDates = new Set(completedSchedules.map(s => s.date));
+      
+      // Filter work days that don't have a completed schedule
+      const availableWorkDays = monthWorkDays.filter(wd => !completedDates.has(wd.date));
+
+      // 5. Re-distribute assignments to new work days (6 per day)
       let assignmentIndex = 0;
-      for (const wd of monthWorkDays) {
-        const dailyAssignments = allAssignments.slice(assignmentIndex, assignmentIndex + 6);
+      for (const wd of availableWorkDays) {
+        const dailyAssignments = nonCompletedAssignments.slice(assignmentIndex, assignmentIndex + 6);
         if (dailyAssignments.length > 0) {
           await dbLocal.schedules.add({
             date: wd.date,
@@ -395,8 +445,11 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         }
         assignmentIndex += 6;
       }
+      
+      alert('Program başarıyla kaydırıldı.');
     } catch (error) {
       console.error("Error reflowing schedule:", error);
+      alert('Program kaydırılırken bir hata oluştu.');
     } finally {
       setIsGenerating(false);
     }
