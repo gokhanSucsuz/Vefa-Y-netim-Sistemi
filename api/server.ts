@@ -26,11 +26,22 @@ const getAppUrl = () => {
   return url.replace(/\/$/, "");
 };
 
-const oauth2Client = new OAuth2Client(
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  `${getAppUrl()}/auth/callback`
-);
+const getOAuth2Client = (req?: express.Request) => {
+  let redirectUri = "";
+  if (req) {
+    const protocol = req.headers["x-forwarded-proto"] || "http";
+    const host = req.headers.host;
+    redirectUri = `${protocol}://${host}/auth/callback`;
+  } else {
+    redirectUri = `${getAppUrl()}/auth/callback`;
+  }
+
+  return new OAuth2Client(
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    redirectUri
+  );
+};
 
 // Health check
 app.get(["/api/health", "/health"], (req, res) => {
@@ -46,7 +57,8 @@ app.get(["/api/auth/url", "/auth/url"], (req, res) => {
         details: "Lütfen Vercel panelinden GOOGLE_CLIENT_ID ve GOOGLE_CLIENT_SECRET değişkenlerini ayarlayın." 
       });
     }
-    const url = oauth2Client.generateAuthUrl({
+    const client = getOAuth2Client(req);
+    const url = client.generateAuthUrl({
       access_type: "offline",
       scope: [
         "https://www.googleapis.com/auth/userinfo.email",
@@ -65,10 +77,11 @@ app.get(["/api/auth/url", "/auth/url"], (req, res) => {
 app.get(["/api/auth/callback", "/auth/callback"], async (req, res) => {
   const { code } = req.query;
   try {
-    const { tokens } = await oauth2Client.getToken(code as string);
-    oauth2Client.setCredentials(tokens);
+    const client = getOAuth2Client(req);
+    const { tokens } = await client.getToken(code as string);
+    client.setCredentials(tokens);
 
-    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
+    const oauth2 = google.oauth2({ version: "v2", auth: client });
     const userInfo = await oauth2.userinfo.get();
 
     if (userInfo.data.email !== ALLOWED_EMAIL) {
@@ -120,8 +133,9 @@ app.get(["/api/auth/status", "/auth/status"], async (req, res) => {
 
   try {
     const tokens = JSON.parse(tokensStr);
-    oauth2Client.setCredentials(tokens);
-    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
+    const client = getOAuth2Client(req);
+    client.setCredentials(tokens);
+    const oauth2 = google.oauth2({ version: "v2", auth: client });
     const userInfo = await oauth2.userinfo.get();
     res.json({ authenticated: true, email: userInfo.data.email });
   } catch (error) {
@@ -142,8 +156,9 @@ app.post(["/api/drive/backup", "/drive/backup"], async (req, res) => {
 
   try {
     const tokens = JSON.parse(tokensStr);
-    oauth2Client.setCredentials(tokens);
-    const drive = google.drive({ version: "v3", auth: oauth2Client });
+    const client = getOAuth2Client(req);
+    client.setCredentials(tokens);
+    const drive = google.drive({ version: "v3", auth: client });
 
     const { data, filename } = req.body;
 
@@ -193,8 +208,9 @@ app.get(["/api/drive/restore", "/drive/restore"], async (req, res) => {
 
   try {
     const tokens = JSON.parse(tokensStr);
-    oauth2Client.setCredentials(tokens);
-    const drive = google.drive({ version: "v3", auth: oauth2Client });
+    const client = getOAuth2Client(req);
+    client.setCredentials(tokens);
+    const drive = google.drive({ version: "v3", auth: client });
 
     const { filename } = req.query;
 
