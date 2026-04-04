@@ -34,12 +34,12 @@ const oauth2Client = new OAuth2Client(
 );
 
 // Health check
-app.get("/api/health", (req, res) => {
+app.get(["/api/health", "/health"], (req, res) => {
   res.json({ status: "ok", env: process.env.NODE_ENV });
 });
 
 // Auth URL
-app.get("/api/auth/url", (req, res) => {
+app.get(["/api/auth/url", "/auth/url"], (req, res) => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     return res.status(500).json({ error: "Google OAuth is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in environment variables." });
   }
@@ -55,7 +55,7 @@ app.get("/api/auth/url", (req, res) => {
 });
 
 // OAuth Callback
-app.get("/auth/callback", async (req, res) => {
+app.get(["/api/auth/callback", "/auth/callback"], async (req, res) => {
   const { code } = req.query;
   try {
     const { tokens } = await oauth2Client.getToken(code as string);
@@ -107,7 +107,7 @@ app.get("/auth/callback", async (req, res) => {
 });
 
 // Check Auth Status
-app.get("/api/auth/status", async (req, res) => {
+app.get(["/api/auth/status", "/auth/status"], async (req, res) => {
   const tokensStr = req.cookies.google_tokens;
   if (!tokensStr) return res.json({ authenticated: false });
 
@@ -123,13 +123,13 @@ app.get("/api/auth/status", async (req, res) => {
 });
 
 // Logout
-app.post("/api/auth/logout", (req, res) => {
+app.post(["/api/auth/logout", "/auth/logout"], (req, res) => {
   res.clearCookie("google_tokens");
   res.json({ success: true });
 });
 
 // Drive Backup
-app.post("/api/drive/backup", async (req, res) => {
+app.post(["/api/drive/backup", "/drive/backup"], async (req, res) => {
   const tokensStr = req.cookies.google_tokens;
   if (!tokensStr) return res.status(401).json({ error: "Unauthorized" });
 
@@ -180,7 +180,7 @@ app.post("/api/drive/backup", async (req, res) => {
 });
 
 // Drive Restore
-app.get("/api/drive/restore", async (req, res) => {
+app.get(["/api/drive/restore", "/drive/restore"], async (req, res) => {
   const tokensStr = req.cookies.google_tokens;
   if (!tokensStr) return res.status(401).json({ error: "Unauthorized" });
 
@@ -214,7 +214,7 @@ app.get("/api/drive/restore", async (req, res) => {
 });
 
 // Geocoding Proxy to avoid CORS and manage rate limiting
-app.get("/api/geocode", async (req, res) => {
+app.get(["/api/geocode", "/geocode"], async (req, res) => {
   const { q } = req.query;
   if (!q) return res.status(400).json({ error: "Query is required" });
 
@@ -261,13 +261,6 @@ if (!process.env.VERCEL) {
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
-  });
-} else {
-  // In Vercel, we still need to serve static files in production
-  const distPath = path.join(process.cwd(), 'dist');
-  app.use(express.static(distPath));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
   });
 }
 
