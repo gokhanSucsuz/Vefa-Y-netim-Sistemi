@@ -35,6 +35,7 @@ export interface Schedule {
     staffIds: number[]; // Array of staff IDs
     isCompleted?: boolean;
     completionDate?: string;
+    completionNote?: string;
   }[];
 }
 

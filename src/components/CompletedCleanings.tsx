@@ -26,8 +26,33 @@ export default function CompletedCleanings({ applicants, staff, schedules }: Com
               applicant,
               staffMembers,
               date: assignment.completionDate || schedule.date,
-              originalDate: schedule.date
+              originalDate: schedule.date,
+              isCompleted: assignment.isCompleted,
+              note: assignment.completionNote
             });
+          }
+        } else {
+          // Check if it's a past date
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const scheduleDate = new Date(schedule.date);
+          scheduleDate.setHours(0, 0, 0, 0);
+
+          if (scheduleDate < today) {
+            const applicant = applicants.find(a => a.id === assignment.applicantId);
+            const staffMembers = assignment.staffIds.map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[];
+            
+            if (applicant) {
+              items.push({
+                id: `${schedule.id}-${assignment.applicantId}`,
+                applicant,
+                staffMembers,
+                date: schedule.date,
+                originalDate: schedule.date,
+                isCompleted: false,
+                note: assignment.completionNote
+              });
+            }
           }
         }
       });
@@ -63,10 +88,10 @@ export default function CompletedCleanings({ applicants, staff, schedules }: Com
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredItems.map((item) => (
-          <div key={item.id} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group">
+          <div key={item.id} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group flex flex-col">
             <div className="flex items-start justify-between mb-4">
-              <div className="bg-green-50 p-2 rounded-lg">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <div className={`p-2 rounded-lg ${item.isCompleted ? 'bg-green-50' : 'bg-orange-50'}`}>
+                <CheckCircle2 className={`w-5 h-5 ${item.isCompleted ? 'text-green-600' : 'text-orange-600'}`} />
               </div>
               <button
                 onClick={() => generateCleaningReport(item.applicant, item.staffMembers, item.date)}
@@ -77,7 +102,7 @@ export default function CompletedCleanings({ applicants, staff, schedules }: Com
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 flex-1">
               <div>
                 <h3 className="font-bold text-gray-900 leading-tight">
                   {item.applicant.name} {item.applicant.surname}
@@ -112,6 +137,13 @@ export default function CompletedCleanings({ applicants, staff, schedules }: Com
                   </div>
                 </div>
               </div>
+
+              {item.note && (
+                <div className="mt-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">Temizlik Notu</p>
+                  <p className="text-xs text-gray-700 italic leading-relaxed">"{item.note}"</p>
+                </div>
+              )}
             </div>
           </div>
         ))}

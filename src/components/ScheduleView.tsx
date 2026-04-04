@@ -51,6 +51,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [isGeocodingDay, setIsGeocodingDay] = useState(false);
   const [swapSelection, setSwapSelection] = useState<{ date: string; applicantId: number } | null>(null);
+  const [completionModal, setCompletionModal] = useState<{ date: string; applicantId: number; name: string } | null>(null);
+  const [completionNote, setCompletionNote] = useState('');
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
@@ -153,22 +155,40 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       const totalVisitsNeeded = applicants.length * 2;
       const daysNeeded = Math.ceil(totalVisitsNeeded / 6);
 
-      // 3. Ensure we have enough work days
-      let availableWorkDays = currentMonthWorkDays;
+      // 3. Determine planning start date (08:30 rule)
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const isAfter830 = currentHour > 8 || (currentHour === 8 && currentMinute >= 30);
+      
+      const todayStr = format(now, 'yyyy-MM-dd');
+      const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');
+      
+      const planningStartDate = isAfter830 ? tomorrowStr : todayStr;
+
+      // 4. Ensure we have enough work days starting from planningStartDate
+      let availableWorkDays = workDays
+        .filter(wd => wd.date >= planningStartDate && wd.isWorkDay)
+        .sort((a, b) => a.date.localeCompare(b.date));
+
       if (availableWorkDays.length < daysNeeded) {
         const newWorkDays: WorkDay[] = [];
-        let currentDate = monthStart;
-        let addedCount = 0;
+        let currentDate = parseISO(planningStartDate);
+        let addedCount = availableWorkDays.length;
         
-        while (addedCount < daysNeeded && currentDate <= monthEnd) {
+        // We need 'daysNeeded' total work days. We already have 'availableWorkDays.length'.
+        // Let's find more days.
+        while (addedCount < daysNeeded) {
           const dateStr = format(currentDate, 'yyyy-MM-dd');
           const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
           
-          if (!isWeekend) {
-            const existing = workDays.find(wd => wd.date === dateStr);
-            if (!existing || !existing.isWorkDay) {
-              newWorkDays.push({ date: dateStr, isWorkDay: true });
-            }
+          const existing = workDays.find(wd => wd.date === dateStr);
+          if (!isWeekend && (!existing || !existing.isWorkDay)) {
+            newWorkDays.push({ date: dateStr, isWorkDay: true });
+            addedCount++;
+          } else if (!isWeekend && existing?.isWorkDay && !availableWorkDays.some(awd => awd.date === dateStr)) {
+            // This case shouldn't happen if filter was correct, but for safety:
+            availableWorkDays.push(existing);
             addedCount++;
           }
           currentDate = addDays(currentDate, 1);
@@ -180,7 +200,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         }
       }
 
-      // 4. Create the visit list starting from startIndex
+      // 5. Create the visit list starting from startIndex
       const sortedApplicants = [...applicants].sort((a, b) => (a.neighborhood || '').localeCompare(b.neighborhood || ''));
       
       // Re-order applicants to start from startIndex
@@ -191,7 +211,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       
       const visitList = [...reorderedApplicants, ...reorderedApplicants];
       
-      // 5. Group staff into teams
+      // 6. Group staff into teams
       const teams: number[][] = [];
       const processedStaff = new Set<number>();
       staff.forEach(s => {
@@ -209,17 +229,17 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         teams.push(pair);
       }
 
-      // 6. Create Program Record
+      // 7. Create Program Record
       const programId = await dbLocal.programs.add({
-        name: `${format(selectedMonth, 'MMMM yyyy', { locale: tr })} Vefa Programı`,
-        startDate: availableWorkDays[0]?.date || format(monthStart, 'yyyy-MM-dd'),
-        endDate: availableWorkDays[daysNeeded - 1]?.date || format(monthEnd, 'yyyy-MM-dd'),
+        name: `${format(parseISO(availableWorkDays[0].date), 'dd MMMM yyyy', { locale: tr })} - ${format(parseISO(availableWorkDays[daysNeeded - 1].date), 'dd MMMM yyyy', { locale: tr })} Vefa Programı`,
+        startDate: availableWorkDays[0].date,
+        endDate: availableWorkDays[daysNeeded - 1].date,
         createdAt: new Date().toISOString(),
         status: 'active',
         lastApplicantId: visitList[Math.min(visitList.length - 1, (daysNeeded * 6) - 1)]?.id
       });
 
-      // 7. Distribute into days
+      // 8. Distribute into days
       let visitIndex = 0;
       for (let d = 0; d < daysNeeded; d++) {
         const wd = availableWorkDays[d];
@@ -256,7 +276,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     }
   };
 
-  const toggleCompletion = async (date: string, applicantId: number) => {
+  const toggleCompletion = async (date: string, applicantId: number, note?: string) => {
     const schedule = schedules.find(s => s.date === date);
     if (!schedule) return;
 
@@ -266,13 +286,16 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         return { 
           ...a, 
           isCompleted, 
-          completionDate: isCompleted ? new Date().toISOString() : undefined 
+          completionDate: isCompleted ? new Date().toISOString() : undefined,
+          completionNote: isCompleted ? note : undefined
         };
       }
       return a;
     });
 
     await dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
+    setCompletionModal(null);
+    setCompletionNote('');
   };
 
   const updateStaffAssignment = async (date: string, applicantId: number, staffIndex: number, staffId: number) => {
@@ -456,6 +479,38 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
   return (
     <div className="space-y-6 relative">
+      {/* Completion Note Modal */}
+      {completionModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in duration-300">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Temizlik Tamamlandı</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              <span className="font-semibold text-blue-600">{completionModal.name}</span> müracaatçının evi için temizlik bitti. Varsa eklemek istediğiniz bilgileri yazın.
+            </p>
+            <textarea
+              value={completionNote}
+              onChange={(e) => setCompletionNote(e.target.value)}
+              placeholder="Ev durumu, yapılan işlemler veya özel notlar..."
+              className="w-full h-32 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCompletionModal(null)}
+                className="flex-1 py-3 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-all"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={() => toggleCompletion(completionModal.date, completionModal.applicantId, completionNote)}
+                className="flex-1 py-3 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-all shadow-lg shadow-green-100"
+              >
+                Onayla ve Bitir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isGeocodingDay && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-6 max-w-sm w-full text-center animate-in zoom-in duration-300">
@@ -702,7 +757,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                             
                             <div className="grid grid-cols-2 gap-2 mt-4">
                               <button 
-                                onClick={() => toggleCompletion(a.date, item.applicant.id!)}
+                                onClick={() => {
+                                  if (isCompleted) {
+                                    toggleCompletion(a.date, item.applicant.id!);
+                                  } else {
+                                    setCompletionModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
+                                  }
+                                }}
                                 className={`py-2 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
                                   isCompleted 
                                     ? 'bg-orange-50 text-orange-600 hover:bg-orange-100' 
@@ -710,7 +771,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                 }`}
                               >
                                 {isCompleted ? <Clock className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                                {isCompleted ? 'İptal Et' : 'Tamamlandı'}
+                                {isCompleted ? 'İptal Et' : 'Temizlik Bitti'}
                               </button>
                               <button 
                                 onClick={() => saveDay(a.date)}
