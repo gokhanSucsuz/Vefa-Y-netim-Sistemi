@@ -466,15 +466,20 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const activeMarkers = useMemo(() => {
     if (!expandedDay) return [];
     const day = assignments.find(a => a.date === expandedDay);
-    if (!day) return [];
-    return day.items.map((item, i) => ({
-      pos: [
-        item.applicant.lat || (41.675 + (i * 0.002)), 
-        item.applicant.lng || (26.570 + (i * 0.002))
-      ] as [number, number],
-      name: `${item.applicant.name} ${item.applicant.surname}`,
-      address: item.applicant.address
-    }));
+    if (!day || !day.items || day.items.length === 0) return [];
+    
+    return day.items
+      .map((item, i) => {
+        const lat = typeof item.applicant.lat === 'number' ? item.applicant.lat : (41.675 + (i * 0.002));
+        const lng = typeof item.applicant.lng === 'number' ? item.applicant.lng : (26.570 + (i * 0.002));
+        
+        return {
+          pos: [lat, lng] as [number, number],
+          name: `${item.applicant.name} ${item.applicant.surname}`,
+          address: item.applicant.address
+        };
+      })
+      .filter(m => !isNaN(m.pos[0]) && !isNaN(m.pos[1]));
   }, [expandedDay, assignments]);
 
   return (

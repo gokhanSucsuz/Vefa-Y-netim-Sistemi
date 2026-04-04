@@ -21,6 +21,17 @@ export default function Statistics() {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
+  const setQuickFilter = (type: 'month' | 'year') => {
+    const now = new Date();
+    if (type === 'month') {
+      setStartDate(format(startOfMonth(now), 'yyyy-MM-dd'));
+      setEndDate(format(endOfMonth(now), 'yyyy-MM-dd'));
+    } else {
+      setStartDate(format(new Date(now.getFullYear(), 0, 1), 'yyyy-MM-dd'));
+      setEndDate(format(new Date(now.getFullYear(), 11, 31), 'yyyy-MM-dd'));
+    }
+  };
+
   const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
   const staff = useLiveQuery(() => dbLocal.staff.toArray()) || [];
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
@@ -190,7 +201,26 @@ export default function Statistics() {
       startY: (doc as any).lastAutoTable.finalY + 15,
       head: [[trFix('Personel'), trFix('Is Sayisi'), trFix('Farkli Muracaatci')]],
       body: stats.staffData.map(s => [trFix(s.name), s.jobCount, s.uniqueApplicantsCount]),
-      theme: 'striped'
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229] }
+    });
+
+    // Detailed Cleaning Log
+    doc.addPage();
+    doc.setFont("helvetica", "bold");
+    doc.text(trFix('Detayli Temizlik Kayitlari (Muracaatci Bazli)'), 14, 15);
+    autoTable(doc, {
+      startY: 25,
+      head: [[trFix('Tarih'), trFix('Muracaatci'), trFix('Mahalle'), trFix('Personeller')]],
+      body: stats.completedAssignments.map(a => [
+        format(parseISO(a.date), 'dd.MM.yyyy'),
+        trFix(`${a.applicant?.name} ${a.applicant?.surname}`),
+        trFix(a.applicant?.neighborhood || '-'),
+        trFix(a.staffMembers.map(s => `${s.name} ${s.surname}`).join(', '))
+      ]),
+      theme: 'grid',
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [16, 185, 129] }
     });
 
     doc.save(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
@@ -205,6 +235,20 @@ export default function Statistics() {
           <p className="text-gray-500">Sistem verilerinin görsel analizi ve performans takibi.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex gap-1 border-r border-gray-100 pr-2">
+            <button 
+              onClick={() => setQuickFilter('month')}
+              className="px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            >
+              Bu Ay
+            </button>
+            <button 
+              onClick={() => setQuickFilter('year')}
+              className="px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+            >
+              Bu Yıl
+            </button>
+          </div>
           <div className="flex items-center gap-2 px-3">
             <Calendar className="w-4 h-4 text-gray-400" />
             <input 
@@ -271,23 +315,29 @@ export default function Statistics() {
             </h3>
           </div>
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.neighborhoodData.slice(0, 8)}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#64748b' }}
-                />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  cursor={{ fill: '#f8fafc' }}
-                />
-                <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={32} />
-              </BarChart>
-            </ResponsiveContainer>
+            {stats.neighborhoodData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.neighborhoodData.slice(0, 8)}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                  />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    cursor={{ fill: '#f8fafc' }}
+                  />
+                  <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={32} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                Veri bulunamadı
+              </div>
+            )}
           </div>
         </div>
 
@@ -300,25 +350,31 @@ export default function Statistics() {
             </h3>
           </div>
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={stats.staffData.slice(0, 5)}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="jobCount"
-                >
-                  {stats.staffData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36}/>
-              </PieChart>
-            </ResponsiveContainer>
+            {stats.staffData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats.staffData.slice(0, 5)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="jobCount"
+                  >
+                    {stats.staffData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" height={36}/>
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                Veri bulunamadı
+              </div>
+            )}
           </div>
         </div>
       </div>
