@@ -71,79 +71,87 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
     >
       {/* Hidden Report for PDF Generation */}
-      <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '20mm', fontFamily: 'Verdana, sans-serif', fontSize: '12pt' }}>
-        <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '40px', color: '#111827' }}>
-          <h1 style={{ fontSize: '24pt', fontWeight: 'bold', textAlign: 'center', marginBottom: '40px', borderBottom: '2px solid #2563eb', paddingBottom: '20px' }}>Müracaatçı Hizmet Raporu</h1>
+      <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '25mm', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.5' }}>
+        <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '20px', color: '#000000' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <h1 style={{ fontSize: '16pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>T.C.</h1>
+            <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>EDİRNE VALİLİĞİ</h2>
+            <h3 style={{ fontSize: '12pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid #000', paddingBottom: '10px' }}>Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı</h3>
+            <h4 style={{ fontSize: '13pt', fontWeight: 'bold', marginTop: '20px' }}>MÜRACAATÇI HİZMET VE TAKİP RAPORU</h4>
+          </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '40px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p><strong>Ad Soyad:</strong> {applicant.name} {applicant.surname}</p>
-              <p><strong>TC Kimlik No:</strong> {applicant.tcNo}</p>
-              <p><strong>Mahalle:</strong> {applicant.neighborhood || '-'}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px', border: '1px solid #e5e7eb', padding: '15px', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <p><strong>Adı Soyadı:</strong> {applicant.name} {applicant.surname}</p>
+              <p><strong>T.C. Kimlik No:</strong> {applicant.tcNo}</p>
+              <p><strong>Mahalle/Köy:</strong> {applicant.neighborhood || '-'}</p>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p><strong>Rapor Tarihi:</strong> {format(new Date(), 'd MMMM yyyy HH:mm', { locale: tr })}</p>
-              <p><strong>Telefon:</strong> {applicant.phone}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'right' }}>
+              <p><strong>Rapor Tarihi:</strong> {format(new Date(), 'dd.MM.yyyy HH:mm')}</p>
+              <p><strong>İletişim:</strong> {applicant.phone}</p>
             </div>
           </div>
 
-          <div style={{ marginBottom: '40px' }}>
-            <p><strong>Adres:</strong> {applicant.address}</p>
+          <div style={{ marginBottom: '30px', border: '1px solid #e5e7eb', padding: '15px', borderRadius: '8px' }}>
+            <p><strong>İkametgah Adresi:</strong> {applicant.address}</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '40px' }}>
-            <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #dbeafe', textAlign: 'center' }}>
-              <div style={{ fontSize: '10pt', color: '#2563eb', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Toplam Ziyaret</div>
-              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#1e3a8a' }}>{totalVisits}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '30px' }}>
+            <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', borderRadius: '6px' }}>
+              <div style={{ fontSize: '9pt', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Toplam Ziyaret</div>
+              <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>{totalVisits}</div>
             </div>
-            <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7', textAlign: 'center' }}>
-              <div style={{ fontSize: '10pt', color: '#16a34a', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Tamamlanan</div>
-              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#14532d' }}>{completedVisits}</div>
+            <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', borderRadius: '6px' }}>
+              <div style={{ fontSize: '9pt', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Tamamlanan</div>
+              <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>{completedVisits}</div>
             </div>
-            <div style={{ padding: '16px', backgroundColor: '#faf5ff', borderRadius: '12px', border: '1px solid #f3e8ff', textAlign: 'center' }}>
-              <div style={{ fontSize: '10pt', color: '#9333ea', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Başarı Oranı</div>
-              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#581c87' }}>
+            <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', borderRadius: '6px' }}>
+              <div style={{ fontSize: '9pt', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Başarı Oranı</div>
+              <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>
                 {totalVisits > 0 ? `%${Math.round((completedVisits / totalVisits) * 100)}` : '%0'}
               </div>
             </div>
           </div>
 
-          <h2 style={{ fontSize: '16pt', fontWeight: 'bold', marginBottom: '16px', borderLeft: '4px solid #2563eb', paddingLeft: '12px' }}>Ziyaret Geçmişi</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
+          <h2 style={{ fontSize: '12pt', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid #000', paddingBottom: '5px' }}>Ziyaret Kayıt Çizelgesi</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '10pt' }}>
             <thead>
-              <tr style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>
-                <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #1d4ed8' }}>No</th>
-                <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #1d4ed8' }}>Ziyaret Tarihi</th>
-                <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #1d4ed8' }}>Durum</th>
+              <tr style={{ backgroundColor: '#f1f5f9' }}>
+                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Sıra No</th>
+                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Hizmet Tarihi</th>
+                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Durum Bilgisi</th>
               </tr>
             </thead>
             <tbody>
               {schedules.map((s, idx) => {
                 const assignment = s.assignments.find(a => a.applicantId === applicant.id);
                 return (
-                  <tr key={s.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
-                    <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{schedules.length - idx}</td>
-                    <td style={{ padding: '12px', border: '1px solid #e5e7eb' }}>{format(parseISO(s.date), 'd MMMM yyyy, EEEE', { locale: tr })}</td>
-                    <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: '500' }}>
-                      {assignment?.isCompleted ? (
-                        <span style={{ color: '#16a34a' }}>Tamamlandı</span>
-                      ) : (
-                        <span style={{ color: '#d97706' }}>Beklemede</span>
-                      )}
+                  <tr key={s.id}>
+                    <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{schedules.length - idx}</td>
+                    <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{format(parseISO(s.date), 'dd MMMM yyyy, EEEE', { locale: tr })}</td>
+                    <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: '500' }}>
+                      {assignment?.isCompleted ? 'Tamamlandı' : 'Beklemede'}
                     </td>
                   </tr>
                 );
               })}
               {schedules.length === 0 && (
                 <tr>
-                  <td colSpan={3} style={{ padding: '40px', textAlign: 'center', color: '#6b7280', fontStyle: 'italic' }}>Henüz bir ziyaret kaydı bulunmuyor.</td>
+                  <td colSpan={3} style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>Kayıtlı hizmet bulunmamaktadır.</td>
                 </tr>
               )}
             </tbody>
           </table>
 
-          <div style={{ marginTop: '80px', paddingTop: '40px', borderTop: '1px solid #e5e7eb', textAlign: 'center', fontSize: '10pt', color: '#9ca3af', fontStyle: 'italic' }}>
-            Bu rapor Edirne Merkez SYDV Vefa Programı Yönetim Sistemi tarafından otomatik olarak oluşturulmuştur.
+          <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ textAlign: 'center', width: '200px' }}>
+              <p style={{ fontWeight: 'bold', marginBottom: '40px' }}>Vakıf Görevlisi</p>
+              <p>(İmza)</p>
+            </div>
+          </div>
+
+          <div style={{ position: 'absolute', bottom: '15mm', left: '20mm', right: '20mm', textAlign: 'center', fontSize: '8pt', color: '#94a3b8', borderTop: '0.5px solid #cbd5e1', paddingTop: '10px' }}>
+            Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır.
           </div>
         </div>
       </div>

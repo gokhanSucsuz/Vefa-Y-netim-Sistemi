@@ -191,67 +191,84 @@ export default function Statistics() {
   return (
     <div className="space-y-6 pb-12">
       {/* Hidden Report for PDF Generation */}
-      <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', fontFamily: 'Verdana, sans-serif', fontSize: '12pt' }}>
-        <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '40px', color: '#111827' }}>
-          <h1 style={{ fontSize: '24pt', fontWeight: 'bold', textAlign: 'center', marginBottom: '24px', borderBottom: '2px solid #2563eb', paddingBottom: '16px' }}>Edirne Merkez SYDV Vefa İstatistik Raporu</h1>
-          <p style={{ textAlign: 'center', marginBottom: '32px', color: '#4b5563' }}>Dönem: {startDate} - {endDate}</p>
+      <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '25mm', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.5' }}>
+        <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '20px', color: '#000000' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <h1 style={{ fontSize: '16pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>T.C.</h1>
+            <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>EDİRNE VALİLİĞİ</h2>
+            <h3 style={{ fontSize: '12pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid #000', paddingBottom: '10px' }}>Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı</h3>
+            <h4 style={{ fontSize: '13pt', fontWeight: 'bold', marginTop: '20px' }}>GENEL İSTATİSTİK VE FAALİYET RAPORU</h4>
+          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '40px' }}>
-            <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #dbeafe', textAlign: 'center' }}>
-              <div style={{ fontSize: '10pt', color: '#2563eb', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Toplam Temizlik</div>
-              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#1e3a8a' }}>{stats.totalCleanings}</div>
+          <p style={{ textAlign: 'center', marginBottom: '30px', color: '#475569' }}><strong>Rapor Dönemi:</strong> {startDate} - {endDate}</p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '30px' }}>
+            <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', borderRadius: '6px' }}>
+              <div style={{ fontSize: '9pt', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Toplam Temizlik</div>
+              <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>{stats.totalCleanings}</div>
             </div>
-            <div style={{ padding: '16px', backgroundColor: '#fff7ed', borderRadius: '12px', border: '1px solid #ffedd5', textAlign: 'center' }}>
-              <div style={{ fontSize: '10pt', color: '#ea580c', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Mahalle Sayısı</div>
-              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#7c2d12' }}>{stats.totalNeighborhoods}</div>
+            <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', borderRadius: '6px' }}>
+              <div style={{ fontSize: '9pt', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Mahalle Sayısı</div>
+              <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>{stats.totalNeighborhoods}</div>
             </div>
-            <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7', textAlign: 'center' }}>
-              <div style={{ fontSize: '10pt', color: '#16a34a', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>Müracaatçı Sayısı</div>
-              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: '#14532d' }}>{stats.totalUniqueApplicants}</div>
+            <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', borderRadius: '6px' }}>
+              <div style={{ fontSize: '9pt', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Müracaatçı Sayısı</div>
+              <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>{stats.totalUniqueApplicants}</div>
             </div>
           </div>
 
-          <h2 style={{ fontSize: '14pt', fontWeight: 'bold', marginBottom: '16px', borderLeft: '4px solid #2563eb', paddingLeft: '12px' }}>Personel Performans Verileri</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
+          <h2 style={{ fontSize: '12pt', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid #000', paddingBottom: '5px' }}>Personel Performans Çizelgesi</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '10pt' }}>
             <thead>
-              <tr style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #1d4ed8' }}>Personel</th>
-                <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #1d4ed8' }}>İş Sayısı</th>
-                <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #1d4ed8' }}>Farklı Müracaatçı</th>
+              <tr style={{ backgroundColor: '#f1f5f9' }}>
+                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Personel Adı Soyadı</th>
+                <th style={{ padding: '10px', textAlign: 'center', border: '1px solid #94a3b8' }}>Toplam İş</th>
+                <th style={{ padding: '10px', textAlign: 'center', border: '1px solid #94a3b8' }}>Farklı Müracaatçı</th>
               </tr>
             </thead>
             <tbody>
               {stats.staffData.map((s, idx) => (
-                <tr key={s.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
-                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{s.name}</td>
-                  <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{s.jobCount}</td>
-                  <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{s.uniqueApplicantsCount}</td>
+                <tr key={s.id}>
+                  <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{s.name}</td>
+                  <td style={{ padding: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>{s.jobCount}</td>
+                  <td style={{ padding: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>{s.uniqueApplicantsCount}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <h2 style={{ fontSize: '14pt', fontWeight: 'bold', marginBottom: '16px', borderLeft: '4px solid #16a34a', paddingLeft: '12px' }}>Detaylı Temizlik Kayıtları</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px', fontSize: '10pt' }}>
+          <h2 style={{ fontSize: '12pt', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid #000', paddingBottom: '5px' }}>Detaylı Faaliyet Kayıtları</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '9pt' }}>
             <thead>
-              <tr style={{ backgroundColor: '#16a34a', color: '#ffffff' }}>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #15803d' }}>Tarih</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #15803d' }}>Müracaatçı</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #15803d' }}>Mahalle</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #15803d' }}>Personeller</th>
+              <tr style={{ backgroundColor: '#f1f5f9' }}>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Tarih</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Müracaatçı</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Mahalle</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Görevli Personeller</th>
               </tr>
             </thead>
             <tbody>
               {stats.completedAssignments.map((a, idx) => (
-                <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
-                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{format(parseISO(a.date), 'dd.MM.yyyy')}</td>
-                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{a.applicant?.name} {a.applicant?.surname}</td>
-                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{a.applicant?.neighborhood || '-'}</td>
-                  <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{a.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ')}</td>
+                <tr key={idx}>
+                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{format(parseISO(a.date), 'dd.MM.yyyy')}</td>
+                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{a.applicant?.name} {a.applicant?.surname}</td>
+                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{a.applicant?.neighborhood || '-'}</td>
+                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{a.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ')}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+
+          <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ textAlign: 'center', width: '200px' }}>
+              <p style={{ fontWeight: 'bold', marginBottom: '40px' }}>Vakıf Müdürü</p>
+              <p>(İmza)</p>
+            </div>
+          </div>
+
+          <div style={{ position: 'absolute', bottom: '15mm', left: '20mm', right: '20mm', textAlign: 'center', fontSize: '8pt', color: '#94a3b8', borderTop: '0.5px solid #cbd5e1', paddingTop: '10px' }}>
+            Edirne Merkez SYDV Vefa Programı Yönetim Sistemi Raporlama Modülü
+          </div>
         </div>
       </div>
 
