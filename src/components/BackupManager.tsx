@@ -25,6 +25,9 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
+      const failStatus = { authenticated: false };
+      setAuthStatus(failStatus);
+      if (onAuthChange) onAuthChange(false);
     }
   }, [onAuthChange, isInitialLoad]);
 
