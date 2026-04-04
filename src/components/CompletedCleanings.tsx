@@ -15,10 +15,10 @@ export default function CompletedCleanings({ applicants, staff, schedules }: Com
   const completedItems = useMemo(() => {
     const items: any[] = [];
     schedules.forEach(schedule => {
-      schedule.assignments.forEach(assignment => {
+      (schedule.assignments || []).forEach(assignment => {
         if (assignment.isCompleted) {
           const applicant = applicants.find(a => a.id === assignment.applicantId);
-          const staffMembers = assignment.staffIds.map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[];
+          const staffMembers = (assignment.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[];
           
           if (applicant) {
             items.push({

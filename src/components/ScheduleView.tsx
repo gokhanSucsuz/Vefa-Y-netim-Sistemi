@@ -113,7 +113,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const assignments: DailyAssignment[] = useMemo(() => {
     return currentMonthWorkDays.map(wd => {
       const schedule = schedules.find(s => s.date === wd.date);
-      const items = schedule 
+      const items = (schedule && schedule.assignments)
         ? schedule.assignments.map(a => ({
             applicant: applicants.find(p => p.id === a.applicantId)!,
             staffMembers: (a.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[]
