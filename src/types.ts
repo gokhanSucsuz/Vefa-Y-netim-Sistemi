@@ -29,10 +29,23 @@ export interface WorkDay {
 export interface Schedule {
   id?: number;
   date: string; // ISO YYYY-MM-DD
+  programId?: number; // ID of the program this schedule belongs to
   assignments: {
     applicantId: number;
     staffIds: number[]; // Array of staff IDs
+    isCompleted?: boolean;
+    completionDate?: string;
   }[];
+}
+
+export interface Program {
+  id?: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  status: 'active' | 'cancelled';
+  lastApplicantId?: number; // The ID of the last applicant assigned in this program
 }
 
 export interface DailyAssignment {

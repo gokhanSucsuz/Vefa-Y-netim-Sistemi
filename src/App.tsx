@@ -6,21 +6,59 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from './db';
-import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard } from 'lucide-react';
+import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
 import ApplicantList from './components/ApplicantList';
 import StaffList from './components/StaffList';
 import WorkDayCalendar from './components/WorkDayCalendar';
 import ScheduleView from './components/ScheduleView';
 import Documentation from './components/Documentation';
 import Dashboard from './components/Dashboard';
+import BackupManager from './components/BackupManager';
+import ProgramManagement from './components/ProgramManagement';
+import CompletedCleanings from './components/CompletedCleanings';
+import Statistics from './components/Statistics';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'staff' | 'workdays' | 'schedule' | 'docs'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'completed' | 'docs' | 'stats'>('dashboard');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+
+  const AUTHORIZED_EMAIL = 'edirnesydv@gmail.com';
+
+  const handleAuthChange = (auth: boolean, email?: string) => {
+    setIsAuthenticated(auth);
+    setUserEmail(email);
+  };
   
   const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
   const staff = useLiveQuery(() => dbLocal.staff.toArray()) || [];
   const workDays = useLiveQuery(() => dbLocal.workDays.toArray()) || [];
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
+  const programs = useLiveQuery(() => dbLocal.programs.toArray()) || [];
+
+  if (isAuthenticated === false || (isAuthenticated === true && userEmail !== AUTHORIZED_EMAIL)) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <BackupManager onAuthChange={handleAuthChange} isInitialLoad={true} />
+        {isAuthenticated === true && userEmail !== AUTHORIZED_EMAIL && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              Yetkisiz hesap: {userEmail}. Lütfen {AUTHORIZED_EMAIL} ile giriş yapın.
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
@@ -75,6 +113,27 @@ export default function App() {
             Program Planlama
           </button>
           <button
+            onClick={() => setActiveTab('programs')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'programs' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <Calendar className="w-5 h-5" />
+            Yapılan Programlar
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'completed' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <CheckCircle2 className="w-5 h-5" />
+            Tamamlanan Temizlikler
+          </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'stats' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <TrendingUp className="w-5 h-5" />
+            İstatistik ve Raporlar
+          </button>
+          <button
             onClick={() => setActiveTab('docs')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'docs' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
           >
@@ -84,13 +143,7 @@ export default function App() {
         </nav>
 
         <div className="p-6 border-t border-gray-100">
-          <div className="bg-blue-50 rounded-2xl p-4">
-            <p className="text-xs font-bold text-blue-700 uppercase mb-1">Sistem Durumu</p>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-xs text-blue-900 font-medium">Çevrimdışı Mod (Yerel)</span>
-            </div>
-          </div>
+          <BackupManager onAuthChange={handleAuthChange} />
         </div>
       </aside>
 
@@ -102,6 +155,9 @@ export default function App() {
           {activeTab === 'staff' && <StaffList staff={staff} />}
           {activeTab === 'workdays' && <WorkDayCalendar workDays={workDays} />}
           {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} />}
+          {activeTab === 'programs' && <ProgramManagement programs={programs} schedules={schedules} />}
+          {activeTab === 'completed' && <CompletedCleanings applicants={applicants} staff={staff} schedules={schedules} />}
+          {activeTab === 'stats' && <Statistics />}
           {activeTab === 'docs' && <Documentation />}
         </div>
       </main>

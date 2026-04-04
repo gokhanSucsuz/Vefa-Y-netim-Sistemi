@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { dbLocal } from '../db';
-import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS } from '../types';
-import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program } from '../types';
+import { format, startOfMonth, endOfMonth, parseISO, addDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2 } from 'lucide-react';
+import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -50,9 +50,54 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const [showMap, setShowMap] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [isGeocodingDay, setIsGeocodingDay] = useState(false);
+  const [swapSelection, setSwapSelection] = useState<{ date: string; applicantId: number } | null>(null);
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
+
+  const handleSwap = async (date: string, applicantId: number) => {
+    if (!swapSelection) {
+      setSwapSelection({ date, applicantId });
+      return;
+    }
+
+    if (swapSelection.date === date && swapSelection.applicantId === applicantId) {
+      setSwapSelection(null);
+      return;
+    }
+
+    const schedule1 = schedules.find(s => s.date === swapSelection.date);
+    const schedule2 = schedules.find(s => s.date === date);
+
+    if (!schedule1 || !schedule2) return;
+
+    const newAssignments1 = [...schedule1.assignments];
+    const newAssignments2 = [...schedule2.assignments];
+
+    const idx1 = newAssignments1.findIndex(a => a.applicantId === swapSelection.applicantId);
+    const idx2 = newAssignments2.findIndex(a => a.applicantId === applicantId);
+
+    if (idx1 === -1 || idx2 === -1) return;
+
+    // Swap applicant IDs
+    const tempId = newAssignments1[idx1].applicantId;
+    newAssignments1[idx1].applicantId = newAssignments2[idx2].applicantId;
+    newAssignments2[idx2].applicantId = tempId;
+
+    // Preserve completion status? Usually swapping happens before completion, 
+    // but let's just swap the applicant and keep the rest of the slot data (staff) as is for that day/slot.
+    // Actually, it's better to swap the entire assignment object except maybe the date/team if they are fixed.
+    // The user said "yer değiştirme işlemi yapmamı sağlayacak düzenlemeyi de yap yani iki müracaatçının gününü değiştirebileyim"
+    // This implies swapping their positions in the schedule.
+
+    await dbLocal.transaction('rw', dbLocal.schedules, async () => {
+      await dbLocal.schedules.update(schedule1.id!, { assignments: newAssignments1 });
+      await dbLocal.schedules.update(schedule2.id!, { assignments: newAssignments2 });
+    });
+
+    setSwapSelection(null);
+    alert('Müracaatçılar başarıyla yer değiştirildi.');
+  };
 
   const currentMonthWorkDays = useMemo(() => {
     return workDays
@@ -82,26 +127,33 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       return;
     }
 
+    // Check for existing active program
+    const activeProgram = await dbLocal.programs.where('status').equals('active').first();
+    if (activeProgram) {
+      if (!confirm('Hali hazırda aktif bir program bulunuyor. Yeni bir program oluşturmak mevcut programı iptal edecektir. Devam etmek istiyor musunuz?')) {
+        return;
+      }
+      // Cancel existing program
+      await dbLocal.programs.update(activeProgram.id!, { status: 'cancelled' });
+    }
+
     setIsGenerating(true);
     try {
-      // 1. Calculate total visits needed (each applicant twice)
+      // 1. Determine starting point
+      const lastProgram = await dbLocal.programs.orderBy('id').last();
+      let startIndex = 0;
+      if (lastProgram && lastProgram.lastApplicantId) {
+        const lastIndex = applicants.findIndex(a => a.id === lastProgram.lastApplicantId);
+        if (lastIndex !== -1) {
+          startIndex = (lastIndex + 1) % applicants.length;
+        }
+      }
+
+      // 2. Calculate total visits needed (each applicant twice)
       const totalVisitsNeeded = applicants.length * 2;
       const daysNeeded = Math.ceil(totalVisitsNeeded / 6);
 
-      // 2. Clear existing schedules for this month
-      const existingIds = schedules
-        .filter(s => {
-          const d = parseISO(s.date);
-          return d >= monthStart && d <= monthEnd;
-        })
-        .map(s => s.id!);
-      
-      if (existingIds.length > 0) {
-        await dbLocal.schedules.bulkDelete(existingIds);
-      }
-
-      // 3. Ensure we have enough work days. If not, auto-create them.
-      // We'll pick the first N weekdays of the month.
+      // 3. Ensure we have enough work days
       let availableWorkDays = currentMonthWorkDays;
       if (availableWorkDays.length < daysNeeded) {
         const newWorkDays: WorkDay[] = [];
@@ -119,21 +171,25 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             }
             addedCount++;
           }
-          currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
+          currentDate = addDays(currentDate, 1);
         }
         
         if (newWorkDays.length > 0) {
           await dbLocal.workDays.bulkPut(newWorkDays);
-          // We need to wait a bit for the useLiveQuery to update or manually update local list
-          // For simplicity in this function, we'll just assume they are there or use the calculated list
           availableWorkDays = [...availableWorkDays, ...newWorkDays].sort((a, b) => a.date.localeCompare(b.date));
         }
       }
 
-      // 4. Create the visit list (each ID twice)
-      // Sort applicants by address to keep them together
-      const sortedApplicants = [...applicants].sort((a, b) => a.address.localeCompare(b.address));
-      const visitList = [...sortedApplicants, ...sortedApplicants];
+      // 4. Create the visit list starting from startIndex
+      const sortedApplicants = [...applicants].sort((a, b) => (a.neighborhood || '').localeCompare(b.neighborhood || ''));
+      
+      // Re-order applicants to start from startIndex
+      const reorderedApplicants = [
+        ...sortedApplicants.slice(startIndex),
+        ...sortedApplicants.slice(0, startIndex)
+      ];
+      
+      const visitList = [...reorderedApplicants, ...reorderedApplicants];
       
       // 5. Group staff into teams
       const teams: number[][] = [];
@@ -153,29 +209,35 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         teams.push(pair);
       }
 
-      // 6. Distribute into days
+      // 6. Create Program Record
+      const programId = await dbLocal.programs.add({
+        name: `${format(selectedMonth, 'MMMM yyyy', { locale: tr })} Vefa Programı`,
+        startDate: availableWorkDays[0]?.date || format(monthStart, 'yyyy-MM-dd'),
+        endDate: availableWorkDays[daysNeeded - 1]?.date || format(monthEnd, 'yyyy-MM-dd'),
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        lastApplicantId: visitList[Math.min(visitList.length - 1, (daysNeeded * 6) - 1)]?.id
+      });
+
+      // 7. Distribute into days
       let visitIndex = 0;
       for (let d = 0; d < daysNeeded; d++) {
         const wd = availableWorkDays[d];
         if (!wd) break;
 
-        const dailyAssignments: { applicantId: number, staffIds: number[] }[] = [];
+        const dailyAssignments: any[] = [];
         
         for (let i = 0; i < 6; i++) {
           let applicant = visitList[visitIndex];
-          
-          // If we ran out of visits (shouldn't happen with daysNeeded calculation but for safety)
-          // or if it's the last day and we need to fill to 6
-          if (!applicant) {
-            applicant = sortedApplicants[i % sortedApplicants.length];
-          }
+          if (!applicant) break;
 
           const teamIndex = Math.floor(i / 2) % teams.length;
           const team = teams[teamIndex];
 
           dailyAssignments.push({ 
             applicantId: applicant.id!,
-            staffIds: team || []
+            staffIds: team || [],
+            isCompleted: false
           });
           
           visitIndex++;
@@ -183,6 +245,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         
         await dbLocal.schedules.add({
           date: wd.date,
+          programId: programId as number,
           assignments: dailyAssignments
         });
       }
@@ -191,6 +254,25 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const toggleCompletion = async (date: string, applicantId: number) => {
+    const schedule = schedules.find(s => s.date === date);
+    if (!schedule) return;
+
+    const newAssignments = schedule.assignments.map(a => {
+      if (a.applicantId === applicantId) {
+        const isCompleted = !a.isCompleted;
+        return { 
+          ...a, 
+          isCompleted, 
+          completionDate: isCompleted ? new Date().toISOString() : undefined 
+        };
+      }
+      return a;
+    });
+
+    await dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
   };
 
   const updateStaffAssignment = async (date: string, applicantId: number, staffIndex: number, staffId: number) => {
@@ -513,88 +595,138 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                 {expandedDay === a.date && (
                   <div className="px-6 pb-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {a.items.map((item, idx) => (
-                        <div key={idx} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="font-bold text-gray-900">{item.applicant.name} {item.applicant.surname}</div>
-                              <div className="text-[10px] text-blue-600 font-medium line-clamp-1">{item.applicant.address}</div>
-                            </div>
-                            <div className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500 font-mono">{item.applicant.tcNo}</div>
-                          </div>
-                          <div className="space-y-3">
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Müracaatçı Değiştir</label>
-                              <select
-                                value={item.applicant.id || ''}
-                                onChange={(e) => {
-                                  const newId = parseInt(e.target.value);
-                                  const schedule = schedules.find(s => s.date === a.date);
-                                  if (schedule) {
-                                    const newAssignments = schedule.assignments.map((assignment, i) => 
-                                      i === idx ? { ...assignment, applicantId: newId } : assignment
-                                    );
-                                    dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
-                                  }
-                                }}
-                                className="w-full text-sm bg-gray-50 border-none rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                              >
-                                  {applicants.map(app => (
-                                    <option key={app.id} value={app.id}>
-                                      {app.name} {app.surname} ({app.address.substring(0, 20)}...)
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
+                      {a.items.map((item, idx) => {
+                        const schedule = schedules.find(s => s.date === a.date);
+                        const assignment = schedule?.assignments[idx];
+                        const isCompleted = assignment?.isCompleted;
+                        const isSelectedForSwap = swapSelection?.date === a.date && swapSelection?.applicantId === item.applicant.id;
 
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Temizlik Görevlileri (2 Kişi)</label>
-                              <div className="grid grid-cols-2 gap-2">
-                                {[0, 1].map(sIdx => (
-                                  <select
-                                    key={sIdx}
-                                    value={item.staffMembers[sIdx]?.id || ''}
-                                    onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, sIdx, parseInt(e.target.value))}
-                                    className="w-full text-xs bg-gray-50 border-none rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                                  >
-                                    <option value="">Seç...</option>
-                                    {staff.map(s => {
-                                      // Check if this staff is already assigned to THIS applicant in the OTHER slot
-                                      const isAlreadyInThisApp = item.staffMembers.some((sm, idx) => sm.id === s.id && idx !== sIdx);
-                                      // Check if this staff is assigned to OTHER applicants on the SAME day
-                                      // (A staff member can visit 2 applicants per day)
-                                      const assignmentsOnSameDay = a.items.filter(i => i.staffMembers.some(sm => sm.id === s.id));
-                                      const isAssignedElsewhere = assignmentsOnSameDay.length >= 2 && !assignmentsOnSameDay.some(i => i.applicant.id === item.applicant.id);
-                                      
-                                      return (
-                                        <option 
-                                          key={s.id} 
-                                          value={s.id} 
-                                          disabled={isAlreadyInThisApp || isAssignedElsewhere}
-                                          className={(isAlreadyInThisApp || isAssignedElsewhere) ? 'text-gray-300' : ''}
-                                        >
-                                          {s.name} {s.surname} {isAssignedElsewhere ? '(Dolu)' : ''}
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
-                                ))}
+                        return (
+                          <div key={idx} className={`p-4 rounded-2xl border shadow-sm space-y-3 transition-all ${
+                            isCompleted ? 'bg-green-50 border-green-200' : 
+                            isSelectedForSwap ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'bg-white border-gray-100'
+                          }`}>
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="font-bold text-gray-900">{item.applicant.name} {item.applicant.surname}</div>
+                                <div className="text-[10px] text-blue-600 font-medium line-clamp-1">{item.applicant.address}</div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500 font-mono">{item.applicant.tcNo}</div>
+                                {isCompleted && (
+                                  <span className="text-[8px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold uppercase">Tamamlandı</span>
+                                )}
                               </div>
                             </div>
+                            
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleSwap(a.date, item.applicant.id!)}
+                                disabled={isCompleted}
+                                className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-all flex items-center justify-center gap-1 ${
+                                  isSelectedForSwap 
+                                    ? 'bg-blue-600 text-white border-blue-600' 
+                                    : 'bg-white text-blue-600 border-blue-100 hover:bg-blue-50'
+                                }`}
+                              >
+                                <Wand2 className="w-3 h-3" />
+                                {isSelectedForSwap ? 'Hedef Seçin' : 'Yer Değiştir'}
+                              </button>
+                              {swapSelection && !isSelectedForSwap && (
+                                <button
+                                  onClick={() => handleSwap(a.date, item.applicant.id!)}
+                                  className="flex-1 py-1.5 text-[10px] font-bold rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-all"
+                                >
+                                  Buraya Taşı
+                                </button>
+                              )}
+                            </div>
+                            <div className="space-y-3">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Müracaatçı Değiştir</label>
+                                <select
+                                  value={item.applicant.id || ''}
+                                  disabled={isCompleted}
+                                  onChange={(e) => {
+                                    const newId = parseInt(e.target.value);
+                                    if (schedule) {
+                                      const newAssignments = schedule.assignments.map((assignment, i) => 
+                                        i === idx ? { ...assignment, applicantId: newId } : assignment
+                                      );
+                                      dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
+                                    }
+                                  }}
+                                  className="w-full text-sm bg-gray-50 border-none rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                >
+                                    {applicants.map(app => (
+                                      <option key={app.id} value={app.id}>
+                                        {app.name} {app.surname} ({app.address.substring(0, 20)}...)
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Temizlik Görevlileri (2 Kişi)</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {[0, 1].map(sIdx => (
+                                    <select
+                                      key={sIdx}
+                                      value={item.staffMembers[sIdx]?.id || ''}
+                                      disabled={isCompleted}
+                                      onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, sIdx, parseInt(e.target.value))}
+                                      className="w-full text-xs bg-gray-50 border-none rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                    >
+                                      <option value="">Seç...</option>
+                                      {staff.map(s => {
+                                        const isAlreadyInThisApp = item.staffMembers.some((sm, idx) => sm.id === s.id && idx !== sIdx);
+                                        const assignmentsOnSameDay = a.items.filter(i => i.staffMembers.some(sm => sm.id === s.id));
+                                        const isAssignedElsewhere = assignmentsOnSameDay.length >= 2 && !assignmentsOnSameDay.some(i => i.applicant.id === item.applicant.id);
+                                        
+                                        return (
+                                          <option 
+                                            key={s.id} 
+                                            value={s.id} 
+                                            disabled={isAlreadyInThisApp || isAssignedElsewhere}
+                                            className={(isAlreadyInThisApp || isAssignedElsewhere) ? 'text-gray-300' : ''}
+                                          >
+                                            {s.name} {s.surname} {isAssignedElsewhere ? '(Dolu)' : ''}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2 mt-4">
+                              <button 
+                                onClick={() => toggleCompletion(a.date, item.applicant.id!)}
+                                className={`py-2 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                                  isCompleted 
+                                    ? 'bg-orange-50 text-orange-600 hover:bg-orange-100' 
+                                    : 'bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-100'
+                                }`}
+                              >
+                                {isCompleted ? <Clock className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                                {isCompleted ? 'İptal Et' : 'Tamamlandı'}
+                              </button>
+                              <button 
+                                onClick={() => saveDay(a.date)}
+                                className={`py-2 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                                  lastSavedDay === a.date 
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' 
+                                    : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                }`}
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                {lastSavedDay === a.date ? 'Onaylandı' : 'Günü Onayla'}
+                              </button>
+                            </div>
                           </div>
-                          <button 
-                            onClick={() => saveDay(a.date)}
-                            className={`w-full mt-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                              lastSavedDay === a.date 
-                                ? 'bg-green-600 text-white shadow-lg shadow-green-100' 
-                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                            }`}
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            {lastSavedDay === a.date ? 'Kaydedildi!' : 'Günü Kaydet ve Onayla'}
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
