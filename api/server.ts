@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import fetch from "node-fetch";
 import { google } from "googleapis";
@@ -40,18 +39,26 @@ app.get(["/api/health", "/health"], (req, res) => {
 
 // Auth URL
 app.get(["/api/auth/url", "/auth/url"], (req, res) => {
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    return res.status(500).json({ error: "Google OAuth is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in environment variables." });
+  try {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      return res.status(401).json({ 
+        error: "Google OAuth yapılandırılmamış.", 
+        details: "Lütfen Vercel panelinden GOOGLE_CLIENT_ID ve GOOGLE_CLIENT_SECRET değişkenlerini ayarlayın." 
+      });
+    }
+    const url = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: [
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/drive.file",
+      ],
+      prompt: "consent",
+    });
+    res.json({ url });
+  } catch (error: any) {
+    console.error("Auth URL error:", error);
+    res.status(500).json({ error: "Auth URL oluşturulamadı.", details: error.message });
   }
-  const url = oauth2Client.generateAuthUrl({
-    access_type: "offline",
-    scope: [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/drive.file",
-    ],
-    prompt: "consent",
-  });
-  res.json({ url });
 });
 
 // OAuth Callback
@@ -241,17 +248,16 @@ app.get(["/api/geocode", "/geocode"], async (req, res) => {
 async function setupVite() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    try {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (error) {
+      console.error("Vite setup error:", error);
+    }
   }
 }
 
