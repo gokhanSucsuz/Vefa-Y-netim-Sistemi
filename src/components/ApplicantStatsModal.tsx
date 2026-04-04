@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Applicant, Schedule } from '../types';
 import { dbLocal } from '../db';
-import { X, Calendar, CheckCircle2, Clock, BarChart3, TrendingUp } from 'lucide-react';
+import { X, Calendar, CheckCircle2, Clock, BarChart3, TrendingUp, Download, FileText } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Props {
   applicant: Applicant;
@@ -40,6 +42,60 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
     ? differenceInDays(new Date(), parseISO(lastVisit.date))
     : null;
 
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.text('Müracaatçı Hizmet Raporu', 105, 15, { align: 'center' });
+    
+    // Applicant Info
+    doc.setFontSize(12);
+    doc.text(`Ad Soyad: ${applicant.name} ${applicant.surname}`, 14, 30);
+    doc.text(`TC Kimlik No: ${applicant.tcNo}`, 14, 37);
+    doc.text(`Mahalle: ${applicant.neighborhood || '-'}`, 14, 44);
+    doc.text(`Adres: ${applicant.address}`, 14, 51, { maxWidth: 180 });
+    
+    // Stats Summary
+    doc.setFontSize(14);
+    doc.text('İstatistik Özeti', 14, 70);
+    doc.setFontSize(10);
+    doc.text(`Toplam Planlanan Ziyaret: ${totalVisits}`, 14, 78);
+    doc.text(`Tamamlanan Hizmet Sayısı: ${completedVisits}`, 14, 84);
+    doc.text(`Ziyaret Başarı Oranı: ${totalVisits > 0 ? `%${Math.round((completedVisits / totalVisits) * 100)}` : '%0'}`, 14, 90);
+    doc.text(`Son Ziyaret Tarihi: ${lastVisit ? format(parseISO(lastVisit.date), 'd MMMM yyyy', { locale: tr }) : 'Yok'}`, 14, 96);
+    
+    // Visit History Table
+    const tableData = schedules.map((s, idx) => {
+      const assignment = s.assignments.find(a => a.applicantId === applicant.id);
+      return [
+        schedules.length - idx,
+        format(parseISO(s.date), 'd MMMM yyyy, EEEE', { locale: tr }),
+        assignment?.isCompleted ? 'Tamamlandı' : 'Beklemede'
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 105,
+      head: [['No', 'Ziyaret Tarihi', 'Durum']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillStyle: 'F', fillColor: [37, 99, 235] }, // Blue-600
+      styles: { font: 'helvetica', fontSize: 10 }
+    });
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Rapor Tarihi: ${format(new Date(), 'd MMMM yyyy HH:mm', { locale: tr })}`, 14, 285);
+      doc.text(`Sayfa ${i} / ${pageCount}`, 196, 285, { align: 'right' });
+    }
+
+    doc.save(`Rapor_${applicant.name}_${applicant.surname}.pdf`);
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -57,9 +113,19 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
             <h3 className="text-xl font-bold text-gray-900">{applicant.name} {applicant.surname}</h3>
             <p className="text-sm text-gray-500">Müracaatçı İstatistik ve Raporu</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors shadow-sm">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={generatePDF}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 text-sm font-semibold"
+              title="PDF Olarak İndir"
+            >
+              <Download className="w-4 h-4" />
+              PDF Rapor
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors shadow-sm">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
