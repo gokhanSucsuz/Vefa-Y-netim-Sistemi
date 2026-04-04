@@ -47,6 +47,7 @@ export interface Program {
   createdAt: string;
   status: 'active' | 'cancelled';
   lastApplicantId?: number; // The ID of the last applicant assigned in this program
+  lastVisitCycle?: number; // 1 or 2, to track if it was the first or second visit
 }
 
 export interface DailyAssignment {

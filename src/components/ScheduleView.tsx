@@ -143,17 +143,30 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     try {
       // 1. Determine starting point
       const lastProgram = await dbLocal.programs.orderBy('id').last();
-      let startIndex = 0;
+      const sortedApplicants = [...applicants].sort((a, b) => (a.neighborhood || '').localeCompare(b.neighborhood || ''));
+      
+      let globalStartIndex = 0;
       if (lastProgram && lastProgram.lastApplicantId) {
-        const lastIndex = applicants.findIndex(a => a.id === lastProgram.lastApplicantId);
-        if (lastIndex !== -1) {
-          startIndex = (lastIndex + 1) % applicants.length;
+        const lastCycle = lastProgram.lastVisitCycle || 1;
+        const lastIdxInCycle = sortedApplicants.findIndex(a => a.id === lastProgram.lastApplicantId);
+        
+        if (lastIdxInCycle !== -1) {
+          // Calculate where we left off in the 2N sequence
+          // Cycle 1 is index 0 to N-1, Cycle 2 is index N to 2N-1
+          const lastGlobalIndex = (lastCycle === 1) ? lastIdxInCycle : (sortedApplicants.length + lastIdxInCycle);
+          globalStartIndex = (lastGlobalIndex + 1) % (sortedApplicants.length * 2);
         }
       }
 
-      // 2. Calculate total visits needed (each applicant twice)
-      const totalVisitsNeeded = applicants.length * 2;
-      const daysNeeded = Math.ceil(totalVisitsNeeded / 6);
+      // 2. Create the full 2N visit list
+      const fullVisitList = [...sortedApplicants, ...sortedApplicants];
+      
+      // Re-order the 2N list to start from globalStartIndex
+      const visitList = [
+        ...fullVisitList.slice(globalStartIndex),
+        ...fullVisitList.slice(0, globalStartIndex),
+        ...fullVisitList // Add more for safety if needed, but 2N is usually enough for a month
+      ];
 
       // 3. Determine planning start date (08:30 rule)
       const now = new Date();
@@ -166,52 +179,20 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       
       const planningStartDate = isAfter830 ? tomorrowStr : todayStr;
 
-      // 4. Ensure we have enough work days starting from planningStartDate
+      // 4. Get available work days in the SELECTED MONTH starting from planningStartDate
+      const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
       let availableWorkDays = workDays
-        .filter(wd => wd.date >= planningStartDate && wd.isWorkDay)
+        .filter(wd => wd.date >= planningStartDate && wd.date <= monthEndStr && wd.isWorkDay)
         .sort((a, b) => a.date.localeCompare(b.date));
 
-      if (availableWorkDays.length < daysNeeded) {
-        const newWorkDays: WorkDay[] = [];
-        let currentDate = parseISO(planningStartDate);
-        let addedCount = availableWorkDays.length;
-        
-        // We need 'daysNeeded' total work days. We already have 'availableWorkDays.length'.
-        // Let's find more days.
-        while (addedCount < daysNeeded) {
-          const dateStr = format(currentDate, 'yyyy-MM-dd');
-          const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
-          
-          const existing = workDays.find(wd => wd.date === dateStr);
-          if (!isWeekend && (!existing || !existing.isWorkDay)) {
-            newWorkDays.push({ date: dateStr, isWorkDay: true });
-            addedCount++;
-          } else if (!isWeekend && existing?.isWorkDay && !availableWorkDays.some(awd => awd.date === dateStr)) {
-            // This case shouldn't happen if filter was correct, but for safety:
-            availableWorkDays.push(existing);
-            addedCount++;
-          }
-          currentDate = addDays(currentDate, 1);
-        }
-        
-        if (newWorkDays.length > 0) {
-          await dbLocal.workDays.bulkPut(newWorkDays);
-          availableWorkDays = [...availableWorkDays, ...newWorkDays].sort((a, b) => a.date.localeCompare(b.date));
-        }
+      if (availableWorkDays.length === 0) {
+        alert('Seçili ayda planlanacak iş günü bulunamadı. Lütfen önce "İş Günleri Belirleme" sayfasından günleri seçin.');
+        return;
       }
 
-      // 5. Create the visit list starting from startIndex
-      const sortedApplicants = [...applicants].sort((a, b) => (a.neighborhood || '').localeCompare(b.neighborhood || ''));
-      
-      // Re-order applicants to start from startIndex
-      const reorderedApplicants = [
-        ...sortedApplicants.slice(startIndex),
-        ...sortedApplicants.slice(0, startIndex)
-      ];
-      
-      const visitList = [...reorderedApplicants, ...reorderedApplicants];
-      
-      // 6. Group staff into teams
+      const daysToPlan = availableWorkDays.length;
+
+      // 5. Group staff into teams
       const teams: number[][] = [];
       const processedStaff = new Set<number>();
       staff.forEach(s => {
@@ -229,22 +210,14 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         teams.push(pair);
       }
 
-      // 7. Create Program Record
-      const programId = await dbLocal.programs.add({
-        name: `${format(parseISO(availableWorkDays[0].date), 'dd MMMM yyyy', { locale: tr })} - ${format(parseISO(availableWorkDays[daysNeeded - 1].date), 'dd MMMM yyyy', { locale: tr })} Vefa Programı`,
-        startDate: availableWorkDays[0].date,
-        endDate: availableWorkDays[daysNeeded - 1].date,
-        createdAt: new Date().toISOString(),
-        status: 'active',
-        lastApplicantId: visitList[Math.min(visitList.length - 1, (daysNeeded * 6) - 1)]?.id
-      });
-
-      // 8. Distribute into days
+      // 6. Distribute into days and track the last assignment
       let visitIndex = 0;
-      for (let d = 0; d < daysNeeded; d++) {
-        const wd = availableWorkDays[d];
-        if (!wd) break;
+      let lastAssignedId: number | undefined;
+      let lastAssignedGlobalIndex: number | undefined;
 
+      const scheduleEntries: any[] = [];
+      for (let d = 0; d < daysToPlan; d++) {
+        const wd = availableWorkDays[d];
         const dailyAssignments: any[] = [];
         
         for (let i = 0; i < 6; i++) {
@@ -260,13 +233,36 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             isCompleted: false
           });
           
+          lastAssignedId = applicant.id;
+          lastAssignedGlobalIndex = (globalStartIndex + visitIndex) % (sortedApplicants.length * 2);
           visitIndex++;
         }
         
-        await dbLocal.schedules.add({
+        scheduleEntries.push({
           date: wd.date,
-          programId: programId as number,
           assignments: dailyAssignments
+        });
+      }
+
+      // 7. Create Program Record with precise spillover tracking
+      // Determine cycle of the last assigned applicant
+      const finalCycle = (lastAssignedGlobalIndex !== undefined && lastAssignedGlobalIndex >= sortedApplicants.length) ? 2 : 1;
+
+      const programId = await dbLocal.programs.add({
+        name: `${format(parseISO(availableWorkDays[0].date), 'dd MMMM yyyy', { locale: tr })} - ${format(parseISO(availableWorkDays[daysToPlan - 1].date), 'dd MMMM yyyy', { locale: tr })} Vefa Programı`,
+        startDate: availableWorkDays[0].date,
+        endDate: availableWorkDays[daysToPlan - 1].date,
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        lastApplicantId: lastAssignedId,
+        lastVisitCycle: finalCycle
+      });
+
+      // 8. Save schedules
+      for (const entry of scheduleEntries) {
+        await dbLocal.schedules.add({
+          ...entry,
+          programId: programId as number
         });
       }
     } catch (error) {
