@@ -15,6 +15,16 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
   const checkAuthStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/status');
+      
+      if (!res.ok) {
+        throw new Error(`Auth status check failed with status ${res.status}`);
+      }
+      
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Auth status check returned non-JSON response');
+      }
+
       const data = await res.json();
       setAuthStatus(data);
       if (onAuthChange) onAuthChange(data.authenticated, data.email);
@@ -50,10 +60,16 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
   const handleLogin = async () => {
     try {
       const res = await fetch('/api/auth/url');
-      const { url } = await res.json();
-      window.open(url, 'google_oauth', 'width=600,height=700');
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Giriş sayfası açılamadı.' });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Giriş sayfası açılamadı.');
+      }
+      
+      window.open(data.url, 'google_oauth', 'width=600,height=700');
+    } catch (error: any) {
+      console.error('Login failed:', error);
+      setMessage({ type: 'error', text: error.message || 'Giriş sayfası açılamadı.' });
     }
   };
 
