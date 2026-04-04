@@ -1,5 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { Applicant, Staff, WorkDay, Schedule, Program } from './types';
+import { triggerAutoBackup } from './lib/autoBackup';
 
 export class AppDatabase extends Dexie {
   applicants!: Table<Applicant, number>;
@@ -16,6 +17,13 @@ export class AppDatabase extends Dexie {
       workDays: '++id, date',
       schedules: '++id, date, programId',
       programs: '++id, status, createdAt'
+    });
+
+    // Add hooks to all tables to trigger auto-backup on any change
+    this.tables.forEach(table => {
+      table.hook('creating', () => { triggerAutoBackup(); });
+      table.hook('updating', () => { triggerAutoBackup(); });
+      table.hook('deleting', () => { triggerAutoBackup(); });
     });
   }
 }

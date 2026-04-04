@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, CloudUpload, CloudDownload, LogIn, LogOut, Loader2, CheckCircle2, AlertCircle, Building2, ShieldCheck } from 'lucide-react';
+import { Cloud, CloudUpload, CloudDownload, LogIn, LogOut, Loader2, CheckCircle2, AlertCircle, Building2, ShieldCheck, History, RotateCcw } from 'lucide-react';
 import { dbLocal } from '../db';
+import { saveSafetyBackup, getLatestRecoveryBackup } from '../lib/autoBackup';
 
 interface BackupManagerProps {
   onAuthChange?: (authenticated: boolean, email?: string) => void;
@@ -11,6 +12,16 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
   const [authStatus, setAuthStatus] = useState<{ authenticated: boolean; email?: string } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [recoveryBackup, setRecoveryBackup] = useState<any>(null);
+
+  const checkRecovery = useCallback(async () => {
+    const backup = await getLatestRecoveryBackup();
+    setRecoveryBackup(backup);
+  }, []);
+
+  useEffect(() => {
+    checkRecovery();
+  }, [checkRecovery]);
 
   const checkAuthStatus = useCallback(async () => {
     try {
@@ -148,6 +159,12 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
     if (!isAuto) setMessage(null);
 
     try {
+      // 1. Save safety backup BEFORE restoring
+      if (!isAuto) {
+        setMessage({ type: 'success', text: 'Güvenlik yedeği alınıyor...' });
+        await saveSafetyBackup();
+      }
+
       const res = await fetch('/api/drive/restore?filename=edirne_sydv_vefa_backup.json');
       if (!res.ok) {
         if (res.status === 404) {
@@ -205,6 +222,40 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [authStatus]);
+
+  const handleRecoveryRestore = async () => {
+    if (!recoveryBackup) return;
+    if (!confirm('Son otomatik yedekleme geri yüklenecek. Mevcut verileriniz silinecek. Emin misiniz?')) return;
+
+    setIsSyncing(true);
+    setMessage({ type: 'success', text: 'Kurtarma yedeği yükleniyor...' });
+
+    try {
+      const backupData = recoveryBackup.data;
+
+      await dbLocal.transaction('rw', [dbLocal.applicants, dbLocal.staff, dbLocal.workDays, dbLocal.schedules, dbLocal.programs], async () => {
+        await dbLocal.applicants.clear();
+        await dbLocal.staff.clear();
+        await dbLocal.workDays.clear();
+        await dbLocal.schedules.clear();
+        await dbLocal.programs.clear();
+
+        if (backupData.applicants) await dbLocal.applicants.bulkAdd(backupData.applicants);
+        if (backupData.staff) await dbLocal.staff.bulkAdd(backupData.staff);
+        if (backupData.workDays) await dbLocal.workDays.bulkAdd(backupData.workDays);
+        if (backupData.schedules) await dbLocal.schedules.bulkAdd(backupData.schedules);
+        if (backupData.programs) await dbLocal.programs.bulkAdd(backupData.programs);
+      });
+
+      setMessage({ type: 'success', text: 'Veriler başarıyla kurtarıldı.' });
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error: any) {
+      console.error('Recovery failed:', error);
+      setMessage({ type: 'error', text: 'Kurtarma işlemi başarısız oldu.' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   if (!authStatus) return (
     <div className="flex items-center justify-center p-8">
@@ -310,6 +361,17 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
             <span className="text-[10px] font-bold uppercase">Yükle</span>
           </button>
         </div>
+
+        {recoveryBackup && (
+          <button
+            onClick={handleRecoveryRestore}
+            disabled={isSyncing}
+            className="w-full flex items-center justify-center gap-2 p-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 transition-all border border-amber-100 disabled:opacity-50"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-bold uppercase">Kurtarma Yedeğini Yükle</span>
+          </button>
+        )}
       </div>
 
       {message && (
