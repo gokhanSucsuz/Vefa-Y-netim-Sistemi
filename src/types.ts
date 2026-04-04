@@ -9,6 +9,7 @@ export interface Applicant {
   householdSize?: number; // Kişi Sayısı
   lat?: number;
   lng?: number;
+  priority?: number; // Planlama öncelik sırası
 }
 
 export interface Staff {

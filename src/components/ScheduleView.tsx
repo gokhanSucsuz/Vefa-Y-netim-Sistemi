@@ -143,7 +143,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     try {
       // 1. Determine starting point
       const lastProgram = await dbLocal.programs.orderBy('id').last();
-      const sortedApplicants = [...applicants].sort((a, b) => (a.neighborhood || '').localeCompare(b.neighborhood || ''));
+      const sortedApplicants = [...applicants].sort((a, b) => (a.priority || 0) - (b.priority || 0));
       
       let globalStartIndex = 0;
       if (lastProgram && lastProgram.lastApplicantId) {

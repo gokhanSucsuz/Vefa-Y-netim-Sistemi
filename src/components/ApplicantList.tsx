@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, EDIRNE_NEIGHBORHOODS } from '../types';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -45,12 +45,28 @@ export default function ApplicantList({ applicants }: Props) {
     address: '',
     neighborhood: '',
     lat: 41.675,
-    lng: 26.570
+    lng: 26.570,
+    priority: 0
   });
 
   const [isImporting, setIsImporting] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+
+  const reindexPriorities = async () => {
+    const allApplicants = await dbLocal.applicants.toArray();
+    // Sort by current priority, then by ID as fallback
+    const sorted = allApplicants.sort((a, b) => {
+      if ((a.priority || 0) !== (b.priority || 0)) {
+        return (a.priority || 0) - (b.priority || 0);
+      }
+      return (a.id || 0) - (b.id || 0);
+    });
+
+    for (let i = 0; i < sorted.length; i++) {
+      await dbLocal.applicants.update(sorted[i].id!, { priority: i + 1 });
+    }
+  };
 
   const handleGeocode = async () => {
     if (!formData.neighborhood) {
@@ -72,10 +88,12 @@ export default function ApplicantList({ applicants }: Props) {
         await dbLocal.applicants.update(editingId, formData);
         setEditingId(null);
       } else {
-        await dbLocal.applicants.add(formData);
+        const maxPriority = applicants.reduce((max, a) => Math.max(max, a.priority || 0), 0);
+        await dbLocal.applicants.add({ ...formData, priority: maxPriority + 1 });
         setIsAdding(false);
       }
-      setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '', lat: 41.675, lng: 26.570 });
+      setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '', lat: 41.675, lng: 26.570, priority: 0 });
+      await reindexPriorities();
     } catch (error) {
       console.error("Error saving applicant:", error);
     }
@@ -90,6 +108,7 @@ export default function ApplicantList({ applicants }: Props) {
   const handleDelete = async (id: number) => {
     if (confirm('Bu müracaatçıyı silmek istediğinize emin misiniz?')) {
       await dbLocal.applicants.delete(id);
+      await reindexPriorities();
     }
   };
 
@@ -210,12 +229,14 @@ export default function ApplicantList({ applicants }: Props) {
             householdSize: parseInt(row['kişi sayısı'] || row['Kişi Sayısı'] || '1'),
             neighborhood: detectedNeighborhood,
             lat: coords?.lat,
-            lng: coords?.lng
+            lng: coords?.lng,
+            priority: i + 1 // Temporary priority, will be reindexed
           });
         }
 
         if (newApplicants.length > 0) {
           await dbLocal.applicants.bulkAdd(newApplicants);
+          await reindexPriorities();
           alert(`${newApplicants.length} müracaatçı başarıyla yüklendi.`);
         }
       } catch (error) {
@@ -228,6 +249,33 @@ export default function ApplicantList({ applicants }: Props) {
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsBinaryString(file);
+  };
+
+  const movePriority = async (applicant: Applicant, direction: 'up' | 'down') => {
+    const sorted = [...applicants].sort((a, b) => (a.priority || 0) - (b.priority || 0));
+    const currentIndex = sorted.findIndex(a => a.id === applicant.id);
+    
+    if (direction === 'up' && currentIndex > 0) {
+      const prev = sorted[currentIndex - 1];
+      const currentPriority = applicant.priority || 0;
+      const prevPriority = prev.priority || 0;
+      
+      await dbLocal.applicants.update(applicant.id!, { priority: prevPriority });
+      await dbLocal.applicants.update(prev.id!, { priority: currentPriority });
+    } else if (direction === 'down' && currentIndex < sorted.length - 1) {
+      const next = sorted[currentIndex + 1];
+      const currentPriority = applicant.priority || 0;
+      const nextPriority = next.priority || 0;
+      
+      await dbLocal.applicants.update(applicant.id!, { priority: nextPriority });
+      await dbLocal.applicants.update(next.id!, { priority: currentPriority });
+    }
+    await reindexPriorities();
+  };
+
+  const handlePriorityChange = async (id: number, newPriority: number) => {
+    await dbLocal.applicants.update(id, { priority: newPriority });
+    await reindexPriorities();
   };
 
   return (
@@ -369,6 +417,17 @@ export default function ApplicantList({ applicants }: Props) {
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Öncelik Sırası</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.priority || ''}
+                onChange={e => setFormData({ ...formData, priority: parseInt(e.target.value) })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="Otomatik atanır"
+              />
+            </div>
             <div className="md:col-span-2 space-y-1">
               <label className="text-sm font-medium text-gray-700">Adres</label>
               <div className="flex gap-2">
@@ -443,6 +502,7 @@ export default function ApplicantList({ applicants }: Props) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-24">Sıra</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Ad Soyad</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Mahalle/Köy</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">Adres Bilgisi</th>
@@ -459,8 +519,33 @@ export default function ApplicantList({ applicants }: Props) {
                   </td>
                 </tr>
               ) : (
-                applicants.map(applicant => (
+                [...applicants]
+                  .sort((a, b) => (a.priority || 0) - (b.priority || 0))
+                  .map(applicant => (
                   <tr key={applicant.id} className="hover:bg-gray-50 transition-all group">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="font-bold text-blue-600 bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center border border-blue-100">
+                          {applicant.priority}
+                        </div>
+                        <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                          <button 
+                            onClick={() => movePriority(applicant, 'up')}
+                            className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
+                            title="Yukarı Taşı"
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </button>
+                          <button 
+                            onClick={() => movePriority(applicant, 'down')}
+                            className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
+                            title="Aşağı Taşı"
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{applicant.name} {applicant.surname}</div>
                       <div className="text-xs text-gray-500">{applicant.phone}</div>
