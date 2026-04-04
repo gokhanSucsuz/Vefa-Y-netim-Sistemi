@@ -186,6 +186,18 @@ export default function Documentation() {
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
+              <b>08:30 Kuralı:</b> Saat 08:30'dan sonra yapılan planlamalar otomatik olarak ertesi günden başlar. İş günleri takviminde geçmiş günler ve (08:30 sonrası) bugün seçilemez.
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
+              <b>17:30 Otomatik Onay:</b> Günlük temizlik işleri saat 17:30'a kadar manuel onaylanmazsa, sistem tarafından otomatik olarak "Tamamlandı" olarak işaretlenir.
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
+              <b>Temizlik Notları:</b> Temizlik bittiğinde müracaatçı eviyle ilgili özel notlar eklenebilir. Bu notlar "Tamamlanan Temizlikler" sayfasında raporlanabilir.
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
               Her müracaatçı <b>ayda 2 kez</b> ziyaret edilecek şekilde planlanır.
             </li>
             <li className="flex items-start gap-2">
@@ -202,15 +214,7 @@ export default function Documentation() {
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              Planlama yaparken mahalle yakınlığı önceliklendirilir, böylece ulaşım maliyeti ve zaman kaybı minimize edilir.
-            </li>
-            <li className="flex items-start gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              Müracaatçı ve Personel listelerini Excel üzerinden toplu olarak yükleyebilirsiniz. (Sütunlar: ad-soyad, tc, telefon, adres vb.)
-            </li>
-            <li className="flex items-start gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              "Günü Kaydet ve Onayla" butonu, yaptığınız manuel değişiklikleri görsel olarak onaylamanızı sağlar.
+              Müracaatçı ve Personel listelerini Excel üzerinden toplu olarak yükleyebilirsiniz.
             </li>
           </ul>
         </div>

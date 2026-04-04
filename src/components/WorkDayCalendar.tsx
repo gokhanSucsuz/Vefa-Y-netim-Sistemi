@@ -17,6 +17,29 @@ export default function WorkDayCalendar({ workDays }: Props) {
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const toggleWorkDay = async (date: Date) => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const isAfter830 = currentHour > 8 || (currentHour === 8 && currentMinute >= 30);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const selectedDate = new Date(date);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    // Past days check
+    if (selectedDate < today) {
+      alert('Geçmiş günleri iş günü olarak seçemezsiniz.');
+      return;
+    }
+
+    // 08:30 rule for today
+    if (isSameDay(selectedDate, today) && isAfter830) {
+      alert('Saat 08:30\'u geçtiği için bugünü iş günü olarak seçemezsiniz. Lütfen yarına veya sonraki günlere planlama yapın.');
+      return;
+    }
+
     const dateStr = format(date, 'yyyy-MM-dd');
     const existing = workDays.find(wd => wd.date === dateStr);
 
@@ -35,8 +58,25 @@ export default function WorkDayCalendar({ workDays }: Props) {
   };
 
   const selectAllWeekdays = async () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const isAfter830 = currentHour > 8 || (currentHour === 8 && currentMinute >= 30);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     try {
       for (const day of days) {
+        const dayDate = new Date(day);
+        dayDate.setHours(0, 0, 0, 0);
+
+        // Skip past days
+        if (dayDate < today) continue;
+        
+        // Skip today if after 08:30
+        if (isSameDay(dayDate, today) && isAfter830) continue;
+
         if (!isWeekend(day)) {
           const dateStr = format(day, 'yyyy-MM-dd');
           const existing = workDays.find(wd => wd.date === dateStr);
@@ -138,10 +178,20 @@ export default function WorkDayCalendar({ workDays }: Props) {
               <button
                 key={dateStr}
                 onClick={() => toggleWorkDay(day)}
+                disabled={(() => {
+                  const now = new Date();
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const d = new Date(day);
+                  d.setHours(0, 0, 0, 0);
+                  const isAfter830 = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() >= 30);
+                  return d < today || (isSameDay(d, today) && isAfter830);
+                })()}
                 className={`
                   aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all relative group
                   ${isWorkDay ? 'bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105 z-10' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}
                   ${today && !isWorkDay ? 'ring-2 ring-blue-200' : ''}
+                  disabled:opacity-30 disabled:cursor-not-allowed disabled:scale-100
                 `}
               >
                 <span className={`text-lg font-bold ${isWorkDay ? 'text-white' : 'text-gray-900'}`}>
