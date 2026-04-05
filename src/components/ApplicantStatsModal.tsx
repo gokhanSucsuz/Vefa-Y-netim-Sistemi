@@ -87,6 +87,7 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
         { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
         { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
         { text: 'MÜRACAATÇI HİZMET GEÇMİŞİ RAPORU', style: 'title', alignment: 'center', margin: [0, 15, 0, 15] },
+        { text: `Rapor Tarihi: ${format(new Date(), 'dd.MM.yyyy HH:mm')}`, alignment: 'right', fontSize: 8, color: '#666', margin: [0, 0, 0, 10] },
         
         { text: '1. Müracaatçı Bilgileri', style: 'sectionHeader' },
         {

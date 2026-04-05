@@ -664,6 +664,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
           alignment: 'center', 
           margin: [0, 15, 0, 15] 
         },
+        { text: `Rapor Tarihi: ${format(new Date(), 'dd.MM.yyyy HH:mm')}`, alignment: 'right', fontSize: 8, color: '#666', margin: [0, 0, 0, 10] },
         {
           table: {
             headerRows: 1,

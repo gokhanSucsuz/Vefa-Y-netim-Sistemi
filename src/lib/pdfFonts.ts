@@ -1,7 +1,6 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 
-// Standard Roboto fonts provided by pdfmake
 const ROBOTO_FONTS = {
   Roboto: {
     normal: 'Roboto-Regular.ttf',
@@ -14,33 +13,29 @@ const ROBOTO_FONTS = {
 
 export async function setupPdfMakeFonts() {
   try {
-    // pdfmake/build/vfs_fonts usually exports an object with pdfMake.vfs
-    // or it might be a global side-effect.
-    const vfs = (pdfFonts as any).pdfMake?.vfs || (pdfFonts as any).vfs || (window as any).pdfMake?.vfs;
+    // Try different ways to get the vfs object from the imported module
+    const vfs = (pdfFonts as any).default?.vfs || 
+                (pdfFonts as any).vfs || 
+                (pdfFonts as any).pdfMake?.vfs || 
+                (window as any).pdfMake?.vfs;
     
-    if (vfs) {
+    if (vfs && vfs['Roboto-Regular.ttf']) {
       (pdfMake as any).vfs = vfs;
       (pdfMake as any).fonts = ROBOTO_FONTS;
       
-      // Ensure all required keys exist in VFS, fallback to Regular if missing
+      // Ensure fallbacks
       const regularData = vfs['Roboto-Regular.ttf'];
-      if (regularData) {
-        if (!vfs['Roboto-Bold.ttf']) vfs['Roboto-Bold.ttf'] = regularData;
-        if (!vfs['Roboto-Medium.ttf']) vfs['Roboto-Medium.ttf'] = regularData;
-        if (!vfs['Roboto-Italic.ttf']) vfs['Roboto-Italic.ttf'] = regularData;
-        
-        (pdfMake as any).defaultStyle = {
-          font: 'Roboto'
-        };
-        return true;
-      }
+      if (!vfs['Roboto-Bold.ttf']) vfs['Roboto-Bold.ttf'] = regularData;
+      if (!vfs['Roboto-Medium.ttf']) vfs['Roboto-Medium.ttf'] = regularData;
+      if (!vfs['Roboto-Italic.ttf']) vfs['Roboto-Italic.ttf'] = regularData;
+      
+      (pdfMake as any).defaultStyle = { font: 'Roboto' };
+      return true;
     }
   } catch (e) {
-    console.error("Failed to load local vfs_fonts", e);
+    // Silent fail
   }
 
-  // Fallback to extremely reliable Google Fonts CDN if local fails
-  console.log("Falling back to external font sources...");
   return await setupPdfMakeFontsExternal();
 }
 
@@ -61,7 +56,6 @@ async function fetchFontWithFallback(urls: string[]): Promise<string | null> {
       }
       return window.btoa(binary);
     } catch (e) {
-      console.warn(`Failed to fetch font from ${url}`, e);
       continue;
     }
   }
@@ -69,14 +63,15 @@ async function fetchFontWithFallback(urls: string[]): Promise<string | null> {
 }
 
 async function setupPdfMakeFontsExternal() {
+  // Use more reliable jsDelivr links for the official pdfmake fonts
   const ROBOTO_REGULAR_SOURCES = [
-    'https://fonts.gstatic.com/s/roboto/v30/K7OmYqlYI1G2ig466ze1_v7S.ttf',
-    'https://cdn.jsdelivr.net/gh/googlefonts/roboto@main/src/v2/Roboto-Regular.ttf'
+    'https://cdn.jsdelivr.net/npm/pdfmake@0.2.7/build/fonts/Roboto/Roboto-Regular.ttf',
+    'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf'
   ];
 
   const ROBOTO_BOLD_SOURCES = [
-    'https://fonts.gstatic.com/s/roboto/v30/K7OTYqlYI1G2ig466ze1_v7S.ttf',
-    'https://cdn.jsdelivr.net/gh/googlefonts/roboto@main/src/v2/Roboto-Bold.ttf'
+    'https://cdn.jsdelivr.net/npm/pdfmake@0.2.7/build/fonts/Roboto/Roboto-Bold.ttf',
+    'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Bold.ttf'
   ];
 
   const [reg, bld] = await Promise.all([

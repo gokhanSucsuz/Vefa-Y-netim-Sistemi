@@ -52,6 +52,7 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
       { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
       { text: 'VEFA PROJESİ HİZMET SUNUM FORMU', style: 'title', alignment: 'center', margin: [0, 15, 0, 15] },
       { text: `Tarih: ${formattedDate}`, alignment: 'right', margin: [0, 0, 0, 10] },
+      { text: `Rapor Oluşturma Tarihi: ${format(new Date(), 'dd.MM.yyyy HH:mm')}`, alignment: 'right', fontSize: 8, color: '#666', margin: [0, 0, 0, 10] },
       
       { text: '1. MÜRACAATÇI BİLGİLERİ', style: 'sectionHeader' },
       {
