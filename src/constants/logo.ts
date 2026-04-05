@@ -1,1 +1,1 @@
-export const APP_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/T.C._Aile_ve_Sosyal_Hizmetler_Bakanl%C4%B1%C4%9F%C4%B1_Logosu.svg/512px-T.C._Aile_ve_Sosyal_Hizmetler_Bakanl%C4%B1%C4%9F%C4%B1_Logosu.svg.png";
+export const APP_LOGO_URL = "https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg";
