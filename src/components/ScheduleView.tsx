@@ -7,8 +7,8 @@ import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, C
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import html2canvas from 'html2canvas';
 import { APP_LOGO_URL } from '../constants/logo';
+import { loadTurkishFonts } from '../lib/pdfFonts';
 import { Map, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { geocodeAddress } from '../services/geocoding';
@@ -612,6 +612,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
   const exportToPDF = async () => {
     const pdf = new jsPDF('p', 'mm', 'a4');
+    await loadTurkishFonts(pdf);
     
     // Header
     const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -625,13 +626,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         img.onload = resolve;
         img.onerror = reject;
       });
-      pdf.addImage(img, 'PNG', (pdfWidth - 25) / 2, 10, 25, 25);
+      pdf.addImage(img, 'JPEG', (pdfWidth - 25) / 2, 10, 25, 25);
     } catch (e) {
       console.error("Logo could not be added to PDF", e);
     }
 
     pdf.setFontSize(14);
-    pdf.setFont("helvetica", "bold");
+    pdf.setFont("Roboto", "bold");
     pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
     pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
     
@@ -657,14 +658,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       head: [['Tarih', 'Mahalle', 'Müracaatçı', 'Görevli Personeller']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'left' },
-      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'left', font: 'Roboto' },
+      styles: { fontSize: 9, cellPadding: 3, font: 'Roboto' },
       margin: { top: 20, bottom: 25, left: 20, right: 20 }, // 25mm bottom margin
       didDrawPage: (data) => {
         // Footer on each page
         const str = "Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır.";
         pdf.setFontSize(8);
         pdf.setTextColor(150);
+        pdf.setFont("Roboto", "normal");
         pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
       }
     });

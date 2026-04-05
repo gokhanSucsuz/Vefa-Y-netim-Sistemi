@@ -14,8 +14,8 @@ import {
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import html2canvas from 'html2canvas';
 import { APP_LOGO_URL } from '../constants/logo';
+import { loadTurkishFonts } from '../lib/pdfFonts';
 
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'];
 
@@ -172,6 +172,7 @@ export default function Statistics() {
 
   const exportToPDF = async () => {
     const pdf = new jsPDF('p', 'mm', 'a4');
+    await loadTurkishFonts(pdf);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     
     // Header
@@ -183,13 +184,13 @@ export default function Statistics() {
         img.onload = resolve;
         img.onerror = reject;
       });
-      pdf.addImage(img, 'PNG', (pdfWidth - 25) / 2, 10, 25, 25);
+      pdf.addImage(img, 'JPEG', (pdfWidth - 25) / 2, 10, 25, 25);
     } catch (e) {
       console.error("Logo could not be added to PDF", e);
     }
 
     pdf.setFontSize(14);
-    pdf.setFont("helvetica", "bold");
+    pdf.setFont("Roboto", "bold");
     pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
     pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
     pdf.setFontSize(11);
@@ -211,20 +212,23 @@ export default function Statistics() {
         ['Hizmet Verilen Müracaatçı Sayısı', stats.totalUniqueApplicants]
       ],
       theme: 'grid',
-      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0] },
+      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], font: 'Roboto' },
+      styles: { font: 'Roboto' },
       margin: { left: 20, right: 20 }
     });
 
     // 2. Mahalle Dağılımı
     const neighborhoodTableY = (pdf as any).lastAutoTable.finalY + 15;
     pdf.setFontSize(11);
+    pdf.setFont("Roboto", "bold");
     pdf.text("MAHALLE BAZLI DAĞILIM", 20, neighborhoodTableY - 5);
     autoTable(pdf, {
       startY: neighborhoodTableY,
       head: [['Mahalle', 'Temizlik Sayısı', 'Müracaatçı Sayısı']],
       body: stats.neighborhoodData.map(n => [n.name, n.count, n.uniqueApplicants]),
       theme: 'striped',
-      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] },
+      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], font: 'Roboto' },
+      styles: { font: 'Roboto' },
       margin: { left: 20, right: 20, bottom: 25 }
     });
 
@@ -233,19 +237,22 @@ export default function Statistics() {
     if (staffTableY > 250) pdf.addPage();
     const currentStaffY = staffTableY > 250 ? 20 : staffTableY;
     pdf.setFontSize(11);
+    pdf.setFont("Roboto", "bold");
     pdf.text("PERSONEL PERFORMANS VERİLERİ", 20, currentStaffY - 5);
     autoTable(pdf, {
       startY: currentStaffY,
       head: [['Personel', 'Toplam İş', 'Müracaatçı Sayısı']],
-      body: stats.staffData.map(s => [`${s.name} ${s.surname}`, s.jobCount, s.uniqueApplicantsCount]),
+      body: stats.staffData.map(s => [`${s.name}`, s.jobCount, s.uniqueApplicantsCount]),
       theme: 'striped',
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], font: 'Roboto' },
+      styles: { font: 'Roboto' },
       margin: { left: 20, right: 20, bottom: 25 },
       didDrawPage: (data) => {
         // Footer
         const str = "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur.";
         pdf.setFontSize(8);
         pdf.setTextColor(150);
+        pdf.setFont("Roboto", "normal");
         pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
       }
     });

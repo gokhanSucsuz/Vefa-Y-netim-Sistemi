@@ -7,8 +7,8 @@ import { tr } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import html2canvas from 'html2canvas';
 import { APP_LOGO_URL } from '../constants/logo';
+import { loadTurkishFonts } from '../lib/pdfFonts';
 
 interface Props {
   applicant: Applicant;
@@ -47,6 +47,7 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
 
   const generatePDF = async () => {
     const pdf = new jsPDF('p', 'mm', 'a4');
+    await loadTurkishFonts(pdf);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     
     // Header
@@ -58,13 +59,13 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
         img.onload = resolve;
         img.onerror = reject;
       });
-      pdf.addImage(img, 'PNG', (pdfWidth - 25) / 2, 10, 25, 25);
+      pdf.addImage(img, 'JPEG', (pdfWidth - 25) / 2, 10, 25, 25);
     } catch (e) {
       console.error("Logo could not be added to PDF", e);
     }
 
     pdf.setFontSize(14);
-    pdf.setFont("helvetica", "bold");
+    pdf.setFont("Roboto", "bold");
     pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
     pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
     pdf.setFontSize(11);
@@ -88,13 +89,15 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
         ['Adres', applicant.address]
       ],
       theme: 'grid',
-      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0] },
+      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], font: 'Roboto' },
+      styles: { font: 'Roboto' },
       margin: { left: 20, right: 20 }
     });
 
     // 2. Hizmet Geçmişi
     const tableY = (pdf as any).lastAutoTable.finalY + 15;
     pdf.setFontSize(11);
+    pdf.setFont("Roboto", "bold");
     pdf.text("HİZMET GEÇMİŞİ LİSTESİ", 20, tableY - 5);
     autoTable(pdf, {
       startY: tableY,
@@ -105,13 +108,15 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
         s.assignments.find(a => a.applicantId === applicant.id)?.note || '-'
       ]),
       theme: 'striped',
-      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] },
+      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], font: 'Roboto' },
+      styles: { font: 'Roboto' },
       margin: { left: 20, right: 20, bottom: 25 },
       didDrawPage: (data) => {
         // Footer
         const str = "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur.";
         pdf.setFontSize(8);
         pdf.setTextColor(150);
+        pdf.setFont("Roboto", "normal");
         pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
       }
     });
