@@ -133,6 +133,7 @@ export default function App() {
             alt="Logo" 
             className="w-8 h-8 object-contain"
             referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
           />
           <span className="font-bold text-sm text-gray-900 truncate max-w-[150px]">Edirne SYDV Vefa</span>
         </div>
@@ -164,6 +165,7 @@ export default function App() {
               alt="Logo" 
               className="w-12 h-12 object-contain shrink-0"
               referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
             />
             <div>
               <span className="font-bold text-sm text-gray-900 block leading-tight">Edirne Merkez SYDV</span>

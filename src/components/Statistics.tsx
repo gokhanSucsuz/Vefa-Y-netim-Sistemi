@@ -192,17 +192,18 @@ export default function Statistics() {
     
     let heightLeft = imgHeight;
     let position = 0;
+    const margin = 15; // Bottom margin to prevent cutting text
 
     // Add the first page
     pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pdfHeight;
+    heightLeft -= (pdfHeight - margin);
 
     // Add subsequent pages if content is longer than one page
     while (heightLeft > 0) {
-      position -= pdfHeight;
+      position -= (pdfHeight - margin);
       pdf.addPage();
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
+      heightLeft -= (pdfHeight - margin);
     }
     
     pdf.save(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
@@ -217,7 +218,9 @@ export default function Statistics() {
             <img 
               src={APP_LOGO_URL} 
               alt="Logo" 
+              crossOrigin="anonymous"
               style={{ width: '80px', height: '80px', margin: '0 auto 15px', display: 'block', objectFit: 'contain' }} 
+              referrerPolicy="no-referrer"
             />
             <h1 style={{ fontSize: '16pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>T.C.</h1>
             <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>EDİRNE VALİLİĞİ</h2>

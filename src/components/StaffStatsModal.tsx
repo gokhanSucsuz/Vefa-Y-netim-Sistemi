@@ -56,11 +56,29 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
     
     const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
     
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    const imgWidth = pdfWidth;
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+    
+    let heightLeft = imgHeight;
+    let position = 0;
+    const margin = 15; // Bottom margin to prevent cutting text
+
+    // Add the first page
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= (pdfHeight - margin);
+
+    // Add subsequent pages if content is longer than one page
+    while (heightLeft > 0) {
+      position -= (pdfHeight - margin);
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= (pdfHeight - margin);
+    }
+    
     pdf.save(`Personel_Raporu_${staff.name}_${staff.surname}.pdf`);
   };
 
@@ -78,7 +96,9 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
             <img 
               src={APP_LOGO_URL} 
               alt="Logo" 
+              crossOrigin="anonymous"
               style={{ width: '80px', height: '80px', margin: '0 auto 15px', display: 'block', objectFit: 'contain' }} 
+              referrerPolicy="no-referrer"
             />
             <h1 style={{ fontSize: '16pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>T.C.</h1>
             <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>EDİRNE VALİLİĞİ</h2>

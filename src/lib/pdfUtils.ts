@@ -27,7 +27,9 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
       <img 
         src="${APP_LOGO_URL}" 
         alt="Logo" 
+        crossOrigin="anonymous"
         style="width: 80px; height: 80px; margin: 0 auto 15px; display: block; object-fit: contain;" 
+        referrerPolicy="no-referrer"
       />
       <h1 style="font-size: 16pt; font-weight: bold; text-transform: uppercase; margin: 0;">T.C.</h1>
       <h2 style="font-size: 14pt; font-weight: bold; text-transform: uppercase; margin: 5px 0;">EDİRNE VALİLİĞİ</h2>
@@ -105,11 +107,29 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
 
     const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(imgData);
+    
     const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    const imgWidth = pdfWidth;
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+    
+    let heightLeft = imgHeight;
+    let position = 0;
+    const margin = 15; // Bottom margin to prevent cutting text
 
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    // Add the first page
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= (pdfHeight - margin);
+
+    // Add subsequent pages if content is longer than one page
+    while (heightLeft > 0) {
+      position -= (pdfHeight - margin);
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= (pdfHeight - margin);
+    }
+    
     pdf.save(`Temizlik_Raporu_${applicant.name}_${applicant.surname}_${date}.pdf`);
   } finally {
     document.body.removeChild(container);

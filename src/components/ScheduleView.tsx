@@ -55,6 +55,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const [swapSelection, setSwapSelection] = useState<{ date: string; applicantId: number } | null>(null);
   const [completionModal, setCompletionModal] = useState<{ date: string; applicantId: number; name: string } | null>(null);
   const [completionNote, setCompletionNote] = useState('');
+  const [isRescheduling, setIsRescheduling] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const monthStart = startOfMonth(selectedMonth);
@@ -102,6 +103,135 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
     setSwapSelection(null);
     alert('Müracaatçılar başarıyla yer değiştirildi.');
+  };
+
+  const handleCancelAssignment = async (date: string, applicantId: number) => {
+    const confirmCancel = confirm('Bu ziyareti iptal edip bir sonraki iş gününe kaydırmak istediğinize emin misiniz?');
+    if (!confirmCancel) return;
+
+    setIsRescheduling(true);
+    try {
+      await dbLocal.transaction('rw', [dbLocal.schedules, dbLocal.workDays], async () => {
+        const allSchedules = await dbLocal.schedules.toArray();
+        const futureSchedules = allSchedules
+          .filter(s => s.date >= date)
+          .sort((a, b) => a.date.localeCompare(b.date));
+
+        if (futureSchedules.length === 0) return;
+
+        const currentDaySchedule = futureSchedules.find(s => s.date === date);
+        if (!currentDaySchedule) return;
+
+        const assignmentIndex = currentDaySchedule.assignments.findIndex(a => a.applicantId === applicantId);
+        if (assignmentIndex === -1) return;
+
+        const canceledAssignment = currentDaySchedule.assignments[assignmentIndex];
+        if (canceledAssignment.isCompleted) {
+          alert('Tamamlanmış bir ziyaret iptal edilemez.');
+          return;
+        }
+
+        let uncompletedPool: any[] = [];
+        for (const s of futureSchedules) {
+          const uncompletedInDay = s.assignments.filter(a => !a.isCompleted);
+          uncompletedPool.push(...uncompletedInDay);
+        }
+
+        const poolIdx = uncompletedPool.findIndex(a => a.applicantId === applicantId);
+        if (poolIdx !== -1) {
+          const [item] = uncompletedPool.splice(poolIdx, 1);
+          const uncompletedTodayCount = currentDaySchedule.assignments.filter(a => !a.isCompleted).length - 1;
+          uncompletedPool.splice(uncompletedTodayCount, 0, item);
+        }
+
+        let poolOffset = 0;
+        for (const s of futureSchedules) {
+          const completedOnes = s.assignments.filter(a => a.isCompleted);
+          const uncompletedCount = s.assignments.length - completedOnes.length;
+          const newUncompleted = uncompletedPool.slice(poolOffset, poolOffset + uncompletedCount);
+          poolOffset += uncompletedCount;
+          await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
+        }
+
+        if (poolOffset < uncompletedPool.length) {
+          const lastSchedule = futureSchedules[futureSchedules.length - 1];
+          const leftovers = uncompletedPool.slice(poolOffset);
+          const nextWorkDays = await dbLocal.workDays.where('date').above(lastSchedule.date).filter(wd => wd.isWorkDay).toArray();
+          if (nextWorkDays.length > 0) {
+            await dbLocal.schedules.add({ date: nextWorkDays[0].date, programId: lastSchedule.programId, assignments: leftovers });
+          } else {
+            await dbLocal.schedules.update(lastSchedule.id!, { assignments: [...lastSchedule.assignments, ...leftovers] });
+          }
+        }
+      });
+      alert('Ziyaret başarıyla sonraki güne kaydırıldı.');
+    } catch (error) {
+      console.error('Rescheduling error:', error);
+      alert('Kaydırma işlemi sırasında bir hata oluştu.');
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
+  const handleCancelDay = async (date: string) => {
+    const schedule = schedules.find(s => s.date === date);
+    if (!schedule) return;
+
+    const uncompletedAssignments = schedule.assignments.filter(a => !a.isCompleted);
+    if (uncompletedAssignments.length === 0) {
+      alert('Bu günde iptal edilecek tamamlanmamış ziyaret bulunmamaktadır.');
+      return;
+    }
+
+    const confirmCancel = confirm(`Bu gündeki tüm tamamlanmamış (${uncompletedAssignments.length}) ziyaretleri iptal edip sonraki günlere kaydırmak istediğinize emin misiniz?`);
+    if (!confirmCancel) return;
+
+    setIsRescheduling(true);
+    try {
+      await dbLocal.transaction('rw', [dbLocal.schedules, dbLocal.workDays], async () => {
+        const allSchedules = await dbLocal.schedules.toArray();
+        const futureSchedules = allSchedules
+          .filter(s => s.date >= date)
+          .sort((a, b) => a.date.localeCompare(b.date));
+
+        let uncompletedPool: any[] = [];
+        for (const s of futureSchedules) {
+          const uncompletedInDay = s.assignments.filter(a => !a.isCompleted);
+          uncompletedPool.push(...uncompletedInDay);
+        }
+
+        const todayUncompletedIds = new Set(uncompletedAssignments.map(a => a.applicantId));
+        const filteredPool = uncompletedPool.filter(a => !todayUncompletedIds.has(a.applicantId));
+        const newPool = [...uncompletedAssignments, ...filteredPool];
+
+        let poolOffset = 0;
+        for (const s of futureSchedules) {
+          const completedOnes = s.assignments.filter(a => a.isCompleted);
+          const isCanceledDay = s.date === date;
+          const uncompletedCount = isCanceledDay ? 0 : (s.assignments.length - completedOnes.length);
+          const newUncompleted = newPool.slice(poolOffset, poolOffset + uncompletedCount);
+          poolOffset += uncompletedCount;
+          await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
+        }
+        
+        if (poolOffset < newPool.length) {
+          const lastSchedule = futureSchedules[futureSchedules.length - 1];
+          const leftovers = newPool.slice(poolOffset);
+          const nextWorkDays = await dbLocal.workDays.where('date').above(lastSchedule.date).filter(wd => wd.isWorkDay).toArray();
+          if (nextWorkDays.length > 0) {
+            await dbLocal.schedules.add({ date: nextWorkDays[0].date, programId: lastSchedule.programId, assignments: leftovers });
+          } else {
+            await dbLocal.schedules.update(lastSchedule.id!, { assignments: [...lastSchedule.assignments, ...leftovers] });
+          }
+        }
+      });
+      alert('Gündeki tüm ziyaretler başarıyla sonraki günlere kaydırıldı.');
+    } catch (error) {
+      console.error('Rescheduling error:', error);
+      alert('Günü kaydırma işlemi sırasında bir hata oluştu.');
+    } finally {
+      setIsRescheduling(false);
+    }
   };
 
   const currentMonthWorkDays = useMemo(() => {
@@ -503,17 +633,18 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     
     let heightLeft = imgHeight;
     let position = 0;
+    const margin = 15; // Bottom margin to prevent cutting text
 
     // Add the first page
     pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pdfHeight;
+    heightLeft -= (pdfHeight - margin);
 
     // Add subsequent pages if content is longer than one page
     while (heightLeft > 0) {
-      position -= pdfHeight;
+      position -= (pdfHeight - margin);
       pdf.addPage();
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
+      heightLeft -= (pdfHeight - margin);
     }
     
     pdf.save(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
@@ -540,6 +671,16 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
   return (
     <div className="space-y-6 relative">
+      {/* Loading Overlay for Rescheduling */}
+      {isRescheduling && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[9999] flex items-center justify-center">
+          <div className="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-sm font-bold text-gray-900">Planlama Güncelleniyor...</p>
+          </div>
+        </div>
+      )}
+
       {/* Hidden Report for PDF Generation */}
       <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '25mm', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.5' }}>
         <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '20px', color: '#000000' }}>
@@ -547,7 +688,9 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             <img 
               src={APP_LOGO_URL} 
               alt="Logo" 
+              crossOrigin="anonymous"
               style={{ width: '80px', height: '80px', margin: '0 auto 15px', display: 'block', objectFit: 'contain' }} 
+              referrerPolicy="no-referrer"
             />
             <h1 style={{ fontSize: '16pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>T.C.</h1>
             <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>EDİRNE VALİLİĞİ</h2>
@@ -755,6 +898,23 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {!a.items.every(i => {
+                      const s = schedules.find(sc => sc.date === a.date);
+                      const ass = s?.assignments.find(as => as.applicantId === i.applicant.id);
+                      return ass?.isCompleted;
+                    }) && a.items.length > 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelDay(a.date);
+                        }}
+                        className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-1"
+                        title="Günü İptal Et ve Kaydır"
+                      >
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-[10px] font-bold hidden sm:inline">GÜNÜ KAYDIR</span>
+                      </button>
+                    )}
                     {a.items.every(i => {
                       const s = schedules.find(sc => sc.date === a.date);
                       const ass = s?.assignments.find(as => as.applicantId === i.applicant.id);
@@ -789,6 +949,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                 <div className="text-[9px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-mono font-bold">{item.applicant.tcNo}</div>
                                 {isCompleted && (
                                   <span className="text-[8px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">BİTTİ</span>
+                                )}
+                                {!isCompleted && (
+                                  <button
+                                    onClick={() => handleCancelAssignment(a.date, item.applicant.id!)}
+                                    className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider hover:bg-orange-200 transition-colors"
+                                    title="İptal Et ve Sonraki Güne Kaydır"
+                                  >
+                                    İPTAL / KAYDIR
+                                  </button>
                                 )}
                               </div>
                             </div>
