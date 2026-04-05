@@ -11,29 +11,51 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return window.btoa(binary);
 }
 
-// Reliable CDN URLs for Roboto TTF files from roboto-fontface npm package
-const ROBOTO_REGULAR_URL = 'https://cdn.jsdelivr.net/npm/roboto-fontface@0.10.0/fonts/roboto/Roboto-Regular.ttf';
-const ROBOTO_BOLD_URL = 'https://cdn.jsdelivr.net/npm/roboto-fontface@0.10.0/fonts/roboto/Roboto-Bold.ttf';
+// Multiple reliable CDN sources for Roboto fonts
+const ROBOTO_REGULAR_SOURCES = [
+  'https://cdn.jsdelivr.net/npm/roboto-fontface@0.10.0/fonts/roboto/Roboto-Regular.ttf',
+  'https://cdnjs.cloudflare.com/ajax/libs/roboto-fontface/0.10.0/fonts/roboto/Roboto-Regular.ttf',
+  'https://unpkg.com/roboto-fontface@0.10.0/fonts/roboto/Roboto-Regular.ttf',
+  'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/static/Roboto-Regular.ttf'
+];
+
+const ROBOTO_BOLD_SOURCES = [
+  'https://cdn.jsdelivr.net/npm/roboto-fontface@0.10.0/fonts/roboto/Roboto-Bold.ttf',
+  'https://cdnjs.cloudflare.com/ajax/libs/roboto-fontface/0.10.0/fonts/roboto/Roboto-Bold.ttf',
+  'https://unpkg.com/roboto-fontface@0.10.0/fonts/roboto/Roboto-Bold.ttf',
+  'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/static/Roboto-Bold.ttf'
+];
 
 let regularFontData: string | null = null;
 let boldFontData: string | null = null;
 
+async function fetchFontWithFallback(urls: string[]): Promise<string | null> {
+  for (const url of urls) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      
+      const buffer = await response.arrayBuffer();
+      // Basic validation: TTF files should be reasonably large (usually > 30KB)
+      if (buffer.byteLength < 10000) continue;
+      
+      return arrayBufferToBase64(buffer);
+    } catch (e) {
+      console.warn(`Failed to fetch font from ${url}, trying next...`, e);
+      continue;
+    }
+  }
+  return null;
+}
+
 export async function loadTurkishFonts(pdf: jsPDF): Promise<boolean> {
   try {
     if (!regularFontData) {
-      const response = await fetch(ROBOTO_REGULAR_URL);
-      if (!response.ok) throw new Error(`Failed to fetch Regular font: ${response.status}`);
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength < 1000) throw new Error('Regular font file too small, likely invalid');
-      regularFontData = arrayBufferToBase64(buffer);
+      regularFontData = await fetchFontWithFallback(ROBOTO_REGULAR_SOURCES);
     }
 
     if (!boldFontData) {
-      const response = await fetch(ROBOTO_BOLD_URL);
-      if (!response.ok) throw new Error(`Failed to fetch Bold font: ${response.status}`);
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength < 1000) throw new Error('Bold font file too small, likely invalid');
-      boldFontData = arrayBufferToBase64(buffer);
+      boldFontData = await fetchFontWithFallback(ROBOTO_BOLD_SOURCES);
     }
 
     if (regularFontData) {
@@ -54,7 +76,7 @@ export async function loadTurkishFonts(pdf: jsPDF): Promise<boolean> {
     pdf.setFont('helvetica', 'normal');
     return false;
   } catch (error) {
-    console.error('Error loading Turkish fonts:', error);
+    console.error('Critical error in loadTurkishFonts:', error);
     pdf.setFont('helvetica', 'normal');
     return false;
   }
