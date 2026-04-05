@@ -13,6 +13,14 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [recoveryBackup, setRecoveryBackup] = useState<any>(null);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(() => {
+    const saved = localStorage.getItem('autoSyncEnabled');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('autoSyncEnabled', JSON.stringify(autoSyncEnabled));
+  }, [autoSyncEnabled]);
 
   const checkRecovery = useCallback(async () => {
     const backup = await getLatestRecoveryBackup();
@@ -40,9 +48,12 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
       setAuthStatus(data);
       if (onAuthChange) onAuthChange(data.authenticated, data.email);
       
-      // Auto-restore on initial login if authenticated
-      if (data.authenticated && isInitialLoad) {
-        handleRestore(true);
+      // Auto-restore on initial login if authenticated, local database is empty, and auto-sync is enabled
+      if (data.authenticated && isInitialLoad && autoSyncEnabled) {
+        const applicantsCount = await dbLocal.applicants.count();
+        if (applicantsCount === 0) {
+          handleRestore(true);
+        }
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
@@ -50,7 +61,7 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
       setAuthStatus(failStatus);
       if (onAuthChange) onAuthChange(false);
     }
-  }, [onAuthChange, isInitialLoad]);
+  }, [onAuthChange, isInitialLoad, autoSyncEnabled]);
 
   useEffect(() => {
     checkAuthStatus();
@@ -60,13 +71,21 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
         const newStatus = { authenticated: true, email: event.data.email };
         setAuthStatus(newStatus);
         if (onAuthChange) onAuthChange(true, event.data.email);
-        setMessage({ type: 'success', text: 'Giriş başarılı. Veriler senkronize ediliyor...' });
-        handleRestore(true); // Auto-restore after login
+        setMessage({ type: 'success', text: 'Giriş başarılı. Veriler kontrol ediliyor...' });
+        
+        // Auto-restore after login ONLY if database is empty and auto-sync is enabled
+        if (autoSyncEnabled) {
+          dbLocal.applicants.count().then(count => {
+            if (count === 0) {
+              handleRestore(true);
+            }
+          });
+        }
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [checkAuthStatus, onAuthChange]);
+  }, [checkAuthStatus, onAuthChange, autoSyncEnabled]);
 
   const handleLogin = async () => {
     try {
@@ -341,6 +360,19 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
         <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-100">
           <div className="w-2 h-2 bg-green-500 rounded-full" />
           <span className="text-xs text-gray-600 font-medium truncate">{authStatus.email}</span>
+        </div>
+
+        <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-xl border border-gray-100">
+          <div className="flex items-center gap-2">
+            <RotateCcw className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-[10px] text-gray-600 font-bold uppercase">Otomatik Senkronizasyon</span>
+          </div>
+          <button
+            onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
+            className={`w-8 h-4 rounded-full transition-colors relative ${autoSyncEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+          >
+            <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${autoSyncEnabled ? 'left-4.5' : 'left-0.5'}`} />
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
