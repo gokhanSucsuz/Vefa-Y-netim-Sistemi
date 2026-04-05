@@ -11,9 +11,9 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return window.btoa(binary);
 }
 
-// Reliable CDN URLs for Roboto TTF files
-const ROBOTO_REGULAR_URL = 'https://cdn.jsdelivr.net/gh/bpampuch/pdfmake@0.1.65/examples/fonts/Roboto-Regular.ttf';
-const ROBOTO_BOLD_URL = 'https://cdn.jsdelivr.net/gh/bpampuch/pdfmake@0.1.65/examples/fonts/Roboto-Bold.ttf';
+// Reliable CDN URLs for Roboto TTF files from roboto-fontface npm package
+const ROBOTO_REGULAR_URL = 'https://cdn.jsdelivr.net/npm/roboto-fontface@0.10.0/fonts/roboto/Roboto-Regular.ttf';
+const ROBOTO_BOLD_URL = 'https://cdn.jsdelivr.net/npm/roboto-fontface@0.10.0/fonts/roboto/Roboto-Bold.ttf';
 
 let regularFontData: string | null = null;
 let boldFontData: string | null = null;
