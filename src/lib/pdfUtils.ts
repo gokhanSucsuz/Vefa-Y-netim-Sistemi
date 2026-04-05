@@ -4,6 +4,8 @@ import { Applicant, Staff } from '../types';
 import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 
+import { APP_LOGO_URL } from '../constants/logo';
+
 export const generateCleaningReport = async (applicant: Applicant, staffMembers: Staff[], date: string) => {
   // Create a hidden container for the report
   const container = document.createElement('div');
@@ -22,9 +24,14 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
 
   container.innerHTML = `
     <div style="text-align: center; margin-bottom: 30px;">
+      <img 
+        src="${APP_LOGO_URL}" 
+        alt="Logo" 
+        style="width: 80px; height: 80px; margin: 0 auto 15px; display: block; object-fit: contain;" 
+      />
       <h1 style="font-size: 16pt; font-weight: bold; text-transform: uppercase; margin: 0;">T.C.</h1>
       <h2 style="font-size: 14pt; font-weight: bold; text-transform: uppercase; margin: 5px 0;">EDİRNE VALİLİĞİ</h2>
-      <h3 style={{ fontSize: '12pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid #000', paddingBottom: '10px' }}>Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı</h3>
+      <h3 style="font-size: 12pt; font-weight: bold; text-transform: uppercase; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 10px;">Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı</h3>
       <h4 style="font-size: 13pt; font-weight: bold; margin-top: 20px; text-decoration: underline;">VEFA PROJESİ HİZMET SUNUM FORMU</h4>
     </div>
 

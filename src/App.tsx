@@ -18,6 +18,8 @@ import ProgramManagement from './components/ProgramManagement';
 import CompletedCleanings from './components/CompletedCleanings';
 import Statistics from './components/Statistics';
 
+import { APP_LOGO_URL } from './constants/logo';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'completed' | 'docs' | 'stats'>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -126,9 +128,12 @@ export default function App() {
       {/* Mobile Header */}
       <header className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-[60] w-full">
         <div className="flex items-center gap-2">
-          <div className="bg-blue-600 p-1.5 rounded-lg">
-            <Building2 className="text-white w-4 h-4" />
-          </div>
+          <img 
+            src={APP_LOGO_URL} 
+            alt="Logo" 
+            className="w-8 h-8 object-contain"
+            referrerPolicy="no-referrer"
+          />
           <span className="font-bold text-sm text-gray-900 truncate max-w-[150px]">Edirne SYDV Vefa</span>
         </div>
         <button 
@@ -154,9 +159,12 @@ export default function App() {
       `}>
         <div className="p-6 border-b border-gray-100 hidden lg:block">
           <div className="flex items-start gap-3 mb-1">
-            <div className="bg-blue-600 p-2 rounded-lg shrink-0">
-              <Building2 className="text-white w-5 h-5" />
-            </div>
+            <img 
+              src={APP_LOGO_URL} 
+              alt="Logo" 
+              className="w-12 h-12 object-contain shrink-0"
+              referrerPolicy="no-referrer"
+            />
             <div>
               <span className="font-bold text-sm text-gray-900 block leading-tight">Edirne Merkez SYDV</span>
               <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Vefa Yönetim Sistemi</span>
