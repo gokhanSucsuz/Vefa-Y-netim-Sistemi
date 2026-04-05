@@ -172,7 +172,8 @@ export default function Statistics() {
 
   const exportToPDF = async () => {
     const pdf = new jsPDF('p', 'mm', 'a4');
-    await loadTurkishFonts(pdf);
+    const fontsLoaded = await loadTurkishFonts(pdf);
+    const fontName = fontsLoaded ? "Roboto" : "helvetica";
     const pdfWidth = pdf.internal.pageSize.getWidth();
     
     // Header
@@ -190,7 +191,7 @@ export default function Statistics() {
     }
 
     pdf.setFontSize(14);
-    pdf.setFont("Roboto", "bold");
+    pdf.setFont(fontName, "bold");
     pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
     pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
     pdf.setFontSize(11);
@@ -212,23 +213,23 @@ export default function Statistics() {
         ['Hizmet Verilen Müracaatçı Sayısı', stats.totalUniqueApplicants]
       ],
       theme: 'grid',
-      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], font: 'Roboto' },
-      styles: { font: 'Roboto' },
+      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], font: fontName },
+      styles: { font: fontName },
       margin: { left: 20, right: 20 }
     });
 
     // 2. Mahalle Dağılımı
     const neighborhoodTableY = (pdf as any).lastAutoTable.finalY + 15;
     pdf.setFontSize(11);
-    pdf.setFont("Roboto", "bold");
+    pdf.setFont(fontName, "bold");
     pdf.text("MAHALLE BAZLI DAĞILIM", 20, neighborhoodTableY - 5);
     autoTable(pdf, {
       startY: neighborhoodTableY,
       head: [['Mahalle', 'Temizlik Sayısı', 'Müracaatçı Sayısı']],
       body: stats.neighborhoodData.map(n => [n.name, n.count, n.uniqueApplicants]),
       theme: 'striped',
-      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], font: 'Roboto' },
-      styles: { font: 'Roboto' },
+      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], font: fontName },
+      styles: { font: fontName },
       margin: { left: 20, right: 20, bottom: 25 }
     });
 
@@ -237,22 +238,22 @@ export default function Statistics() {
     if (staffTableY > 250) pdf.addPage();
     const currentStaffY = staffTableY > 250 ? 20 : staffTableY;
     pdf.setFontSize(11);
-    pdf.setFont("Roboto", "bold");
+    pdf.setFont(fontName, "bold");
     pdf.text("PERSONEL PERFORMANS VERİLERİ", 20, currentStaffY - 5);
     autoTable(pdf, {
       startY: currentStaffY,
       head: [['Personel', 'Toplam İş', 'Müracaatçı Sayısı']],
       body: stats.staffData.map(s => [`${s.name}`, s.jobCount, s.uniqueApplicantsCount]),
       theme: 'striped',
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], font: 'Roboto' },
-      styles: { font: 'Roboto' },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], font: fontName },
+      styles: { font: fontName },
       margin: { left: 20, right: 20, bottom: 25 },
       didDrawPage: (data) => {
         // Footer
         const str = "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur.";
         pdf.setFontSize(8);
         pdf.setTextColor(150);
-        pdf.setFont("Roboto", "normal");
+        pdf.setFont(fontName, "normal");
         pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
       }
     });

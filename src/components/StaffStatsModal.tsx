@@ -47,7 +47,8 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
 
   const generatePDF = async () => {
     const pdf = new jsPDF('p', 'mm', 'a4');
-    await loadTurkishFonts(pdf);
+    const fontsLoaded = await loadTurkishFonts(pdf);
+    const fontName = fontsLoaded ? "Roboto" : "helvetica";
     const pdfWidth = pdf.internal.pageSize.getWidth();
     
     // Header
@@ -65,7 +66,7 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
     }
 
     pdf.setFontSize(14);
-    pdf.setFont("Roboto", "bold");
+    pdf.setFont(fontName, "bold");
     pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
     pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
     pdf.setFontSize(11);
@@ -88,15 +89,15 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
         ['Toplam Görev', schedules.length]
       ],
       theme: 'grid',
-      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], font: 'Roboto' },
-      styles: { font: 'Roboto' },
+      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], font: fontName },
+      styles: { font: fontName },
       margin: { left: 20, right: 20 }
     });
 
     // 2. Görev Geçmişi
     const tableY = (pdf as any).lastAutoTable.finalY + 15;
     pdf.setFontSize(11);
-    pdf.setFont("Roboto", "bold");
+    pdf.setFont(fontName, "bold");
     pdf.text("GÖREV GEÇMİŞİ LİSTESİ", 20, tableY - 5);
     autoTable(pdf, {
       startY: tableY,
@@ -110,15 +111,15 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
         ];
       }),
       theme: 'striped',
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], font: 'Roboto' },
-      styles: { font: 'Roboto' },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], font: fontName },
+      styles: { font: fontName },
       margin: { left: 20, right: 20, bottom: 25 },
       didDrawPage: (data) => {
         // Footer
         const str = "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur.";
         pdf.setFontSize(8);
         pdf.setTextColor(150);
-        pdf.setFont("Roboto", "normal");
+        pdf.setFont(fontName, "normal");
         pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
       }
     });

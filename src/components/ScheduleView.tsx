@@ -612,7 +612,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
   const exportToPDF = async () => {
     const pdf = new jsPDF('p', 'mm', 'a4');
-    await loadTurkishFonts(pdf);
+    const fontsLoaded = await loadTurkishFonts(pdf);
+    const fontName = fontsLoaded ? "Roboto" : "helvetica";
     
     // Header
     const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -632,7 +633,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     }
 
     pdf.setFontSize(14);
-    pdf.setFont("Roboto", "bold");
+    pdf.setFont(fontName, "bold");
     pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
     pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
     
@@ -658,15 +659,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       head: [['Tarih', 'Mahalle', 'Müracaatçı', 'Görevli Personeller']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'left', font: 'Roboto' },
-      styles: { fontSize: 9, cellPadding: 3, font: 'Roboto' },
+      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'left', font: fontName },
+      styles: { fontSize: 9, cellPadding: 3, font: fontName },
       margin: { top: 20, bottom: 25, left: 20, right: 20 }, // 25mm bottom margin
       didDrawPage: (data) => {
         // Footer on each page
         const str = "Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır.";
         pdf.setFontSize(8);
         pdf.setTextColor(150);
-        pdf.setFont("Roboto", "normal");
+        pdf.setFont(fontName, "normal");
         pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
       }
     });

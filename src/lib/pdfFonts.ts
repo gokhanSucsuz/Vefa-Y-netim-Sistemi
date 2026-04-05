@@ -12,36 +12,50 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 // Reliable CDN URLs for Roboto TTF files
-const ROBOTO_REGULAR_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf';
-const ROBOTO_BOLD_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Bold.ttf';
+const ROBOTO_REGULAR_URL = 'https://cdn.jsdelivr.net/gh/bpampuch/pdfmake@0.1.65/examples/fonts/Roboto-Regular.ttf';
+const ROBOTO_BOLD_URL = 'https://cdn.jsdelivr.net/gh/bpampuch/pdfmake@0.1.65/examples/fonts/Roboto-Bold.ttf';
 
 let regularFontData: string | null = null;
 let boldFontData: string | null = null;
 
-export async function loadTurkishFonts(pdf: jsPDF) {
+export async function loadTurkishFonts(pdf: jsPDF): Promise<boolean> {
   try {
     if (!regularFontData) {
       const response = await fetch(ROBOTO_REGULAR_URL);
+      if (!response.ok) throw new Error(`Failed to fetch Regular font: ${response.status}`);
       const buffer = await response.arrayBuffer();
+      if (buffer.byteLength < 1000) throw new Error('Regular font file too small, likely invalid');
       regularFontData = arrayBufferToBase64(buffer);
     }
 
     if (!boldFontData) {
       const response = await fetch(ROBOTO_BOLD_URL);
+      if (!response.ok) throw new Error(`Failed to fetch Bold font: ${response.status}`);
       const buffer = await response.arrayBuffer();
+      if (buffer.byteLength < 1000) throw new Error('Bold font file too small, likely invalid');
       boldFontData = arrayBufferToBase64(buffer);
     }
 
-    pdf.addFileToVFS('Roboto-Regular.ttf', regularFontData);
-    pdf.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    if (regularFontData) {
+      pdf.addFileToVFS('Roboto-Regular.ttf', regularFontData);
+      pdf.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    }
     
-    pdf.addFileToVFS('Roboto-Bold.ttf', boldFontData);
-    pdf.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+    if (boldFontData) {
+      pdf.addFileToVFS('Roboto-Bold.ttf', boldFontData);
+      pdf.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+    }
     
-    pdf.setFont('Roboto', 'normal');
+    if (regularFontData) {
+      pdf.setFont('Roboto', 'normal');
+      return true;
+    }
+    
+    pdf.setFont('helvetica', 'normal');
+    return false;
   } catch (error) {
     console.error('Error loading Turkish fonts:', error);
-    // Fallback to helvetica if font loading fails
     pdf.setFont('helvetica', 'normal');
+    return false;
   }
 }
