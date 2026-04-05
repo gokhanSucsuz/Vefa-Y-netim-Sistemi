@@ -1,47 +1,58 @@
 import pdfMake from 'pdfmake/build/pdfmake';
+import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 
-// Extremely reliable cdnjs sources for Roboto fonts (standard with pdfmake)
-const ROBOTO_REGULAR_SOURCES = [
-  'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf',
-  'https://cdn.jsdelivr.net/npm/pdfmake@0.2.7/build/fonts/Roboto/Roboto-Regular.ttf'
-];
+// Standard Roboto fonts provided by pdfmake
+const ROBOTO_FONTS = {
+  Roboto: {
+    normal: 'Roboto-Regular.ttf',
+    bold: 'Roboto-Bold.ttf',
+    italics: 'Roboto-Italic.ttf',
+    bolditalics: 'Roboto-Bold.ttf',
+    medium: 'Roboto-Medium.ttf'
+  }
+};
 
-const ROBOTO_BOLD_SOURCES = [
-  'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Bold.ttf',
-  'https://cdn.jsdelivr.net/npm/pdfmake@0.2.7/build/fonts/Roboto/Roboto-Bold.ttf'
-];
+export async function setupPdfMakeFonts() {
+  try {
+    // pdfmake/build/vfs_fonts usually exports an object with pdfMake.vfs
+    // or it might be a global side-effect.
+    const vfs = (pdfFonts as any).pdfMake?.vfs || (pdfFonts as any).vfs || (window as any).pdfMake?.vfs;
+    
+    if (vfs) {
+      (pdfMake as any).vfs = vfs;
+      (pdfMake as any).fonts = ROBOTO_FONTS;
+      
+      // Ensure all required keys exist in VFS, fallback to Regular if missing
+      const regularData = vfs['Roboto-Regular.ttf'];
+      if (regularData) {
+        if (!vfs['Roboto-Bold.ttf']) vfs['Roboto-Bold.ttf'] = regularData;
+        if (!vfs['Roboto-Medium.ttf']) vfs['Roboto-Medium.ttf'] = regularData;
+        if (!vfs['Roboto-Italic.ttf']) vfs['Roboto-Italic.ttf'] = regularData;
+        
+        (pdfMake as any).defaultStyle = {
+          font: 'Roboto'
+        };
+        return true;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load local vfs_fonts", e);
+  }
 
-const ROBOTO_MEDIUM_SOURCES = [
-  'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf',
-  'https://cdn.jsdelivr.net/npm/pdfmake@0.2.7/build/fonts/Roboto/Roboto-Medium.ttf'
-];
-
-const ROBOTO_ITALIC_SOURCES = [
-  'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Italic.ttf',
-  'https://cdn.jsdelivr.net/npm/pdfmake@0.2.7/build/fonts/Roboto/Roboto-Italic.ttf'
-];
-
-let regularFontData: string | null = null;
-let boldFontData: string | null = null;
-let mediumFontData: string | null = null;
-let italicFontData: string | null = null;
+  // Fallback to extremely reliable Google Fonts CDN if local fails
+  console.log("Falling back to external font sources...");
+  return await setupPdfMakeFontsExternal();
+}
 
 async function fetchFontWithFallback(urls: string[]): Promise<string | null> {
   for (const url of urls) {
     try {
       const response = await fetch(url);
-      if (!response.ok) {
-        console.warn(`Font fetch failed for ${url}: ${response.status}`);
-        continue;
-      }
+      if (!response.ok) continue;
       
       const buffer = await response.arrayBuffer();
-      if (buffer.byteLength < 5000) {
-        console.warn(`Font file too small from ${url}: ${buffer.byteLength} bytes`);
-        continue;
-      }
+      if (buffer.byteLength < 5000) continue;
       
-      // Convert to base64 efficiently
       const bytes = new Uint8Array(buffer);
       let binary = '';
       const chunk = 8192;
@@ -50,55 +61,42 @@ async function fetchFontWithFallback(urls: string[]): Promise<string | null> {
       }
       return window.btoa(binary);
     } catch (e) {
-      console.warn(`Failed to fetch font from ${url}, trying next...`, e);
+      console.warn(`Failed to fetch font from ${url}`, e);
       continue;
     }
   }
   return null;
 }
 
-export async function setupPdfMakeFonts() {
-  // Load fonts in parallel
-  const [reg, bld, med, itl] = await Promise.all([
-    regularFontData ? Promise.resolve(regularFontData) : fetchFontWithFallback(ROBOTO_REGULAR_SOURCES),
-    boldFontData ? Promise.resolve(boldFontData) : fetchFontWithFallback(ROBOTO_BOLD_SOURCES),
-    mediumFontData ? Promise.resolve(mediumFontData) : fetchFontWithFallback(ROBOTO_MEDIUM_SOURCES),
-    italicFontData ? Promise.resolve(italicFontData) : fetchFontWithFallback(ROBOTO_ITALIC_SOURCES)
+async function setupPdfMakeFontsExternal() {
+  const ROBOTO_REGULAR_SOURCES = [
+    'https://fonts.gstatic.com/s/roboto/v30/K7OmYqlYI1G2ig466ze1_v7S.ttf',
+    'https://cdn.jsdelivr.net/gh/googlefonts/roboto@main/src/v2/Roboto-Regular.ttf'
+  ];
+
+  const ROBOTO_BOLD_SOURCES = [
+    'https://fonts.gstatic.com/s/roboto/v30/K7OTYqlYI1G2ig466ze1_v7S.ttf',
+    'https://cdn.jsdelivr.net/gh/googlefonts/roboto@main/src/v2/Roboto-Bold.ttf'
+  ];
+
+  const [reg, bld] = await Promise.all([
+    fetchFontWithFallback(ROBOTO_REGULAR_SOURCES),
+    fetchFontWithFallback(ROBOTO_BOLD_SOURCES)
   ]);
 
-  // Use regular font as fallback for others if they fail
-  regularFontData = reg;
-  boldFontData = bld || reg;
-  mediumFontData = med || reg;
-  italicFontData = itl || reg;
-
-  if (regularFontData) {
+  if (reg) {
     const vfs: Record<string, string> = {
-      'Roboto-Regular.ttf': regularFontData,
-      'Roboto-Bold.ttf': boldFontData || regularFontData,
-      'Roboto-Medium.ttf': mediumFontData || regularFontData,
-      'Roboto-Italic.ttf': italicFontData || regularFontData
+      'Roboto-Regular.ttf': reg,
+      'Roboto-Bold.ttf': bld || reg,
+      'Roboto-Medium.ttf': bld || reg,
+      'Roboto-Italic.ttf': reg
     };
 
     (pdfMake as any).vfs = vfs;
-    (pdfMake as any).fonts = {
-      Roboto: {
-        normal: 'Roboto-Regular.ttf',
-        bold: 'Roboto-Bold.ttf',
-        italics: 'Roboto-Italic.ttf',
-        bolditalics: 'Roboto-Bold.ttf',
-        medium: 'Roboto-Medium.ttf'
-      }
-    };
-    
-    // Set default font to Roboto
-    (pdfMake as any).defaultStyle = {
-      font: 'Roboto'
-    };
-    
+    (pdfMake as any).fonts = ROBOTO_FONTS;
+    (pdfMake as any).defaultStyle = { font: 'Roboto' };
     return true;
   }
-  
-  console.error("Critical: Regular font could not be loaded for pdfmake");
+
   return false;
 }
