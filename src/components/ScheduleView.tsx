@@ -5,10 +5,9 @@ import { format, startOfMonth, endOfMonth, parseISO, addDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
-import { loadTurkishFonts } from '../lib/pdfFonts';
+import { setupPdfMakeFonts } from '../lib/pdfFonts';
 import { Map, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { geocodeAddress } from '../services/geocoding';
@@ -611,68 +610,100 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   };
 
   const exportToPDF = async () => {
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const fontsLoaded = await loadTurkishFonts(pdf);
-    const fontName = fontsLoaded ? "Roboto" : "helvetica";
+    const fontsLoaded = await setupPdfMakeFonts();
+    if (!fontsLoaded) {
+      console.error("Fonts could not be loaded for pdfmake");
+    }
     
-    // Header
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    
-    // Add Logo
+    let logoBase64 = '';
     try {
-      const img = new Image();
-      img.src = `https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`;
-      img.crossOrigin = "anonymous";
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-      pdf.addImage(img, 'JPEG', (pdfWidth - 25) / 2, 10, 25, 25);
+      const getBase64ImageFromURL = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.setAttribute('crossOrigin', 'anonymous');
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL('image/png');
+            resolve(dataURL);
+          };
+          img.onerror = (error) => reject(error);
+          img.src = url;
+        });
+      };
+      logoBase64 = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`);
     } catch (e) {
       console.error("Logo could not be added to PDF", e);
     }
 
-    pdf.setFontSize(14);
-    pdf.setFont(fontName, "bold");
-    pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
-    pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
-    
-    pdf.setFontSize(11);
-    pdf.text("Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı", pdfWidth / 2, 59, { align: "center" });
-    
-    pdf.setLineWidth(0.5);
-    pdf.line(20, 62, pdfWidth - 20, 62);
-    
-    pdf.setFontSize(12);
-    pdf.text(`${format(selectedMonth, 'MMMM yyyy', { locale: tr }).toUpperCase()} AYI VEFA PROGRAMI ÇİZELGESİ`, pdfWidth / 2, 72, { align: "center" });
-
-    // Table Data
     const tableData = assignments.flatMap(a => a.items.map(item => [
       format(parseISO(a.date), 'dd.MM.yyyy'),
-      item.applicant.neighborhood,
+      item.applicant.neighborhood || '-',
       `${item.applicant.name} ${item.applicant.surname}`,
       item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'
     ]));
 
-    autoTable(pdf, {
-      startY: 80,
-      head: [['Tarih', 'Mahalle', 'Müracaatçı', 'Görevli Personeller']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'left', font: fontName },
-      styles: { fontSize: 9, cellPadding: 3, font: fontName },
-      margin: { top: 20, bottom: 25, left: 20, right: 20 }, // 25mm bottom margin
-      didDrawPage: (data) => {
-        // Footer on each page
-        const str = "Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır.";
-        pdf.setFontSize(8);
-        pdf.setTextColor(150);
-        pdf.setFont(fontName, "normal");
-        pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
-      }
-    });
+    const docDefinition: any = {
+      content: [
+        logoBase64 ? {
+          image: logoBase64,
+          width: 50,
+          alignment: 'center',
+          margin: [0, 0, 0, 10]
+        } : null,
+        { text: 'T.C.', style: 'header', alignment: 'center' },
+        { text: 'EDİRNE VALİLİĞİ', style: 'header', alignment: 'center' },
+        { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
+        { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
+        { 
+          text: `${format(selectedMonth, 'MMMM yyyy', { locale: tr }).toUpperCase()} AYI VEFA PROGRAMI ÇİZELGESİ`, 
+          style: 'title', 
+          alignment: 'center', 
+          margin: [0, 15, 0, 15] 
+        },
+        {
+          table: {
+            headerRows: 1,
+            widths: [70, 100, '*', '*'],
+            body: [
+              [
+                { text: 'Tarih', style: 'tableHeader' },
+                { text: 'Mahalle', style: 'tableHeader' },
+                { text: 'Müracaatçı', style: 'tableHeader' },
+                { text: 'Görevli Personeller', style: 'tableHeader' }
+              ],
+              ...tableData
+            ]
+          },
+          layout: 'lightHorizontalLines'
+        }
+      ],
+      footer: (currentPage: number, pageCount: number) => {
+        return {
+          text: "Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır. Sayfa " + currentPage + " / " + pageCount,
+          alignment: 'center',
+          fontSize: 8,
+          color: '#666',
+          margin: [0, 10, 0, 0]
+        };
+      },
+      styles: {
+        header: { fontSize: 14, bold: true, margin: [0, 2, 0, 2] },
+        subheader: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
+        title: { fontSize: 12, bold: true },
+        tableHeader: { bold: true, fontSize: 10, fillColor: '#f8fafc', alignment: 'left' }
+      },
+      defaultStyle: {
+        font: 'Roboto',
+        fontSize: 9
+      },
+      pageMargins: [40, 40, 40, 60]
+    };
 
-    pdf.save(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
+    pdfMake.createPdf(docDefinition).download(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
   };
 
   const activeMarkers = useMemo(() => {

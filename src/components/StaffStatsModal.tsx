@@ -5,10 +5,9 @@ import { X, Calendar, CheckCircle2, Clock, BarChart3, TrendingUp, Download, User
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { motion } from 'motion/react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
-import { loadTurkishFonts } from '../lib/pdfFonts';
+import { setupPdfMakeFonts } from '../lib/pdfFonts';
 
 interface Props {
   staff: Staff;
@@ -46,85 +45,110 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
     : null;
 
   const generatePDF = async () => {
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const fontsLoaded = await loadTurkishFonts(pdf);
-    const fontName = fontsLoaded ? "Roboto" : "helvetica";
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    
-    // Header
+    const fontsLoaded = await setupPdfMakeFonts();
+    if (!fontsLoaded) {
+      console.error("Fonts could not be loaded for pdfmake");
+    }
+
+    let logoBase64 = '';
     try {
-      const img = new Image();
-      img.src = `https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`;
-      img.crossOrigin = "anonymous";
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-      pdf.addImage(img, 'JPEG', (pdfWidth - 25) / 2, 10, 25, 25);
+      const getBase64ImageFromURL = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.setAttribute('crossOrigin', 'anonymous');
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL('image/png');
+            resolve(dataURL);
+          };
+          img.onerror = (error) => reject(error);
+          img.src = url;
+        });
+      };
+      logoBase64 = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`);
     } catch (e) {
       console.error("Logo could not be added to PDF", e);
     }
 
-    pdf.setFontSize(14);
-    pdf.setFont(fontName, "bold");
-    pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
-    pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
-    pdf.setFontSize(11);
-    pdf.text("Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı", pdfWidth / 2, 59, { align: "center" });
-    
-    pdf.setLineWidth(0.5);
-    pdf.line(20, 62, pdfWidth - 20, 62);
-    
-    pdf.setFontSize(12);
-    pdf.text("PERSONEL HİZMET PERFORMANS RAPORU", pdfWidth / 2, 72, { align: "center" });
+    const docDefinition: any = {
+      content: [
+        logoBase64 ? {
+          image: logoBase64,
+          width: 50,
+          alignment: 'center',
+          margin: [0, 0, 0, 10]
+        } : null,
+        { text: 'T.C.', style: 'header', alignment: 'center' },
+        { text: 'EDİRNE VALİLİĞİ', style: 'header', alignment: 'center' },
+        { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
+        { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
+        { text: 'PERSONEL HİZMET PERFORMANS RAPORU', style: 'title', alignment: 'center', margin: [0, 15, 0, 15] },
+        
+        { text: '1. Personel Bilgileri', style: 'sectionHeader' },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              [{ text: 'Personel Bilgileri', style: 'tableHeader' }, { text: 'Detay', style: 'tableHeader' }],
+              ['Ad Soyad', `${staff.name} ${staff.surname}`],
+              ['TC No', staff.tcNo],
+              ['Telefon', staff.phone],
+              ['Toplam Görev', schedules.length.toString()]
+            ]
+          }
+        },
 
-    // 1. Personel Bilgileri
-    autoTable(pdf, {
-      startY: 80,
-      head: [['Personel Bilgileri', 'Detay']],
-      body: [
-        ['Ad Soyad', `${staff.name} ${staff.surname}`],
-        ['TC No', staff.tcNo],
-        ['Telefon', staff.phone],
-        ['Toplam Görev', schedules.length]
+        { text: '2. Görev Geçmişi', style: 'sectionHeader' },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['*', '*', '*'],
+            body: [
+              [
+                { text: 'Tarih', style: 'tableHeader' },
+                { text: 'Müracaatçı', style: 'tableHeader' },
+                { text: 'Mahalle', style: 'tableHeader' }
+              ],
+              ...schedules.map(s => {
+                const assignment = s.assignments.find(a => a.staffIds.includes(staff.id!));
+                return [
+                  format(parseISO(s.date), 'dd.MM.yyyy'),
+                  assignment ? `${assignment.applicantName}` : '-',
+                  assignment ? `${assignment.neighborhood}` : '-'
+                ];
+              })
+            ]
+          }
+        }
       ],
-      theme: 'grid',
-      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], font: fontName },
-      styles: { font: fontName },
-      margin: { left: 20, right: 20 }
-    });
+      footer: (currentPage: number, pageCount: number) => {
+        return {
+          text: "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur. Sayfa " + currentPage + " / " + pageCount,
+          alignment: 'center',
+          fontSize: 8,
+          color: '#666',
+          margin: [0, 10, 0, 0]
+        };
+      },
+      styles: {
+        header: { fontSize: 14, bold: true, margin: [0, 2, 0, 2] },
+        subheader: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
+        title: { fontSize: 12, bold: true },
+        sectionHeader: { fontSize: 11, bold: true, margin: [0, 15, 0, 5] },
+        tableHeader: { bold: true, fontSize: 10, fillColor: '#f1f5f9', alignment: 'left' }
+      },
+      defaultStyle: {
+        font: 'Roboto',
+        fontSize: 10
+      },
+      pageMargins: [40, 40, 40, 60]
+    };
 
-    // 2. Görev Geçmişi
-    const tableY = (pdf as any).lastAutoTable.finalY + 15;
-    pdf.setFontSize(11);
-    pdf.setFont(fontName, "bold");
-    pdf.text("GÖREV GEÇMİŞİ LİSTESİ", 20, tableY - 5);
-    autoTable(pdf, {
-      startY: tableY,
-      head: [['Tarih', 'Müracaatçı', 'Mahalle']],
-      body: schedules.map(s => {
-        const assignment = s.assignments.find(a => a.staffIds.includes(staff.id!));
-        return [
-          format(parseISO(s.date), 'dd.MM.yyyy'),
-          assignment ? `${assignment.applicantName}` : '-',
-          assignment ? `${assignment.neighborhood}` : '-'
-        ];
-      }),
-      theme: 'striped',
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], font: fontName },
-      styles: { font: fontName },
-      margin: { left: 20, right: 20, bottom: 25 },
-      didDrawPage: (data) => {
-        // Footer
-        const str = "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur.";
-        pdf.setFontSize(8);
-        pdf.setTextColor(150);
-        pdf.setFont(fontName, "normal");
-        pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
-      }
-    });
-
-    pdf.save(`Personel_Raporu_${staff.name}_${staff.surname}.pdf`);
+    pdfMake.createPdf(docDefinition).download(`Personel_Raporu_${staff.name}_${staff.surname}.pdf`);
   };
 
   return (

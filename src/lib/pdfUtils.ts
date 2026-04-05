@@ -1,103 +1,162 @@
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import pdfMake from 'pdfmake/build/pdfmake';
 import { Applicant, Staff } from '../types';
 import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { APP_LOGO_URL } from '../constants/logo';
-import { loadTurkishFonts } from './pdfFonts';
+import { setupPdfMakeFonts } from './pdfFonts';
+
+const getBase64ImageFromURL = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.setAttribute('crossOrigin', 'anonymous');
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
+      const dataURL = canvas.toDataURL('image/png');
+      resolve(dataURL);
+    };
+    img.onerror = (error) => reject(error);
+    img.src = url;
+  });
+};
 
 export const generateCleaningReport = async (applicant: Applicant, staffMembers: Staff[], date: string) => {
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const fontsLoaded = await loadTurkishFonts(pdf);
-  const fontName = fontsLoaded ? "Roboto" : "helvetica";
-  
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const formattedDate = format(parseISO(date), 'd MMMM yyyy', { locale: tr });
-
-  // Header
-  try {
-    const img = new Image();
-    // Use a proxy to bypass CORS for external images like Twitter
-    img.src = `https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`;
-    img.crossOrigin = "anonymous";
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-    });
-    pdf.addImage(img, 'JPEG', (pdfWidth - 25) / 2, 10, 25, 25);
-  } catch (e) {
-    console.error("Logo could not be added to PDF", e);
+  const fontsLoaded = await setupPdfMakeFonts();
+  if (!fontsLoaded) {
+    console.error("Fonts could not be loaded for pdfmake");
   }
 
-  pdf.setFontSize(16);
-  pdf.setFont(fontName, "bold");
-  pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
-  pdf.setFontSize(14);
-  pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
-  pdf.setFontSize(12);
-  pdf.text("Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı", pdfWidth / 2, 59, { align: "center" });
+  const formattedDate = format(parseISO(date), 'd MMMM yyyy', { locale: tr });
+  let logoBase64 = '';
   
-  pdf.setLineWidth(0.5);
-  pdf.line(20, 62, pdfWidth - 20, 62);
-  
-  pdf.setFontSize(13);
-  pdf.text("VEFA PROJESİ HİZMET SUNUM FORMU", pdfWidth / 2, 72, { align: "center" });
+  try {
+    logoBase64 = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`);
+  } catch (e) {
+    console.error("Logo could not be loaded", e);
+  }
 
-  pdf.setFontSize(11);
-  pdf.setFont(fontName, "normal");
-  pdf.text(`Tarih: ${formattedDate}`, pdfWidth - 25, 82, { align: "right" });
+  const docDefinition: any = {
+    content: [
+      logoBase64 ? {
+        image: logoBase64,
+        width: 60,
+        alignment: 'center',
+        margin: [0, 0, 0, 10]
+      } : null,
+      { text: 'T.C.', style: 'header', alignment: 'center' },
+      { text: 'EDİRNE VALİLİĞİ', style: 'header', alignment: 'center' },
+      { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
+      { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
+      { text: 'VEFA PROJESİ HİZMET SUNUM FORMU', style: 'title', alignment: 'center', margin: [0, 15, 0, 15] },
+      { text: `Tarih: ${formattedDate}`, alignment: 'right', margin: [0, 0, 0, 10] },
+      
+      { text: '1. MÜRACAATÇI BİLGİLERİ', style: 'sectionHeader' },
+      {
+        table: {
+          widths: ['*'],
+          body: [
+            [{
+              stack: [
+                {
+                  columns: [
+                    { text: `Adı Soyadı: ${applicant.name} ${applicant.surname}`, width: '50%' },
+                    { text: `T.C. Kimlik No: ${applicant.tcNo}`, width: '50%' }
+                  ]
+                },
+                {
+                  columns: [
+                    { text: `İletişim Tel: ${applicant.phone}`, width: '50%' },
+                    { text: `Mahalle/Köy: ${applicant.neighborhood || '-'}`, width: '50%' }
+                  ],
+                  margin: [0, 5, 0, 0]
+                },
+                { text: `Adres: ${applicant.address}`, margin: [0, 5, 0, 0] }
+              ],
+              padding: [10, 10, 10, 10]
+            }]
+          ]
+        },
+        margin: [0, 5, 0, 15]
+      },
 
-  // 1. MÜRACAATÇI BİLGİLERİ
-  pdf.setFont(fontName, "bold");
-  pdf.text("1. MÜRACAATÇI BİLGİLERİ", 20, 92);
-  pdf.setLineWidth(0.2);
-  pdf.rect(20, 95, pdfWidth - 40, 35);
-  
-  pdf.setFont(fontName, "normal");
-  pdf.text(`Adı Soyadı: ${applicant.name} ${applicant.surname}`, 25, 102);
-  pdf.text(`T.C. Kimlik No: ${applicant.tcNo}`, 110, 102);
-  pdf.text(`İletişim Tel: ${applicant.phone}`, 25, 110);
-  pdf.text(`Mahalle/Köy: ${applicant.neighborhood || '-'}`, 110, 110);
-  pdf.text(`Adres: ${applicant.address}`, 25, 118, { maxWidth: pdfWidth - 50 });
+      { text: '2. GÖREVLİ PERSONEL BİLGİLERİ', style: 'sectionHeader' },
+      {
+        table: {
+          headerRows: 1,
+          widths: [40, '*', '*'],
+          body: [
+            [
+              { text: 'Sıra', style: 'tableHeader' },
+              { text: 'Adı Soyadı', style: 'tableHeader' },
+              { text: 'Unvanı / Görevi', style: 'tableHeader' }
+            ],
+            ...staffMembers.map((s, idx) => [
+              { text: (idx + 1).toString(), alignment: 'center' },
+              `${s.name} ${s.surname}`,
+              'Vefa Personeli'
+            ])
+          ]
+        },
+        margin: [0, 5, 0, 15]
+      },
 
-  // 2. GÖREVLİ PERSONEL BİLGİLERİ
-  pdf.setFont(fontName, "bold");
-  pdf.text("2. GÖREVLİ PERSONEL BİLGİLERİ", 20, 140);
-  
-  autoTable(pdf, {
-    startY: 143,
-    head: [['Sıra', 'Adı Soyadı', 'Unvanı / Görevi']],
-    body: staffMembers.map((s, idx) => [idx + 1, `${s.name} ${s.surname}`, 'Vefa Personeli']),
-    theme: 'grid',
-    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], fontStyle: 'bold', font: fontName },
-    styles: { fontSize: 10, cellPadding: 5, font: fontName },
-    margin: { left: 20, right: 20, bottom: 25 }
-  });
+      { text: '3. SUNULAN HİZMETİN İÇERİĞİ', style: 'sectionHeader' },
+      {
+        table: {
+          widths: ['*'],
+          body: [
+            [{
+              text: "Yukarıda bilgileri yer alan müracaatçının ikametgahında; Vefa Projesi uygulama usul ve esasları çerçevesinde genel ev temizliği, hijyen desteği ve temel ihtiyaçların karşılanmasına yönelik hizmetler eksiksiz olarak sunulmuştur.",
+              margin: [5, 5, 5, 5],
+              alignment: 'justify'
+            }]
+          ]
+        },
+        margin: [0, 5, 0, 40]
+      },
 
-  // 3. SUNULAN HİZMETİN İÇERİĞİ
-  const finalY = (pdf as any).lastAutoTable.finalY || 180;
-  pdf.setFont(fontName, "bold");
-  pdf.text("3. SUNULAN HİZMETİN İÇERİĞİ", 20, finalY + 15);
-  pdf.setLineWidth(0.2);
-  pdf.rect(20, finalY + 18, pdfWidth - 40, 25);
-  pdf.setFont(fontName, "normal");
-  const content = "Yukarıda bilgileri yer alan müracaatçının ikametgahında; Vefa Projesi uygulama usul ve esasları çerçevesinde genel ev temizliği, hijyen desteği ve temel ihtiyaçların karşılanmasına yönelik hizmetler eksiksiz olarak sunulmuştur.";
-  pdf.text(content, 25, finalY + 25, { maxWidth: pdfWidth - 50, align: "justify" });
+      {
+        columns: [
+          {
+            stack: [
+              { text: 'Hizmet Alan (Müracaatçı)', bold: true, alignment: 'center' },
+              { text: 'Ad Soyad / İmza', alignment: 'center', margin: [0, 10, 0, 0] }
+            ]
+          },
+          {
+            stack: [
+              { text: 'Hizmet Sunan (Görevli)', bold: true, alignment: 'center' },
+              { text: 'Ad Soyad / İmza', alignment: 'center', margin: [0, 10, 0, 0] }
+            ]
+          }
+        ]
+      }
+    ],
+    footer: (currentPage: number, pageCount: number) => {
+      return {
+        text: "Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı - Vefa Projesi Takip Formu",
+        alignment: 'center',
+        fontSize: 8,
+        color: '#666',
+        margin: [0, 10, 0, 0]
+      };
+    },
+    styles: {
+      header: { fontSize: 14, bold: true, margin: [0, 2, 0, 2] },
+      subheader: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
+      title: { fontSize: 13, bold: true },
+      sectionHeader: { fontSize: 11, bold: true, margin: [0, 10, 0, 5] },
+      tableHeader: { bold: true, fontSize: 10, fillColor: '#f2f2f2', alignment: 'center' }
+    },
+    defaultStyle: {
+      font: 'Roboto',
+      fontSize: 10
+    },
+    pageMargins: [40, 40, 40, 60]
+  };
 
-  // Signatures
-  const signY = finalY + 60;
-  pdf.setFont(fontName, "bold");
-  pdf.text("Hizmet Alan (Müracaatçı)", 50, signY, { align: "center" });
-  pdf.text("Hizmet Sunan (Görevli)", pdfWidth - 50, signY, { align: "center" });
-  pdf.setFont(fontName, "normal");
-  pdf.text("Ad Soyad / İmza", 50, signY + 10, { align: "center" });
-  pdf.text("Ad Soyad / İmza", pdfWidth - 50, signY + 10, { align: "center" });
-
-  // Footer
-  pdf.setFontSize(8);
-  pdf.setTextColor(100);
-  pdf.setFont(fontName, "normal");
-  pdf.text("Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı - Vefa Projesi Takip Formu", pdfWidth / 2, 285, { align: "center" });
-
-  pdf.save(`Temizlik_Raporu_${applicant.name}_${applicant.surname}_${date}.pdf`);
+  pdfMake.createPdf(docDefinition).download(`Temizlik_Raporu_${applicant.name}_${applicant.surname}_${date}.pdf`);
 };

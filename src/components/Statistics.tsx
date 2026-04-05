@@ -12,10 +12,9 @@ import {
   Download, Filter, UserCheck, Building2, ChevronRight 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
-import { loadTurkishFonts } from '../lib/pdfFonts';
+import { setupPdfMakeFonts } from '../lib/pdfFonts';
 
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'];
 
@@ -171,94 +170,118 @@ export default function Statistics() {
   };
 
   const exportToPDF = async () => {
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const fontsLoaded = await loadTurkishFonts(pdf);
-    const fontName = fontsLoaded ? "Roboto" : "helvetica";
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    
-    // Header
+    const fontsLoaded = await setupPdfMakeFonts();
+    if (!fontsLoaded) {
+      console.error("Fonts could not be loaded for pdfmake");
+    }
+
+    let logoBase64 = '';
     try {
-      const img = new Image();
-      img.src = `https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`;
-      img.crossOrigin = "anonymous";
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-      pdf.addImage(img, 'JPEG', (pdfWidth - 25) / 2, 10, 25, 25);
+      const getBase64ImageFromURL = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.setAttribute('crossOrigin', 'anonymous');
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL('image/png');
+            resolve(dataURL);
+          };
+          img.onerror = (error) => reject(error);
+          img.src = url;
+        });
+      };
+      logoBase64 = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`);
     } catch (e) {
       console.error("Logo could not be added to PDF", e);
     }
 
-    pdf.setFontSize(14);
-    pdf.setFont(fontName, "bold");
-    pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
-    pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
-    pdf.setFontSize(11);
-    pdf.text("Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı", pdfWidth / 2, 59, { align: "center" });
-    
-    pdf.setLineWidth(0.5);
-    pdf.line(20, 62, pdfWidth - 20, 62);
-    
-    pdf.setFontSize(12);
-    pdf.text(`VEFA PROJESİ İSTATİSTİK RAPORU (${startDate} - ${endDate})`, pdfWidth / 2, 72, { align: "center" });
+    const docDefinition: any = {
+      content: [
+        logoBase64 ? {
+          image: logoBase64,
+          width: 50,
+          alignment: 'center',
+          margin: [0, 0, 0, 10]
+        } : null,
+        { text: 'T.C.', style: 'header', alignment: 'center' },
+        { text: 'EDİRNE VALİLİĞİ', style: 'header', alignment: 'center' },
+        { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
+        { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
+        { text: `VEFA PROJESİ İSTATİSTİK RAPORU (${startDate} - ${endDate})`, style: 'title', alignment: 'center', margin: [0, 15, 0, 15] },
+        
+        { text: '1. Özet Bilgiler', style: 'sectionHeader' },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              [{ text: 'İstatistik Özeti', style: 'tableHeader' }, { text: 'Değer', style: 'tableHeader' }],
+              ['Toplam Temizlik Sayısı', stats.totalCleanings.toString()],
+              ['Gidilen Mahalle Sayısı', stats.totalNeighborhoods.toString()],
+              ['Hizmet Verilen Müracaatçı Sayısı', stats.totalUniqueApplicants.toString()]
+            ]
+          }
+        },
 
-    // 1. Özet Bilgiler
-    autoTable(pdf, {
-      startY: 80,
-      head: [['İstatistik Özeti', 'Değer']],
-      body: [
-        ['Toplam Temizlik Sayısı', stats.totalCleanings],
-        ['Gidilen Mahalle Sayısı', stats.totalNeighborhoods],
-        ['Hizmet Verilen Müracaatçı Sayısı', stats.totalUniqueApplicants]
+        { text: '2. Mahalle Dağılımı', style: 'sectionHeader' },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['*', '*', '*'],
+            body: [
+              [
+                { text: 'Mahalle', style: 'tableHeader' },
+                { text: 'Temizlik Sayısı', style: 'tableHeader' },
+                { text: 'Müracaatçı Sayısı', style: 'tableHeader' }
+              ],
+              ...stats.neighborhoodData.map(n => [n.name, n.count.toString(), n.uniqueApplicants.toString()])
+            ]
+          }
+        },
+
+        { text: '3. Personel Performansı', style: 'sectionHeader' },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['*', '*', '*'],
+            body: [
+              [
+                { text: 'Personel', style: 'tableHeader' },
+                { text: 'Toplam İş', style: 'tableHeader' },
+                { text: 'Müracaatçı Sayısı', style: 'tableHeader' }
+              ],
+              ...stats.staffData.map(s => [s.name, s.jobCount.toString(), s.uniqueApplicantsCount.toString()])
+            ]
+          }
+        }
       ],
-      theme: 'grid',
-      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], font: fontName },
-      styles: { font: fontName },
-      margin: { left: 20, right: 20 }
-    });
+      footer: (currentPage: number, pageCount: number) => {
+        return {
+          text: "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur. Sayfa " + currentPage + " / " + pageCount,
+          alignment: 'center',
+          fontSize: 8,
+          color: '#666',
+          margin: [0, 10, 0, 0]
+        };
+      },
+      styles: {
+        header: { fontSize: 14, bold: true, margin: [0, 2, 0, 2] },
+        subheader: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
+        title: { fontSize: 12, bold: true },
+        sectionHeader: { fontSize: 11, bold: true, margin: [0, 15, 0, 5] },
+        tableHeader: { bold: true, fontSize: 10, fillColor: '#f1f5f9', alignment: 'left' }
+      },
+      defaultStyle: {
+        font: 'Roboto',
+        fontSize: 10
+      },
+      pageMargins: [40, 40, 40, 60]
+    };
 
-    // 2. Mahalle Dağılımı
-    const neighborhoodTableY = (pdf as any).lastAutoTable.finalY + 15;
-    pdf.setFontSize(11);
-    pdf.setFont(fontName, "bold");
-    pdf.text("MAHALLE BAZLI DAĞILIM", 20, neighborhoodTableY - 5);
-    autoTable(pdf, {
-      startY: neighborhoodTableY,
-      head: [['Mahalle', 'Temizlik Sayısı', 'Müracaatçı Sayısı']],
-      body: stats.neighborhoodData.map(n => [n.name, n.count, n.uniqueApplicants]),
-      theme: 'striped',
-      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], font: fontName },
-      styles: { font: fontName },
-      margin: { left: 20, right: 20, bottom: 25 }
-    });
-
-    // 3. Personel Performansı
-    const staffTableY = (pdf as any).lastAutoTable.finalY + 15;
-    if (staffTableY > 250) pdf.addPage();
-    const currentStaffY = staffTableY > 250 ? 20 : staffTableY;
-    pdf.setFontSize(11);
-    pdf.setFont(fontName, "bold");
-    pdf.text("PERSONEL PERFORMANS VERİLERİ", 20, currentStaffY - 5);
-    autoTable(pdf, {
-      startY: currentStaffY,
-      head: [['Personel', 'Toplam İş', 'Müracaatçı Sayısı']],
-      body: stats.staffData.map(s => [`${s.name}`, s.jobCount, s.uniqueApplicantsCount]),
-      theme: 'striped',
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], font: fontName },
-      styles: { font: fontName },
-      margin: { left: 20, right: 20, bottom: 25 },
-      didDrawPage: (data) => {
-        // Footer
-        const str = "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur.";
-        pdf.setFontSize(8);
-        pdf.setTextColor(150);
-        pdf.setFont(fontName, "normal");
-        pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
-      }
-    });
-
-    pdf.save(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
+    pdfMake.createPdf(docDefinition).download(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
   };
 
   return (

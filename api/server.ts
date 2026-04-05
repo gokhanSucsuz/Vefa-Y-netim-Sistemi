@@ -261,8 +261,8 @@ app.get(["/api/geocode", "/geocode"], async (req, res) => {
   }
 });
 
+// Vite middleware for development
 async function setupVite() {
-  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     try {
       const { createServer: createViteServer } = await import("vite");
@@ -274,16 +274,19 @@ async function setupVite() {
     } catch (error) {
       console.error("Vite setup error:", error);
     }
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
   }
 }
 
-// Start the server if not in Vercel environment
-if (!process.env.VERCEL) {
-  setupVite().then(() => {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
+setupVite().then(() => {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
   });
-}
+});
 
 export default app;
