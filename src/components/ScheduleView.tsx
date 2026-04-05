@@ -611,42 +611,64 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   };
 
   const exportToPDF = async () => {
-    if (!reportRef.current) return;
-    
-    const canvas = await html2canvas(reportRef.current, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      windowWidth: reportRef.current.scrollWidth,
-      windowHeight: reportRef.current.scrollHeight
-    });
-    
-    const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF('p', 'mm', 'a4');
     
+    // Header
     const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
     
-    const imgWidth = pdfWidth;
-    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    let heightLeft = imgHeight;
-    let position = 0;
-    const margin = 15; // Bottom margin to prevent cutting text
-
-    // Add the first page
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= (pdfHeight - margin);
-
-    // Add subsequent pages if content is longer than one page
-    while (heightLeft > 0) {
-      position -= (pdfHeight - margin);
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= (pdfHeight - margin);
+    // Add Logo
+    try {
+      const img = new Image();
+      img.src = APP_LOGO_URL;
+      img.crossOrigin = "anonymous";
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      pdf.addImage(img, 'PNG', (pdfWidth - 25) / 2, 10, 25, 25);
+    } catch (e) {
+      console.error("Logo could not be added to PDF", e);
     }
+
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
+    pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
     
+    pdf.setFontSize(11);
+    pdf.text("Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı", pdfWidth / 2, 59, { align: "center" });
+    
+    pdf.setLineWidth(0.5);
+    pdf.line(20, 62, pdfWidth - 20, 62);
+    
+    pdf.setFontSize(12);
+    pdf.text(`${format(selectedMonth, 'MMMM yyyy', { locale: tr }).toUpperCase()} AYI VEFA PROGRAMI ÇİZELGESİ`, pdfWidth / 2, 72, { align: "center" });
+
+    // Table Data
+    const tableData = assignments.flatMap(a => a.items.map(item => [
+      format(parseISO(a.date), 'dd.MM.yyyy'),
+      item.applicant.neighborhood,
+      `${item.applicant.name} ${item.applicant.surname}`,
+      item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'
+    ]));
+
+    autoTable(pdf, {
+      startY: 80,
+      head: [['Tarih', 'Mahalle', 'Müracaatçı', 'Görevli Personeller']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'left' },
+      styles: { fontSize: 9, cellPadding: 3 },
+      margin: { top: 20, bottom: 25, left: 20, right: 20 }, // 25mm bottom margin
+      didDrawPage: (data) => {
+        // Footer on each page
+        const str = "Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır.";
+        pdf.setFontSize(8);
+        pdf.setTextColor(150);
+        pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
+      }
+    });
+
     pdf.save(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
   };
 

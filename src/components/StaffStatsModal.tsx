@@ -6,6 +6,7 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { motion } from 'motion/react';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import { APP_LOGO_URL } from '../constants/logo';
 
@@ -45,40 +46,78 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
     : null;
 
   const generatePDF = async () => {
-    if (!reportRef.current) return;
-    
-    const canvas = await html2canvas(reportRef.current, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    });
-    
-    const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF('p', 'mm', 'a4');
-    
     const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
     
-    const imgWidth = pdfWidth;
-    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    let heightLeft = imgHeight;
-    let position = 0;
-    const margin = 15; // Bottom margin to prevent cutting text
-
-    // Add the first page
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= (pdfHeight - margin);
-
-    // Add subsequent pages if content is longer than one page
-    while (heightLeft > 0) {
-      position -= (pdfHeight - margin);
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= (pdfHeight - margin);
+    // Header
+    try {
+      const img = new Image();
+      img.src = APP_LOGO_URL;
+      img.crossOrigin = "anonymous";
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      pdf.addImage(img, 'PNG', (pdfWidth - 25) / 2, 10, 25, 25);
+    } catch (e) {
+      console.error("Logo could not be added to PDF", e);
     }
+
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
+    pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
+    pdf.setFontSize(11);
+    pdf.text("Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı", pdfWidth / 2, 59, { align: "center" });
     
+    pdf.setLineWidth(0.5);
+    pdf.line(20, 62, pdfWidth - 20, 62);
+    
+    pdf.setFontSize(12);
+    pdf.text("PERSONEL HİZMET PERFORMANS RAPORU", pdfWidth / 2, 72, { align: "center" });
+
+    // 1. Personel Bilgileri
+    autoTable(pdf, {
+      startY: 80,
+      head: [['Personel Bilgileri', 'Detay']],
+      body: [
+        ['Ad Soyad', `${staff.name} ${staff.surname}`],
+        ['TC No', staff.tcNo],
+        ['Telefon', staff.phone],
+        ['Toplam Görev', schedules.length]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0] },
+      margin: { left: 20, right: 20 }
+    });
+
+    // 2. Görev Geçmişi
+    const tableY = (pdf as any).lastAutoTable.finalY + 15;
+    pdf.setFontSize(11);
+    pdf.text("GÖREV GEÇMİŞİ LİSTESİ", 20, tableY - 5);
+    autoTable(pdf, {
+      startY: tableY,
+      head: [['Tarih', 'Müracaatçı', 'Mahalle']],
+      body: schedules.map(s => {
+        const assignment = s.assignments.find(a => a.staffIds.includes(staff.id));
+        return [
+          format(parseISO(s.date), 'dd.MM.yyyy'),
+          assignment ? `${assignment.applicantName}` : '-',
+          assignment ? `${assignment.neighborhood}` : '-'
+        ];
+      }),
+      theme: 'striped',
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+      margin: { left: 20, right: 20, bottom: 25 },
+      didDrawPage: (data) => {
+        // Footer
+        const str = "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur.";
+        pdf.setFontSize(8);
+        pdf.setTextColor(150);
+        pdf.text(str, pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
+      }
+    });
+
     pdf.save(`Personel_Raporu_${staff.name}_${staff.surname}.pdf`);
   };
 

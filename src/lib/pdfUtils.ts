@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import autoTable from 'jspdf-autotable';
 import { Applicant, Staff } from '../types';
 import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -7,131 +7,92 @@ import { tr } from 'date-fns/locale';
 import { APP_LOGO_URL } from '../constants/logo';
 
 export const generateCleaningReport = async (applicant: Applicant, staffMembers: Staff[], date: string) => {
-  // Create a hidden container for the report
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.top = '0';
-  container.style.width = '210mm';
-  container.style.backgroundColor = '#ffffff';
-  container.style.color = '#111827';
-  container.style.fontFamily = 'Arial, Helvetica, sans-serif';
-  container.style.fontSize = '11pt';
-  container.style.padding = '25mm';
-  container.style.lineHeight = '1.5';
-
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
   const formattedDate = format(parseISO(date), 'd MMMM yyyy', { locale: tr });
 
-  container.innerHTML = `
-    <div style="text-align: center; margin-bottom: 30px;">
-      <img 
-        src="${APP_LOGO_URL}" 
-        alt="Logo" 
-        crossOrigin="anonymous"
-        style="width: 80px; height: 80px; margin: 0 auto 15px; display: block; object-fit: contain;" 
-        referrerPolicy="no-referrer"
-      />
-      <h1 style="font-size: 16pt; font-weight: bold; text-transform: uppercase; margin: 0;">T.C.</h1>
-      <h2 style="font-size: 14pt; font-weight: bold; text-transform: uppercase; margin: 5px 0;">EDİRNE VALİLİĞİ</h2>
-      <h3 style="font-size: 12pt; font-weight: bold; text-transform: uppercase; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 10px;">Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı</h3>
-      <h4 style="font-size: 13pt; font-weight: bold; margin-top: 20px; text-decoration: underline;">VEFA PROJESİ HİZMET SUNUM FORMU</h4>
-    </div>
-
-    <div style="text-align: right; margin-bottom: 20px;">
-      <p><strong>Tarih:</strong> ${formattedDate}</p>
-    </div>
-
-    <div style="margin-bottom: 30px; border: 1px solid #000; padding: 15px;">
-      <h2 style="font-size: 11pt; font-weight: bold; text-decoration: underline; margin-bottom: 10px;">1. MÜRACAATÇI BİLGİLERİ</h2>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-        <p><strong>Adı Soyadı:</strong> ${applicant.name} ${applicant.surname}</p>
-        <p><strong>T.C. Kimlik No:</strong> ${applicant.tcNo}</p>
-        <p><strong>İletişim Tel:</strong> ${applicant.phone}</p>
-        <p><strong>Mahalle/Köy:</strong> ${applicant.neighborhood || '-'}</p>
-        <p style="grid-column: span 2;"><strong>Adres:</strong> ${applicant.address}</p>
-      </div>
-    </div>
-
-    <div style="margin-bottom: 30px; border: 1px solid #000; padding: 15px;">
-      <h2 style="font-size: 11pt; font-weight: bold; text-decoration: underline; margin-bottom: 10px;">2. GÖREVLİ PERSONEL BİLGİLERİ</h2>
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-          <tr style="background-color: #f2f2f2;">
-            <th style="border: 1px solid #000; padding: 8px; text-align: left;">Sıra</th>
-            <th style="border: 1px solid #000; padding: 8px; text-align: left;">Adı Soyadı</th>
-            <th style="border: 1px solid #000; padding: 8px; text-align: left;">Unvanı / Görevi</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${staffMembers.map((s, idx) => `
-            <tr>
-              <td style="border: 1px solid #000; padding: 8px;">${idx + 1}</td>
-              <td style="border: 1px solid #000; padding: 8px;">${s.name} ${s.surname}</td>
-              <td style="border: 1px solid #000; padding: 8px;">Vefa Personeli</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-
-    <div style="margin-bottom: 40px; border: 1px solid #000; padding: 15px;">
-      <h2 style="font-size: 11pt; font-weight: bold; text-decoration: underline; margin-bottom: 10px;">3. SUNULAN HİZMETİN İÇERİĞİ</h2>
-      <p style="text-align: justify;">Yukarıda bilgileri yer alan müracaatçının ikametgahında; Vefa Projesi uygulama usul ve esasları çerçevesinde genel ev temizliği, hijyen desteği ve temel ihtiyaçların karşılanmasına yönelik hizmetler eksiksiz olarak sunulmuştur.</p>
-    </div>
-
-    <div style="margin-top: 60px; display: flex; justify-content: space-around;">
-      <div style="text-align: center;">
-        <p style="font-weight: bold; marginBottom: 50px;">Hizmet Alan (Müracaatçı)</p>
-        <p>Ad Soyad / İmza</p>
-      </div>
-      <div style="text-align: center;">
-        <p style="font-weight: bold; marginBottom: 50px;">Hizmet Sunan (Görevli)</p>
-        <p>Ad Soyad / İmza</p>
-      </div>
-    </div>
-
-    <div style="position: absolute; bottom: 15mm; left: 25mm; right: 25mm; text-align: center; font-size: 8pt; color: #666; border-top: 0.5px solid #000; paddingTop: 5px;">
-      Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı - Vefa Projesi Takip Formu
-    </div>
-  `;
-
-  document.body.appendChild(container);
-
+  // Header
   try {
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
+    const img = new Image();
+    img.src = APP_LOGO_URL;
+    img.crossOrigin = "anonymous";
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
     });
-
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    
-    const imgWidth = pdfWidth;
-    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    let heightLeft = imgHeight;
-    let position = 0;
-    const margin = 15; // Bottom margin to prevent cutting text
-
-    // Add the first page
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= (pdfHeight - margin);
-
-    // Add subsequent pages if content is longer than one page
-    while (heightLeft > 0) {
-      position -= (pdfHeight - margin);
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= (pdfHeight - margin);
-    }
-    
-    pdf.save(`Temizlik_Raporu_${applicant.name}_${applicant.surname}_${date}.pdf`);
-  } finally {
-    document.body.removeChild(container);
+    pdf.addImage(img, 'PNG', (pdfWidth - 25) / 2, 10, 25, 25);
+  } catch (e) {
+    console.error("Logo could not be added to PDF", e);
   }
+
+  pdf.setFontSize(16);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("T.C.", pdfWidth / 2, 45, { align: "center" });
+  pdf.setFontSize(14);
+  pdf.text("EDİRNE VALİLİĞİ", pdfWidth / 2, 52, { align: "center" });
+  pdf.setFontSize(12);
+  pdf.text("Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı", pdfWidth / 2, 59, { align: "center" });
+  
+  pdf.setLineWidth(0.5);
+  pdf.line(20, 62, pdfWidth - 20, 62);
+  
+  pdf.setFontSize(13);
+  pdf.text("VEFA PROJESİ HİZMET SUNUM FORMU", pdfWidth / 2, 72, { align: "center" });
+
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(`Tarih: ${formattedDate}`, pdfWidth - 25, 82, { align: "right" });
+
+  // 1. MÜRACAATÇI BİLGİLERİ
+  pdf.setFont("helvetica", "bold");
+  pdf.text("1. MÜRACAATÇI BİLGİLERİ", 20, 92);
+  pdf.setLineWidth(0.2);
+  pdf.rect(20, 95, pdfWidth - 40, 35);
+  
+  pdf.setFont("helvetica", "normal");
+  pdf.text(`Adı Soyadı: ${applicant.name} ${applicant.surname}`, 25, 102);
+  pdf.text(`T.C. Kimlik No: ${applicant.tcNo}`, 110, 102);
+  pdf.text(`İletişim Tel: ${applicant.phone}`, 25, 110);
+  pdf.text(`Mahalle/Köy: ${applicant.neighborhood || '-'}`, 110, 110);
+  pdf.text(`Adres: ${applicant.address}`, 25, 118, { maxWidth: pdfWidth - 50 });
+
+  // 2. GÖREVLİ PERSONEL BİLGİLERİ
+  pdf.setFont("helvetica", "bold");
+  pdf.text("2. GÖREVLİ PERSONEL BİLGİLERİ", 20, 140);
+  
+  autoTable(pdf, {
+    startY: 143,
+    head: [['Sıra', 'Adı Soyadı', 'Unvanı / Görevi']],
+    body: staffMembers.map((s, idx) => [idx + 1, `${s.name} ${s.surname}`, 'Vefa Personeli']),
+    theme: 'grid',
+    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], fontStyle: 'bold' },
+    styles: { fontSize: 10, cellPadding: 5 },
+    margin: { left: 20, right: 20 }
+  });
+
+  // 3. SUNULAN HİZMETİN İÇERİĞİ
+  const finalY = (pdf as any).lastAutoTable.finalY || 180;
+  pdf.setFont("helvetica", "bold");
+  pdf.text("3. SUNULAN HİZMETİN İÇERİĞİ", 20, finalY + 15);
+  pdf.setLineWidth(0.2);
+  pdf.rect(20, finalY + 18, pdfWidth - 40, 25);
+  pdf.setFont("helvetica", "normal");
+  const content = "Yukarıda bilgileri yer alan müracaatçının ikametgahında; Vefa Projesi uygulama usul ve esasları çerçevesinde genel ev temizliği, hijyen desteği ve temel ihtiyaçların karşılanmasına yönelik hizmetler eksiksiz olarak sunulmuştur.";
+  pdf.text(content, 25, finalY + 25, { maxWidth: pdfWidth - 50, align: "justify" });
+
+  // Signatures
+  const signY = finalY + 60;
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Hizmet Alan (Müracaatçı)", 50, signY, { align: "center" });
+  pdf.text("Hizmet Sunan (Görevli)", pdfWidth - 50, signY, { align: "center" });
+  pdf.setFont("helvetica", "normal");
+  pdf.text("Ad Soyad / İmza", 50, signY + 10, { align: "center" });
+  pdf.text("Ad Soyad / İmza", pdfWidth - 50, signY + 10, { align: "center" });
+
+  // Footer
+  pdf.setFontSize(8);
+  pdf.setTextColor(100);
+  pdf.text("Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı - Vefa Projesi Takip Formu", pdfWidth / 2, 285, { align: "center" });
+
+  pdf.save(`Temizlik_Raporu_${applicant.name}_${applicant.surname}_${date}.pdf`);
 };
