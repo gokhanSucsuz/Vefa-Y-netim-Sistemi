@@ -53,7 +53,7 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
     // Header
     try {
       const img = new Image();
-      img.src = APP_LOGO_URL;
+      img.src = `https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`;
       img.crossOrigin = "anonymous";
       await new Promise((resolve, reject) => {
         img.onload = resolve;

@@ -16,7 +16,8 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
   // Header
   try {
     const img = new Image();
-    img.src = APP_LOGO_URL;
+    // Use a proxy to bypass CORS for external images like Twitter
+    img.src = `https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`;
     img.crossOrigin = "anonymous";
     await new Promise((resolve, reject) => {
       img.onload = resolve;

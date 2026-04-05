@@ -11,9 +11,9 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return window.btoa(binary);
 }
 
-// URL for a Turkish-compatible font (Roboto Regular)
-const ROBOTO_REGULAR_URL = 'https://cdn.jsdelivr.net/gh/googlefonts/roboto@main/src/v2/Roboto-Regular.ttf';
-const ROBOTO_BOLD_URL = 'https://cdn.jsdelivr.net/gh/googlefonts/roboto@main/src/v2/Roboto-Bold.ttf';
+// Reliable CDN URLs for Roboto TTF files
+const ROBOTO_REGULAR_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf';
+const ROBOTO_BOLD_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Bold.ttf';
 
 let regularFontData: string | null = null;
 let boldFontData: string | null = null;
