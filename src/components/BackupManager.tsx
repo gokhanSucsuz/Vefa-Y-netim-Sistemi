@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, CloudUpload, CloudDownload, LogIn, LogOut, Loader2, CheckCircle2, AlertCircle, Building2, ShieldCheck, History, RotateCcw } from 'lucide-react';
+import { Cloud, CloudUpload, CloudDownload, LogIn, LogOut, Loader2, CheckCircle2, AlertCircle, Building2, ShieldCheck, History, RotateCcw, AlertTriangle } from 'lucide-react';
 import { dbLocal } from '../db';
 import { saveSafetyBackup, getLatestRecoveryBackup } from '../lib/autoBackup';
+import { APP_LOGO_URL } from '../constants/logo';
 
 interface BackupManagerProps {
   onAuthChange?: (authenticated: boolean, email?: string) => void;
@@ -17,6 +18,13 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
     const saved = localStorage.getItem('autoSyncEnabled');
     return saved !== null ? JSON.parse(saved) : true;
   });
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    action: () => void;
+    type: 'warning' | 'danger';
+  } | null>(null);
 
   useEffect(() => {
     localStorage.setItem('autoSyncEnabled', JSON.stringify(autoSyncEnabled));
@@ -156,24 +164,47 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
 
   const handleBackup = async () => {
     if (!authStatus?.authenticated) return;
-    setIsSyncing(true);
-    setMessage(null);
+    
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Verileri Yedekle',
+      message: 'Mevcut verileriniz Google Drive\'a yedeklenecek. Drive\'daki eski yedeğin üzerine yazılacaktır. Onaylıyor musunuz?',
+      type: 'warning',
+      action: async () => {
+        setIsSyncing(true);
+        setMessage(null);
 
-    try {
-      await performBackup();
-      setMessage({ type: 'success', text: 'Veriler Google Drive\'a başarıyla yedeklendi.' });
-    } catch (error: any) {
-      console.error('Backup failed:', error);
-      setMessage({ type: 'error', text: error.message || 'Yedekleme başarısız oldu.' });
-    } finally {
-      setIsSyncing(false);
-    }
+        try {
+          await performBackup();
+          setMessage({ type: 'success', text: 'Veriler Google Drive\'a başarıyla yedeklendi.' });
+        } catch (error: any) {
+          console.error('Backup failed:', error);
+          setMessage({ type: 'error', text: error.message || 'Yedekleme başarısız oldu.' });
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    });
   };
 
   const handleRestore = async (isAuto = false) => {
     if (!authStatus?.authenticated) return;
-    if (!isAuto && !confirm('Mevcut yerel verileriniz silinecek ve yedekten geri yüklenecek. Emin misiniz?')) return;
+    
+    if (isAuto) {
+      executeRestore(true);
+      return;
+    }
 
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Verileri Geri Yükle',
+      message: 'Mevcut yerel verileriniz silinecek ve Google Drive\'daki yedekten geri yüklenecek. Bu işlem geri alınamaz. Emin misiniz?',
+      type: 'danger',
+      action: () => executeRestore(false)
+    });
+  };
+
+  const executeRestore = async (isAuto = false) => {
     setIsSyncing(true);
     if (!isAuto) setMessage(null);
 
@@ -244,36 +275,43 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
 
   const handleRecoveryRestore = async () => {
     if (!recoveryBackup) return;
-    if (!confirm('Son otomatik yedekleme geri yüklenecek. Mevcut verileriniz silinecek. Emin misiniz?')) return;
+    
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Kurtarma Yedeğini Yükle',
+      message: 'Son otomatik yedekleme geri yüklenecek. Mevcut yerel verileriniz silinecek. Bu işlem geri alınamaz. Emin misiniz?',
+      type: 'danger',
+      action: async () => {
+        setIsSyncing(true);
+        setMessage({ type: 'success', text: 'Kurtarma yedeği yükleniyor...' });
 
-    setIsSyncing(true);
-    setMessage({ type: 'success', text: 'Kurtarma yedeği yükleniyor...' });
+        try {
+          const backupData = recoveryBackup.data;
 
-    try {
-      const backupData = recoveryBackup.data;
+          await dbLocal.transaction('rw', [dbLocal.applicants, dbLocal.staff, dbLocal.workDays, dbLocal.schedules, dbLocal.programs], async () => {
+            await dbLocal.applicants.clear();
+            await dbLocal.staff.clear();
+            await dbLocal.workDays.clear();
+            await dbLocal.schedules.clear();
+            await dbLocal.programs.clear();
 
-      await dbLocal.transaction('rw', [dbLocal.applicants, dbLocal.staff, dbLocal.workDays, dbLocal.schedules, dbLocal.programs], async () => {
-        await dbLocal.applicants.clear();
-        await dbLocal.staff.clear();
-        await dbLocal.workDays.clear();
-        await dbLocal.schedules.clear();
-        await dbLocal.programs.clear();
+            if (backupData.applicants) await dbLocal.applicants.bulkAdd(backupData.applicants);
+            if (backupData.staff) await dbLocal.staff.bulkAdd(backupData.staff);
+            if (backupData.workDays) await dbLocal.workDays.bulkAdd(backupData.workDays);
+            if (backupData.schedules) await dbLocal.schedules.bulkAdd(backupData.schedules);
+            if (backupData.programs) await dbLocal.programs.bulkAdd(backupData.programs);
+          });
 
-        if (backupData.applicants) await dbLocal.applicants.bulkAdd(backupData.applicants);
-        if (backupData.staff) await dbLocal.staff.bulkAdd(backupData.staff);
-        if (backupData.workDays) await dbLocal.workDays.bulkAdd(backupData.workDays);
-        if (backupData.schedules) await dbLocal.schedules.bulkAdd(backupData.schedules);
-        if (backupData.programs) await dbLocal.programs.bulkAdd(backupData.programs);
-      });
-
-      setMessage({ type: 'success', text: 'Veriler başarıyla kurtarıldı.' });
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (error: any) {
-      console.error('Recovery failed:', error);
-      setMessage({ type: 'error', text: 'Kurtarma işlemi başarısız oldu.' });
-    } finally {
-      setIsSyncing(false);
-    }
+          setMessage({ type: 'success', text: 'Veriler başarıyla kurtarıldı.' });
+          setTimeout(() => window.location.reload(), 1000);
+        } catch (error: any) {
+          console.error('Recovery failed:', error);
+          setMessage({ type: 'error', text: 'Kurtarma işlemi başarısız oldu.' });
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    });
   };
 
   if (!authStatus) return (
@@ -287,8 +325,8 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in duration-500">
           <div className="p-8 text-center bg-blue-600 text-white">
-            <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-              <Building2 className="w-8 h-8 text-white" />
+            <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm overflow-hidden">
+              <img src={APP_LOGO_URL} alt="Logo" className="w-full h-full object-cover" />
             </div>
             <h1 className="text-2xl font-bold mb-1">Edirne Merkez SYDV</h1>
             <p className="text-blue-100 text-sm font-medium opacity-80">Vefa Yönetim Sistemi</p>
@@ -410,6 +448,47 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
         <div className={`mt-3 flex items-center gap-2 p-2 rounded-lg text-[10px] font-bold uppercase ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
           {message.type === 'success' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
           {message.text}
+        </div>
+      )}
+
+      {confirmDialog?.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in duration-200">
+            <div className={`p-6 ${confirmDialog.type === 'danger' ? 'bg-red-50' : 'bg-amber-50'} border-b ${confirmDialog.type === 'danger' ? 'border-red-100' : 'border-amber-100'} flex items-center gap-4`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${confirmDialog.type === 'danger' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className={`text-lg font-bold ${confirmDialog.type === 'danger' ? 'text-red-900' : 'text-amber-900'}`}>
+                  {confirmDialog.title}
+                </h3>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-600 font-medium leading-relaxed">
+                {confirmDialog.message}
+              </p>
+            </div>
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded-xl transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={() => {
+                  confirmDialog.action();
+                  setConfirmDialog(null);
+                }}
+                className={`px-4 py-2 text-sm font-bold text-white rounded-xl transition-colors shadow-sm ${
+                  confirmDialog.type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                Onaylıyorum
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
