@@ -8,7 +8,7 @@ import * as XLSX from 'xlsx';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
-import { Map, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
+import { Map as MapGL, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { geocodeAddress } from '../services/geocoding';
 import { EDIRNE_NEIGHBORHOOD_COORDS } from '../constants/edirne_data';
@@ -1253,7 +1253,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
       {showMap && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden h-[400px] relative z-0">
-          <Map
+          <MapGL
             initialViewState={{
               latitude: 41.675,
               longitude: 26.570,
@@ -1279,7 +1279,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               </Marker>
             ))}
             {expandedDay && activeMarkers.length > 0 && <MapUpdater markers={activeMarkers} />}
-          </Map>
+          </MapGL>
           {!expandedDay && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10 pointer-events-none">
               <p className="text-white font-bold bg-black/60 px-4 py-2 rounded-full">Haritada görmek için bir gün seçin</p>
