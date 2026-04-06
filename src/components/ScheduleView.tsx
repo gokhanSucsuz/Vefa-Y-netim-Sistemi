@@ -226,23 +226,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {
             let foundIdx = -1;
+            // First pass: try to satisfy 14-day rule
             for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
               const item = tempPool[pIdx];
-              
-              // Check constraints against baseSchedules + what we've already placed in newUncompleted
-              // and what was in previous days of this redistribution
-              const check = validateAssignment(item.applicantId, s.date, [...baseSchedules, ...futureSchedules.slice(0, i).map((fs, idx) => ({...fs, assignments: fs.assignments}))], s.id);
-              // Wait, validateAssignment checks against all schedules. 
-              // This is getting complex. Let's simplify.
-              
-              // Simple check: is this applicant already in newUncompleted?
               const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
               if (isAlreadyInDay) continue;
 
-              // 14-day check: check against all other visits of this applicant
               const otherVisits = [
                 ...allSchedules.filter(as => as.date < date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
-                ...newUncompleted.filter(a => a.applicantId === item.applicantId).map(() => s.date), // already checked above
+                ...newUncompleted.filter(a => a.applicantId === item.applicantId).map(() => s.date),
                 ...futureSchedules.slice(0, i).flatMap(fs => fs.assignments.filter(a => a.applicantId === item.applicantId).map(a => fs.date))
               ];
               
@@ -257,6 +249,18 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               if (isGapOk) {
                 foundIdx = pIdx;
                 break;
+              }
+            }
+
+            // Second pass: fallback to first available
+            if (foundIdx === -1) {
+              for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
+                const item = tempPool[pIdx];
+                const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
+                if (!isAlreadyInDay) {
+                  foundIdx = pIdx;
+                  break;
+                }
               }
             }
 
@@ -283,12 +287,12 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
             for (let i = 0; i < dailyLimit; i++) {
               let foundIdx = -1;
+              // First pass: try to satisfy 14-day rule
               for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
                 const item = tempPool[pIdx];
                 const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === item.applicantId);
                 if (isAlreadyInDay) continue;
 
-                // 14-day check
                 const otherVisits = [
                   ...allSchedules.filter(as => as.date < wd.date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
                   ...dailyAssignments.filter(a => a.applicantId === item.applicantId).map(() => wd.date)
@@ -305,6 +309,19 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                   break;
                 }
               }
+
+              // Second pass: fallback
+              if (foundIdx === -1) {
+                for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
+                  const item = tempPool[pIdx];
+                  const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === item.applicantId);
+                  if (!isAlreadyInDay) {
+                    foundIdx = pIdx;
+                    break;
+                  }
+                }
+              }
+
               if (foundIdx !== -1) {
                 dailyAssignments.push(tempPool.splice(foundIdx, 1)[0]);
               }
@@ -369,6 +386,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {
             let foundIdx = -1;
+            // First pass: try to satisfy 14-day rule
             for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
               const item = tempPool[pIdx];
               const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
@@ -390,6 +408,19 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                 break;
               }
             }
+
+            // Second pass: fallback
+            if (foundIdx === -1) {
+              for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
+                const item = tempPool[pIdx];
+                const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
+                if (!isAlreadyInDay) {
+                  foundIdx = pIdx;
+                  break;
+                }
+              }
+            }
+
             if (foundIdx !== -1) {
               newUncompleted.push(tempPool.splice(foundIdx, 1)[0]);
             }
@@ -624,7 +655,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         
         // Try to fill the day up to dailyLimit
         for (let i = 0; i < dailyLimit; i++) {
-          // Find the first applicant in currentVisitList that satisfies the 14-day rule
+          // 1. First pass: Find the first applicant that satisfies the 14-day rule
           let foundIdx = -1;
           for (let vIdx = 0; vIdx < currentVisitList.length; vIdx++) {
             const applicant = currentVisitList[vIdx];
@@ -638,12 +669,23 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               }
             }
 
-            // Also check if already in this day (single visit per day)
             const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === applicant.id);
 
             if (isGapOk && !isAlreadyInDay) {
               foundIdx = vIdx;
               break;
+            }
+          }
+
+          // 2. Second pass: If no one satisfies the rule, take the first available person not in the day
+          if (foundIdx === -1) {
+            for (let vIdx = 0; vIdx < currentVisitList.length; vIdx++) {
+              const applicant = currentVisitList[vIdx];
+              const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === applicant.id);
+              if (!isAlreadyInDay) {
+                foundIdx = vIdx;
+                break;
+              }
             }
           }
 
@@ -659,11 +701,6 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             });
             
             lastAssignedId = applicant.id;
-            // We need to track the global index for the next program start
-            // This is tricky with the greedy approach, but we can estimate it
-            // based on how many unique applicants we've passed.
-            // For now, let's just use the last applicant's ID.
-            
             lastVisitMap.set(applicant.id!, wd.date);
           }
         }
@@ -840,6 +877,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
         for (let i = 0; i < dailyLimit; i++) {
           let foundIdx = -1;
+          // First pass: try to satisfy 14-day rule
           for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
             const item = tempPool[pIdx];
             const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === item.applicantId);
@@ -861,6 +899,19 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               break;
             }
           }
+
+          // Second pass: fallback
+          if (foundIdx === -1) {
+            for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
+              const item = tempPool[pIdx];
+              const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === item.applicantId);
+              if (!isAlreadyInDay) {
+                foundIdx = pIdx;
+                break;
+              }
+            }
+          }
+
           if (foundIdx !== -1) {
             dailyAssignments.push(tempPool.splice(foundIdx, 1)[0]);
           }
