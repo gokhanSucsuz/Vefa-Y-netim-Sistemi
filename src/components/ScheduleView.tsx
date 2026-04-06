@@ -55,7 +55,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const [completionModal, setCompletionModal] = useState<{ date: string; applicantId: number; name: string } | null>(null);
   const [completionNote, setCompletionNote] = useState('');
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [dailyLimit, setDailyLimit] = useState(() => {
+    const saved = localStorage.getItem('dailyLimit');
+    return saved ? parseInt(saved) : 6;
+  });
   const reportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem('dailyLimit', dailyLimit.toString());
+  }, [dailyLimit]);
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
@@ -130,28 +138,48 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
           return;
         }
 
+        // 1. Get all uncompleted assignments from today onwards
         let uncompletedPool: any[] = [];
         for (const s of futureSchedules) {
           const uncompletedInDay = s.assignments.filter(a => !a.isCompleted);
           uncompletedPool.push(...uncompletedInDay);
         }
 
+        // 2. Find the canceled item in the pool
         const poolIdx = uncompletedPool.findIndex(a => a.applicantId === applicantId);
-        if (poolIdx !== -1) {
-          const [item] = uncompletedPool.splice(poolIdx, 1);
-          const uncompletedTodayCount = currentDaySchedule.assignments.filter(a => !a.isCompleted).length - 1;
-          uncompletedPool.splice(uncompletedTodayCount, 0, item);
-        }
+        if (poolIdx === -1) return;
 
+        // 3. Remove it from its current position
+        const [item] = uncompletedPool.splice(poolIdx, 1);
+        
+        // 4. Calculate how many uncompleted were left for today (excluding the canceled one)
+        const uncompletedTodayCount = currentDaySchedule.assignments.filter(a => !a.isCompleted).length - 1;
+        
+        // 5. Move the item to the start of tomorrow's assignments (which is after today's remaining uncompleted)
+        uncompletedPool.splice(uncompletedTodayCount, 0, item);
+
+        // 6. Redistribute back to schedules
         let poolOffset = 0;
-        for (const s of futureSchedules) {
+        for (let i = 0; i < futureSchedules.length; i++) {
+          const s = futureSchedules[i];
           const completedOnes = s.assignments.filter(a => a.isCompleted);
-          const uncompletedCount = s.assignments.length - completedOnes.length;
-          const newUncompleted = uncompletedPool.slice(poolOffset, poolOffset + uncompletedCount);
-          poolOffset += uncompletedCount;
+          
+          let targetUncompletedCount;
+          if (s.date === date) {
+            // Today: reduce uncompleted count by 1
+            targetUncompletedCount = Math.max(0, (s.assignments.length - completedOnes.length) - 1);
+          } else {
+            // Future days: fill up to the dailyLimit
+            targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
+          }
+          
+          const newUncompleted = uncompletedPool.slice(poolOffset, poolOffset + targetUncompletedCount);
+          poolOffset += targetUncompletedCount;
+          
           await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
         }
 
+        // 7. Handle leftovers if any (shouldn't happen with this logic but for safety)
         if (poolOffset < uncompletedPool.length) {
           const lastSchedule = futureSchedules[futureSchedules.length - 1];
           const leftovers = uncompletedPool.slice(poolOffset);
@@ -207,9 +235,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         for (const s of futureSchedules) {
           const completedOnes = s.assignments.filter(a => a.isCompleted);
           const isCanceledDay = s.date === date;
-          const uncompletedCount = isCanceledDay ? 0 : (s.assignments.length - completedOnes.length);
-          const newUncompleted = newPool.slice(poolOffset, poolOffset + uncompletedCount);
-          poolOffset += uncompletedCount;
+          
+          // If it's the canceled day, uncompleted count is 0.
+          // Otherwise, fill up to the dailyLimit.
+          const targetUncompletedCount = isCanceledDay ? 0 : Math.max(0, dailyLimit - completedOnes.length);
+          
+          const newUncompleted = newPool.slice(poolOffset, poolOffset + targetUncompletedCount);
+          poolOffset += targetUncompletedCount;
           await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
         }
         
@@ -334,8 +366,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       let searchDate = actualPlanningStartDate;
       let visitsCovered = 0;
 
-      // We need enough days to cover visitsToPlanCount (6 visits per day)
-      const daysNeeded = Math.ceil(visitsToPlanCount / 6);
+      // We need enough days to cover visitsToPlanCount (dailyLimit visits per day)
+      const daysNeeded = Math.ceil(visitsToPlanCount / dailyLimit);
       
       // Search for work days in the database
       const allFutureWorkDays = await dbLocal.workDays
@@ -388,7 +420,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         const wd = availableWorkDays[d];
         const dailyAssignments: any[] = [];
         
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < dailyLimit; i++) {
           let applicant = visitList[visitIndex];
           if (!applicant) break;
 
@@ -563,17 +595,17 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       // Filter work days that don't have a completed schedule
       const availableWorkDays = monthWorkDays.filter(wd => !completedDates.has(wd.date));
 
-      // 5. Re-distribute assignments to new work days (6 per day)
+      // 5. Re-distribute assignments to new work days (dailyLimit per day)
       let assignmentIndex = 0;
       for (const wd of availableWorkDays) {
-        const dailyAssignments = nonCompletedAssignments.slice(assignmentIndex, assignmentIndex + 6);
+        const dailyAssignments = nonCompletedAssignments.slice(assignmentIndex, assignmentIndex + dailyLimit);
         if (dailyAssignments.length > 0) {
           await dbLocal.schedules.add({
             date: wd.date,
             assignments: dailyAssignments
           });
         }
-        assignmentIndex += 6;
+        assignmentIndex += dailyLimit;
       }
       
       alert('Program başarıyla kaydırıldı.');
@@ -852,6 +884,20 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             <MapIcon className="w-4 h-4 lg:w-5 lg:h-5" />
             <span>Harita</span>
           </button>
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
+            <Clock className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-gray-500 uppercase whitespace-nowrap">Günlük Limit:</span>
+              <input 
+                type="number" 
+                min="1" 
+                max="20"
+                value={dailyLimit}
+                onChange={(e) => setDailyLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-12 text-center text-sm font-bold text-blue-600 bg-transparent border-none focus:ring-0 p-0"
+              />
+            </div>
+          </div>
           <button
             onClick={generateSchedule}
             disabled={isGenerating}
