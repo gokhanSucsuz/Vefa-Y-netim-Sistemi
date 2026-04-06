@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program } from '../types';
-import { format, startOfMonth, endOfMonth, parseISO, addDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -59,6 +59,38 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     const saved = localStorage.getItem('dailyLimit');
     return saved ? parseInt(saved) : 6;
   });
+
+  const validateAssignment = (applicantId: number, date: string, currentSchedules: Schedule[], excludeScheduleId?: number) => {
+    // 1. Single visit per day check
+    const daySchedule = currentSchedules.find(s => s.date === date);
+    if (daySchedule && daySchedule.id !== excludeScheduleId) {
+      if (daySchedule.assignments.some(a => a.applicantId === applicantId)) {
+        return { valid: false, message: 'Bu müracaatçı bu güne zaten eklenmiş.' };
+      }
+    }
+
+    // 2. 14-day interval check
+    const targetDate = parseISO(date);
+    const otherVisits = currentSchedules.flatMap(s => 
+      s.assignments
+        .filter(a => a.applicantId === applicantId)
+        .map(a => ({ date: s.date, scheduleId: s.id }))
+    ).filter(v => v.scheduleId !== excludeScheduleId);
+
+    for (const visit of otherVisits) {
+      const visitDate = parseISO(visit.date);
+      const diffDays = Math.abs(differenceInDays(targetDate, visitDate));
+      if (diffDays < 14) {
+        return { 
+          valid: false, 
+          message: `İki ziyaret arasında en az 14 gün olmalıdır. (Mevcut ziyaret: ${format(visitDate, 'dd.MM.yyyy')}, Fark: ${diffDays} gün)` 
+        };
+      }
+    }
+
+    return { valid: true };
+  };
+
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,6 +115,19 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     const schedule2 = schedules.find(s => s.date === date);
 
     if (!schedule1 || !schedule2) return;
+
+    // Validation checks for swap
+    const check1 = validateAssignment(swapSelection.applicantId, date, schedules, schedule1.id);
+    if (!check1.valid) {
+      alert(`Hata (${applicants.find(a => a.id === swapSelection.applicantId)?.name}): ${check1.message}`);
+      return;
+    }
+
+    const check2 = validateAssignment(applicantId, swapSelection.date, schedules, schedule2.id);
+    if (!check2.valid) {
+      alert(`Hata (${applicants.find(a => a.id === applicantId)?.name}): ${check2.message}`);
+      return;
+    }
 
     const newAssignments1 = [...schedule1.assignments];
     const newAssignments2 = [...schedule2.assignments];
@@ -158,36 +203,117 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         // 5. Move the item to the start of tomorrow's assignments (which is after today's remaining uncompleted)
         uncompletedPool.splice(uncompletedTodayCount, 0, item);
 
-        // 6. Redistribute back to schedules
+        // 6. Redistribute back to schedules using greedy logic to respect 14-day rule
         let poolOffset = 0;
+        const tempPool = [...uncompletedPool];
+        
+        // We need a way to track visits for the 14-day rule during redistribution
+        // We'll use the existing schedules but ignore the uncompleted ones we are about to overwrite
+        const baseSchedules = allSchedules.filter(s => s.date < date || s.assignments.some(a => a.isCompleted));
+
         for (let i = 0; i < futureSchedules.length; i++) {
           const s = futureSchedules[i];
           const completedOnes = s.assignments.filter(a => a.isCompleted);
+          const targetDate = parseISO(s.date);
           
           let targetUncompletedCount;
           if (s.date === date) {
-            // Today: reduce uncompleted count by 1
             targetUncompletedCount = Math.max(0, (s.assignments.length - completedOnes.length) - 1);
           } else {
-            // Future days: fill up to the dailyLimit
             targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
           }
           
-          const newUncompleted = uncompletedPool.slice(poolOffset, poolOffset + targetUncompletedCount);
-          poolOffset += targetUncompletedCount;
+          const newUncompleted: any[] = [];
+          for (let j = 0; j < targetUncompletedCount; j++) {
+            let foundIdx = -1;
+            for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
+              const item = tempPool[pIdx];
+              
+              // Check constraints against baseSchedules + what we've already placed in newUncompleted
+              // and what was in previous days of this redistribution
+              const check = validateAssignment(item.applicantId, s.date, [...baseSchedules, ...futureSchedules.slice(0, i).map((fs, idx) => ({...fs, assignments: fs.assignments}))], s.id);
+              // Wait, validateAssignment checks against all schedules. 
+              // This is getting complex. Let's simplify.
+              
+              // Simple check: is this applicant already in newUncompleted?
+              const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
+              if (isAlreadyInDay) continue;
+
+              // 14-day check: check against all other visits of this applicant
+              const otherVisits = [
+                ...allSchedules.filter(as => as.date < date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
+                ...newUncompleted.filter(a => a.applicantId === item.applicantId).map(() => s.date), // already checked above
+                ...futureSchedules.slice(0, i).flatMap(fs => fs.assignments.filter(a => a.applicantId === item.applicantId).map(a => fs.date))
+              ];
+              
+              let isGapOk = true;
+              for (const vDateStr of otherVisits) {
+                if (Math.abs(differenceInDays(targetDate, parseISO(vDateStr))) < 14) {
+                  isGapOk = false;
+                  break;
+                }
+              }
+
+              if (isGapOk) {
+                foundIdx = pIdx;
+                break;
+              }
+            }
+
+            if (foundIdx !== -1) {
+              newUncompleted.push(tempPool.splice(foundIdx, 1)[0]);
+            }
+          }
           
           await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
+          // Update the futureSchedules array so subsequent iterations see the new assignments
+          s.assignments = [...completedOnes, ...newUncompleted];
         }
 
-        // 7. Handle leftovers if any (shouldn't happen with this logic but for safety)
-        if (poolOffset < uncompletedPool.length) {
+        // 7. Handle leftovers
+        if (tempPool.length > 0) {
           const lastSchedule = futureSchedules[futureSchedules.length - 1];
-          const leftovers = uncompletedPool.slice(poolOffset);
           const nextWorkDays = await dbLocal.workDays.where('date').above(lastSchedule.date).filter(wd => wd.isWorkDay).toArray();
-          if (nextWorkDays.length > 0) {
-            await dbLocal.schedules.add({ date: nextWorkDays[0].date, programId: lastSchedule.programId, assignments: leftovers });
-          } else {
-            await dbLocal.schedules.update(lastSchedule.id!, { assignments: [...lastSchedule.assignments, ...leftovers] });
+          
+          let currentDayIdx = 0;
+          while (tempPool.length > 0 && currentDayIdx < nextWorkDays.length) {
+            const wd = nextWorkDays[currentDayIdx];
+            const dailyAssignments: any[] = [];
+            const targetDate = parseISO(wd.date);
+
+            for (let i = 0; i < dailyLimit; i++) {
+              let foundIdx = -1;
+              for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
+                const item = tempPool[pIdx];
+                const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === item.applicantId);
+                if (isAlreadyInDay) continue;
+
+                // 14-day check
+                const otherVisits = [
+                  ...allSchedules.filter(as => as.date < wd.date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
+                  ...dailyAssignments.filter(a => a.applicantId === item.applicantId).map(() => wd.date)
+                ];
+                let isGapOk = true;
+                for (const vDateStr of otherVisits) {
+                  if (Math.abs(differenceInDays(targetDate, parseISO(vDateStr))) < 14) {
+                    isGapOk = false;
+                    break;
+                  }
+                }
+                if (isGapOk) {
+                  foundIdx = pIdx;
+                  break;
+                }
+              }
+              if (foundIdx !== -1) {
+                dailyAssignments.push(tempPool.splice(foundIdx, 1)[0]);
+              }
+            }
+
+            if (dailyAssignments.length > 0) {
+              await dbLocal.schedules.add({ date: wd.date, programId: lastSchedule.programId, assignments: dailyAssignments });
+            }
+            currentDayIdx++;
           }
         }
       });
@@ -231,28 +357,89 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         const filteredPool = uncompletedPool.filter(a => !todayUncompletedIds.has(a.applicantId));
         const newPool = [...uncompletedAssignments, ...filteredPool];
 
-        let poolOffset = 0;
-        for (const s of futureSchedules) {
+        const tempPool = [...newPool];
+        for (let i = 0; i < futureSchedules.length; i++) {
+          const s = futureSchedules[i];
           const completedOnes = s.assignments.filter(a => a.isCompleted);
           const isCanceledDay = s.date === date;
+          const targetDate = parseISO(s.date);
           
-          // If it's the canceled day, uncompleted count is 0.
-          // Otherwise, fill up to the dailyLimit.
           const targetUncompletedCount = isCanceledDay ? 0 : Math.max(0, dailyLimit - completedOnes.length);
           
-          const newUncompleted = newPool.slice(poolOffset, poolOffset + targetUncompletedCount);
-          poolOffset += targetUncompletedCount;
+          const newUncompleted: any[] = [];
+          for (let j = 0; j < targetUncompletedCount; j++) {
+            let foundIdx = -1;
+            for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
+              const item = tempPool[pIdx];
+              const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
+              if (isAlreadyInDay) continue;
+
+              const otherVisits = [
+                ...allSchedules.filter(as => as.date < s.date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
+                ...newUncompleted.filter(a => a.applicantId === item.applicantId).map(() => s.date)
+              ];
+              let isGapOk = true;
+              for (const vDateStr of otherVisits) {
+                if (Math.abs(differenceInDays(targetDate, parseISO(vDateStr))) < 14) {
+                  isGapOk = false;
+                  break;
+                }
+              }
+              if (isGapOk) {
+                foundIdx = pIdx;
+                break;
+              }
+            }
+            if (foundIdx !== -1) {
+              newUncompleted.push(tempPool.splice(foundIdx, 1)[0]);
+            }
+          }
           await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
+          s.assignments = [...completedOnes, ...newUncompleted];
         }
         
-        if (poolOffset < newPool.length) {
+        if (tempPool.length > 0) {
           const lastSchedule = futureSchedules[futureSchedules.length - 1];
-          const leftovers = newPool.slice(poolOffset);
           const nextWorkDays = await dbLocal.workDays.where('date').above(lastSchedule.date).filter(wd => wd.isWorkDay).toArray();
-          if (nextWorkDays.length > 0) {
-            await dbLocal.schedules.add({ date: nextWorkDays[0].date, programId: lastSchedule.programId, assignments: leftovers });
-          } else {
-            await dbLocal.schedules.update(lastSchedule.id!, { assignments: [...lastSchedule.assignments, ...leftovers] });
+          
+          let currentDayIdx = 0;
+          while (tempPool.length > 0 && currentDayIdx < nextWorkDays.length) {
+            const wd = nextWorkDays[currentDayIdx];
+            const dailyAssignments: any[] = [];
+            const targetDate = parseISO(wd.date);
+
+            for (let i = 0; i < dailyLimit; i++) {
+              let foundIdx = -1;
+              for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
+                const item = tempPool[pIdx];
+                const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === item.applicantId);
+                if (isAlreadyInDay) continue;
+
+                const otherVisits = [
+                  ...allSchedules.filter(as => as.date < wd.date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
+                  ...dailyAssignments.filter(a => a.applicantId === item.applicantId).map(() => wd.date)
+                ];
+                let isGapOk = true;
+                for (const vDateStr of otherVisits) {
+                  if (Math.abs(differenceInDays(targetDate, parseISO(vDateStr))) < 14) {
+                    isGapOk = false;
+                    break;
+                  }
+                }
+                if (isGapOk) {
+                  foundIdx = pIdx;
+                  break;
+                }
+              }
+              if (foundIdx !== -1) {
+                dailyAssignments.push(tempPool.splice(foundIdx, 1)[0]);
+              }
+            }
+
+            if (dailyAssignments.length > 0) {
+              await dbLocal.schedules.add({ date: wd.date, programId: lastSchedule.programId, assignments: dailyAssignments });
+            }
+            currentDayIdx++;
           }
         }
       });
@@ -410,42 +597,90 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         teams.push(pair);
       }
 
-      // 7. Distribute into days
-      let visitIndex = 0;
+      // 7. Distribute into days respecting 14-day rule
       let lastAssignedId: number | undefined;
       let lastAssignedGlobalIndex: number | undefined;
 
       const scheduleEntries: any[] = [];
+      const currentVisitList = [...visitList];
+      
+      // Keep track of last visit date for each applicant to enforce 14-day rule
+      const lastVisitMap = new Map<number, string>();
+      // Initialize with existing schedules (even those before planning start)
+      const allExistingSchedules = await dbLocal.schedules.toArray();
+      allExistingSchedules.forEach(s => {
+        s.assignments.forEach(a => {
+          const prev = lastVisitMap.get(a.applicantId);
+          if (!prev || s.date > prev) {
+            lastVisitMap.set(a.applicantId, s.date);
+          }
+        });
+      });
+
       for (let d = 0; d < availableWorkDays.length; d++) {
         const wd = availableWorkDays[d];
         const dailyAssignments: any[] = [];
+        const targetDate = parseISO(wd.date);
         
+        // Try to fill the day up to dailyLimit
         for (let i = 0; i < dailyLimit; i++) {
-          let applicant = visitList[visitIndex];
-          if (!applicant) break;
+          // Find the first applicant in currentVisitList that satisfies the 14-day rule
+          let foundIdx = -1;
+          for (let vIdx = 0; vIdx < currentVisitList.length; vIdx++) {
+            const applicant = currentVisitList[vIdx];
+            const lastDateStr = lastVisitMap.get(applicant.id!);
+            
+            let isGapOk = true;
+            if (lastDateStr) {
+              const lastDate = parseISO(lastDateStr);
+              if (Math.abs(differenceInDays(targetDate, lastDate)) < 14) {
+                isGapOk = false;
+              }
+            }
 
-          const teamIndex = Math.floor(i / 2) % teams.length;
-          const team = teams[teamIndex];
+            // Also check if already in this day (single visit per day)
+            const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === applicant.id);
 
-          dailyAssignments.push({ 
-            applicantId: applicant.id!,
-            staffIds: team || [],
-            isCompleted: false
-          });
-          
-          lastAssignedId = applicant.id;
-          lastAssignedGlobalIndex = (globalStartIndex + visitIndex) % (sortedApplicants.length * 2);
-          visitIndex++;
+            if (isGapOk && !isAlreadyInDay) {
+              foundIdx = vIdx;
+              break;
+            }
+          }
+
+          if (foundIdx !== -1) {
+            const applicant = currentVisitList.splice(foundIdx, 1)[0];
+            const teamIndex = Math.floor(i / 2) % teams.length;
+            const team = teams[teamIndex];
+
+            dailyAssignments.push({ 
+              applicantId: applicant.id!,
+              staffIds: team || [],
+              isCompleted: false
+            });
+            
+            lastAssignedId = applicant.id;
+            // We need to track the global index for the next program start
+            // This is tricky with the greedy approach, but we can estimate it
+            // based on how many unique applicants we've passed.
+            // For now, let's just use the last applicant's ID.
+            
+            lastVisitMap.set(applicant.id!, wd.date);
+          }
         }
         
-        scheduleEntries.push({
-          date: wd.date,
-          assignments: dailyAssignments
-        });
+        if (dailyAssignments.length > 0) {
+          scheduleEntries.push({
+            date: wd.date,
+            assignments: dailyAssignments
+          });
+        }
       }
 
       // 8. Create Program Record
-      const finalCycle = (lastAssignedGlobalIndex !== undefined && lastAssignedGlobalIndex >= sortedApplicants.length) ? 2 : 1;
+      // Determine final cycle based on how many times the last applicant has been visited
+      const lastApplicantVisits = allExistingSchedules.flatMap(s => s.assignments).filter(a => a.applicantId === lastAssignedId).length + 
+                                 scheduleEntries.flatMap(s => s.assignments).filter(a => a.applicantId === lastAssignedId).length;
+      const finalCycle = (lastApplicantVisits % 2 === 0) ? 2 : 1;
 
       const programId = await dbLocal.programs.add({
         name: `${format(parseISO(availableWorkDays[0].date), 'dd MMMM yyyy', { locale: tr })} - ${format(parseISO(availableWorkDays[availableWorkDays.length - 1].date), 'dd MMMM yyyy', { locale: tr })} Vefa Programı`,
@@ -595,17 +830,55 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       // Filter work days that don't have a completed schedule
       const availableWorkDays = monthWorkDays.filter(wd => !completedDates.has(wd.date));
 
-      // 5. Re-distribute assignments to new work days (dailyLimit per day)
-      let assignmentIndex = 0;
+      // 5. Re-distribute assignments to new work days (dailyLimit per day) using greedy logic
+      const tempPool = [...nonCompletedAssignments];
+      const allSchedulesAfterReflow = [...completedSchedules];
+
       for (const wd of availableWorkDays) {
-        const dailyAssignments = nonCompletedAssignments.slice(assignmentIndex, assignmentIndex + dailyLimit);
+        const dailyAssignments: any[] = [];
+        const targetDate = parseISO(wd.date);
+
+        for (let i = 0; i < dailyLimit; i++) {
+          let foundIdx = -1;
+          for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
+            const item = tempPool[pIdx];
+            const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === item.applicantId);
+            if (isAlreadyInDay) continue;
+
+            const otherVisits = [
+              ...allSchedulesAfterReflow.flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
+              ...dailyAssignments.filter(a => a.applicantId === item.applicantId).map(() => wd.date)
+            ];
+            let isGapOk = true;
+            for (const vDateStr of otherVisits) {
+              if (Math.abs(differenceInDays(targetDate, parseISO(vDateStr))) < 14) {
+                isGapOk = false;
+                break;
+              }
+            }
+            if (isGapOk) {
+              foundIdx = pIdx;
+              break;
+            }
+          }
+          if (foundIdx !== -1) {
+            dailyAssignments.push(tempPool.splice(foundIdx, 1)[0]);
+          }
+        }
+
         if (dailyAssignments.length > 0) {
-          await dbLocal.schedules.add({
+          const newSchedule = {
             date: wd.date,
             assignments: dailyAssignments
-          });
+          };
+          await dbLocal.schedules.add(newSchedule);
+          allSchedulesAfterReflow.push(newSchedule as any);
         }
-        assignmentIndex += dailyLimit;
+      }
+      
+      // Handle leftovers if any
+      if (tempPool.length > 0) {
+        alert(`Uyarı: ${tempPool.length} ziyaret 14 gün kuralı nedeniyle bu aya sığmadı ve planlanamadı.`);
       }
       
       alert('Program başarıyla kaydırıldı.');
@@ -1096,6 +1369,11 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                   onChange={(e) => {
                                     const newId = parseInt(e.target.value);
                                     if (schedule) {
+                                      const check = validateAssignment(newId, a.date, schedules, schedule.id);
+                                      if (!check.valid) {
+                                        alert(check.message);
+                                        return;
+                                      }
                                       const newAssignments = schedule.assignments.map((assignment, i) => 
                                         i === idx ? { ...assignment, applicantId: newId } : assignment
                                       );
