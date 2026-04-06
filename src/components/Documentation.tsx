@@ -94,7 +94,7 @@ export default function Documentation() {
           </div>
           <div>
             <h3 className="text-xl font-bold text-gray-900">Vefa Test Verisi Yükle</h3>
-            <p className="text-gray-600 text-sm">Sistemi denemek için otomatik olarak 50 müracaatçı ve 6 personel ekleyebilirsiniz.</p>
+            <p className="text-gray-600 text-sm">Sistemi denemek için otomatik olarak 50 hane ve 6 personel ekleyebilirsiniz.</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -112,7 +112,7 @@ export default function Documentation() {
              status === 'error' ? 'Hata Oluştu!' : 
              'Rastgele Veri Oluştur'}
           </button>
-          {status === 'success' && <p className="text-green-600 font-medium animate-pulse">50 Müracaatçı ve 6 Personel eklendi.</p>}
+          {status === 'success' && <p className="text-green-600 font-medium animate-pulse">50 Hane ve 6 Personel eklendi.</p>}
         </div>
       </div>
 
@@ -121,9 +121,9 @@ export default function Documentation() {
           <div className="bg-blue-100 w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
             <CheckCircle className="text-blue-600 w-6 h-6" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-3">1. Vefa Müracaatçı Kaydı</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-3">1. Vefa Hane Kaydı</h3>
           <p className="text-gray-600 leading-relaxed">
-            Hizmet alan yaşlı ve engelli vatandaşları "Müracaatçı Listesi" sekmesinden kaydedin. 
+            Hizmet alan yaşlı ve engelli vatandaşları "Hane Listesi" sekmesinden kaydedin. 
             Mahalle bilgisini doğru seçmeniz, planlamanın birbirine yakın adreslere yapılması için kritiktir.
           </p>
         </div>
@@ -135,7 +135,7 @@ export default function Documentation() {
           <h3 className="text-xl font-bold text-gray-900 mb-3">2. Vefa Personel Kaydı</h3>
           <p className="text-gray-600 leading-relaxed">
             Vefa projesi kapsamında çalışan temizlik personellerini "Personel Listesi" sekmesine ekleyin. 
-            Bu personeller daha sonra müracaatçılara atanacaktır.
+            Bu personeller daha sonra hanelere atanacaktır.
           </p>
         </div>
 
@@ -145,8 +145,8 @@ export default function Documentation() {
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-3">3. Akıllı Mahalle Planlama</h3>
           <p className="text-gray-600 leading-relaxed">
-            "Otomatik Planla" butonuna bastığınızda sistem, müracaatçıları mahallelerine göre gruplar. 
-            Böylece aynı gün gidilecek 6 müracaatçı birbirine en yakın mahallelerden seçilir.
+            "Otomatik Planla" butonuna bastığınızda sistem, haneleri mahallelerine göre gruplar. 
+            Böylece aynı gün gidilecek haneler birbirine en yakın mahallelerden seçilir.
           </p>
         </div>
 
@@ -156,7 +156,7 @@ export default function Documentation() {
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-3">4. Personel Atama ve Kısıtlar</h3>
           <p className="text-gray-600 leading-relaxed">
-            Her müracaatçıya <b>2 temizlik görevlisi</b> atanır. Bir personel günde en fazla <b>2 farklı müracaatçıya</b> gidebilir. 
+            Her haneye <b>2 temizlik görevlisi</b> atanır. Bir personel günde en fazla <b>2 farklı haneye</b> gidebilir. 
             Sistem bu kısıtları otomatik olarak denetler ve çakışmaları engeller.
           </p>
         </div>
@@ -194,11 +194,11 @@ export default function Documentation() {
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              <b>Temizlik Notları:</b> Temizlik bittiğinde müracaatçı eviyle ilgili özel notlar eklenebilir. Bu notlar "Tamamlanan Temizlikler" sayfasında raporlanabilir.
+              <b>Temizlik Notları:</b> Temizlik bittiğinde hane ile ilgili özel notlar eklenebilir. Bu notlar "Tamamlanan Temizlikler" sayfasında raporlanabilir.
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              Her müracaatçı <b>ayda 2 kez</b> ziyaret edilecek şekilde planlanır.
+              Her hane <b>ayda 2 kez</b> ziyaret edilecek şekilde planlanır.
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
@@ -206,7 +206,7 @@ export default function Documentation() {
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              İş günleri otomatik olarak müracaatçı sayısına göre belirlenir, ancak kullanıcı tarafından değiştirilebilir.
+              İş günleri otomatik olarak hane sayısına göre belirlenir, ancak kullanıcı tarafından değiştirilebilir.
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
@@ -214,7 +214,7 @@ export default function Documentation() {
             </li>
             <li className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
-              Müracaatçı ve Personel listelerini Excel üzerinden toplu olarak yükleyebilirsiniz.
+              Hane ve Personel listelerini Excel üzerinden toplu olarak yükleyebilirsiniz.
             </li>
           </ul>
         </div>

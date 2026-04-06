@@ -23,8 +23,11 @@ export default function Dashboard({ onNavigate }: Props) {
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 5);
 
+  const totalPeopleCount = applicants.reduce((sum, app) => sum + (app.householdSize || 1), 0);
+
   const stats = [
-    { label: 'Toplam Müracaatçı', value: applicantCount, icon: Users, color: 'bg-blue-500' },
+    { label: 'Toplam Hane', value: applicantCount, icon: Users, color: 'bg-blue-500' },
+    { label: 'Kişi Sayısı', value: totalPeopleCount, icon: Users, color: 'bg-purple-500' },
     { label: 'Aktif Personel', value: staffCount, icon: Briefcase, color: 'bg-indigo-500' },
     { label: 'Planlanan Gün', value: schedules.length, icon: Calendar, color: 'bg-green-500' },
   ];
@@ -42,7 +45,7 @@ export default function Dashboard({ onNavigate }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {stats.map((stat, i) => (
           <div key={i} className="bg-white p-5 lg:p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4 lg:gap-5 hover:shadow-md transition-shadow">
             <div className={`${stat.color} p-3 lg:p-4 rounded-2xl text-white shadow-lg shrink-0`}>
@@ -87,7 +90,7 @@ export default function Dashboard({ onNavigate }: Props) {
                         </div>
                         <div>
                           <p className="font-bold text-gray-900 text-sm lg:text-base">
-                            {applicant ? `${applicant.name} ${applicant.surname}` : `Müracaatçı #${a.applicantId}`}
+                            {applicant ? `${applicant.name} ${applicant.surname}` : `Hane #${a.applicantId}`}
                           </p>
                           {applicant && <p className="text-[10px] lg:text-xs text-blue-600 font-medium line-clamp-1">{applicant.address}</p>}
                         </div>
@@ -138,7 +141,7 @@ export default function Dashboard({ onNavigate }: Props) {
                     </div>
                     <div>
                       <p className="font-bold text-gray-900 text-sm lg:text-base">{format(parseISO(s.date), 'EEEE', { locale: tr })}</p>
-                      <p className="text-xs text-gray-500 font-medium">{s.assignments.length} Müracaatçı Planlandı</p>
+                      <p className="text-xs text-gray-500 font-medium">{s.assignments.length} Hane Planlandı</p>
                     </div>
                   </div>
                   <div className="bg-green-50 p-2 rounded-full">

@@ -113,14 +113,14 @@ export default function ApplicantList({ applicants }: Props) {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm('Bu müracaatçıyı silmek istediğinize emin misiniz?')) {
+    if (confirm('Bu haneyi silmek istediğinize emin misiniz?')) {
       await dbLocal.applicants.delete(id);
       await reindexPriorities();
     }
   };
 
   const handleDeleteAll = async () => {
-    if (confirm('TÜM müracaatçı kayıtlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) {
+    if (confirm('TÜM hane kayıtlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) {
       try {
         await dbLocal.applicants.clear();
       } catch (error) {
@@ -130,7 +130,7 @@ export default function ApplicantList({ applicants }: Props) {
   };
 
   const fixNeighborhoods = async () => {
-    if (!confirm('Mevcut tüm müracaatçıların mahalle bilgileri adreslerine göre yeniden taranacak. Onaylıyor musunuz?')) return;
+    if (!confirm('Mevcut tüm hanelerin mahalle bilgileri adreslerine göre yeniden taranacak. Onaylıyor musunuz?')) return;
     
     let fixedCount = 0;
     for (const applicant of applicants) {
@@ -154,7 +154,7 @@ export default function ApplicantList({ applicants }: Props) {
         fixedCount++;
       }
     }
-    alert(`${fixedCount} müracaatçının mahalle bilgisi düzeltildi.`);
+    alert(`${fixedCount} hanenin mahalle bilgisi düzeltildi.`);
   };
 
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,7 +244,7 @@ export default function ApplicantList({ applicants }: Props) {
         if (newApplicants.length > 0) {
           await dbLocal.applicants.bulkAdd(newApplicants);
           await reindexPriorities();
-          alert(`${newApplicants.length} müracaatçı başarıyla yüklendi.`);
+          alert(`${newApplicants.length} hane başarıyla yüklendi.`);
         }
       } catch (error) {
         console.error("Excel import error:", error);
@@ -320,8 +320,8 @@ export default function ApplicantList({ applicants }: Props) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Müracaatçı Listesi</h2>
-          <p className="text-gray-500">Temizlik hizmeti alan vatandaşların kayıtlarını yönetin.</p>
+          <h2 className="text-2xl font-bold text-gray-900">Hane Listesi</h2>
+          <p className="text-gray-500">Temizlik hizmeti alan hanelerin kayıtlarını yönetin.</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {isImporting && (
@@ -373,7 +373,7 @@ export default function ApplicantList({ applicants }: Props) {
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 text-sm"
             >
               <UserPlus className="w-5 h-5" />
-              Yeni Müracaatçı Ekle
+              Yeni Hane Ekle
             </button>
           )}
         </div>
@@ -383,7 +383,7 @@ export default function ApplicantList({ applicants }: Props) {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-900">
-              {editingId ? 'Müracaatçı Düzenle' : 'Yeni Müracaatçı Kaydı'}
+              {editingId ? 'Hane Düzenle' : 'Yeni Hane Kaydı'}
             </h3>
             <button onClick={() => { setIsAdding(false); setEditingId(null); setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: EDIRNE_NEIGHBORHOODS[0] }); }} className="text-gray-400 hover:text-gray-600">
               <X className="w-6 h-6" />
@@ -541,7 +541,7 @@ export default function ApplicantList({ applicants }: Props) {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Müracaatçı ara (Ad, Soyad, TC, Mahalle)..."
+            placeholder="Hane ara (Ad, Soyad, TC, Mahalle)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
@@ -588,7 +588,7 @@ export default function ApplicantList({ applicants }: Props) {
               {applicants.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-gray-500 font-medium">
-                    Henüz kayıtlı müracaatçı bulunmuyor.
+                    Henüz kayıtlı hane bulunmuyor.
                   </td>
                 </tr>
               ) : (

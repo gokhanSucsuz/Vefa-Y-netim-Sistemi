@@ -111,7 +111,7 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
             body: [
               [
                 { text: 'Tarih', style: 'tableHeader' },
-                { text: 'Müracaatçı', style: 'tableHeader' },
+                { text: 'Hane', style: 'tableHeader' },
                 { text: 'Mahalle', style: 'tableHeader' }
               ],
               ...schedules.map(s => {

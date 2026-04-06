@@ -86,15 +86,15 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
         { text: 'EDİRNE VALİLİĞİ', style: 'header', alignment: 'center' },
         { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
         { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
-        { text: 'MÜRACAATÇI HİZMET GEÇMİŞİ RAPORU', style: 'title', alignment: 'center', margin: [0, 15, 0, 15] },
+        { text: 'HANE HİZMET GEÇMİŞİ RAPORU', style: 'title', alignment: 'center', margin: [0, 15, 0, 15] },
         { text: `Rapor Tarihi: ${format(new Date(), 'dd.MM.yyyy HH:mm')}`, alignment: 'right', fontSize: 8, color: '#666', margin: [0, 0, 0, 10] },
         
-        { text: '1. Müracaatçı Bilgileri', style: 'sectionHeader' },
+        { text: '1. Hane Bilgileri', style: 'sectionHeader' },
         {
           table: {
             widths: ['*', '*'],
             body: [
-              [{ text: 'Müracaatçı Bilgileri', style: 'tableHeader' }, { text: 'Detay', style: 'tableHeader' }],
+              [{ text: 'Hane Bilgileri', style: 'tableHeader' }, { text: 'Detay', style: 'tableHeader' }],
               ['Ad Soyad', `${applicant.name} ${applicant.surname}`],
               ['TC No', applicant.tcNo],
               ['Telefon', applicant.phone],
@@ -171,7 +171,7 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
             <h1 style={{ fontSize: '16pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>T.C.</h1>
             <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>EDİRNE VALİLİĞİ</h2>
             <h3 style={{ fontSize: '12pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid #000', paddingBottom: '10px' }}>Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı</h3>
-            <h4 style={{ fontSize: '13pt', fontWeight: 'bold', marginTop: '20px' }}>MÜRACAATÇI HİZMET VE TAKİP RAPORU</h4>
+            <h4 style={{ fontSize: '13pt', fontWeight: 'bold', marginTop: '20px' }}>HANE HİZMET VE TAKİP RAPORU</h4>
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px', border: '1px solid #e5e7eb', padding: '15px', borderRadius: '8px' }}>
@@ -258,7 +258,7 @@ export default function ApplicantStatsModal({ applicant, onClose }: Props) {
         <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-blue-50/50">
           <div>
             <h3 className="text-lg sm:text-xl font-bold text-gray-900">{applicant.name} {applicant.surname}</h3>
-            <p className="text-xs sm:text-sm text-gray-500">Müracaatçı İstatistik ve Raporu</p>
+            <p className="text-xs sm:text-sm text-gray-500">Hane İstatistik ve Raporu</p>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button 

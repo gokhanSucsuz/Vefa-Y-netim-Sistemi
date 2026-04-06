@@ -54,7 +54,7 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
       { text: `Tarih: ${formattedDate}`, alignment: 'right', margin: [0, 0, 0, 10] },
       { text: `Rapor Oluşturma Tarihi: ${format(new Date(), 'dd.MM.yyyy HH:mm')}`, alignment: 'right', fontSize: 8, color: '#666', margin: [0, 0, 0, 10] },
       
-      { text: '1. MÜRACAATÇI BİLGİLERİ', style: 'sectionHeader' },
+      { text: '1. HANE BİLGİLERİ', style: 'sectionHeader' },
       {
         table: {
           widths: ['*'],
@@ -110,7 +110,7 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
           widths: ['*'],
           body: [
             [{
-              text: "Yukarıda bilgileri yer alan müracaatçının ikametgahında; Vefa Projesi uygulama usul ve esasları çerçevesinde genel ev temizliği, hijyen desteği ve temel ihtiyaçların karşılanmasına yönelik hizmetler eksiksiz olarak sunulmuştur.",
+              text: "Yukarıda bilgileri yer alan hanenin ikametgahında; Vefa Projesi uygulama usul ve esasları çerçevesinde genel ev temizliği, hijyen desteği ve temel ihtiyaçların karşılanmasına yönelik hizmetler eksiksiz olarak sunulmuştur.",
               margin: [5, 5, 5, 5],
               alignment: 'justify'
             }]
@@ -123,7 +123,7 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
         columns: [
           {
             stack: [
-              { text: 'Hizmet Alan (Müracaatçı)', bold: true, alignment: 'center' },
+              { text: 'Hizmet Alan (Hane)', bold: true, alignment: 'center' },
               { text: 'Ad Soyad / İmza', alignment: 'center', margin: [0, 10, 0, 0] }
             ]
           },

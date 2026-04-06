@@ -65,7 +65,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     const daySchedule = currentSchedules.find(s => s.date === date);
     if (daySchedule && daySchedule.id !== excludeScheduleId) {
       if (daySchedule.assignments.some(a => a.applicantId === applicantId)) {
-        return { valid: false, message: 'Bu müracaatçı bu güne zaten eklenmiş.' };
+        return { valid: false, message: 'Bu hane bu güne zaten eklenmiş.' };
       }
     }
 
@@ -145,7 +145,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     // Preserve completion status? Usually swapping happens before completion, 
     // but let's just swap the applicant and keep the rest of the slot data (staff) as is for that day/slot.
     // Actually, it's better to swap the entire assignment object except maybe the date/team if they are fixed.
-    // The user said "yer değiştirme işlemi yapmamı sağlayacak düzenlemeyi de yap yani iki müracaatçının gününü değiştirebileyim"
+    // The user said "yer değiştirme işlemi yapmamı sağlayacak düzenlemeyi de yap yani iki hanenin gününü değiştirebileyim"
     // This implies swapping their positions in the schedule.
 
     await dbLocal.transaction('rw', dbLocal.schedules, async () => {
@@ -154,7 +154,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     });
 
     setSwapSelection(null);
-    alert('Müracaatçılar başarıyla yer değiştirildi.');
+    alert('Haneler başarıyla yer değiştirildi.');
   };
 
   const handleCancelAssignment = async (date: string, applicantId: number) => {
@@ -507,7 +507,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
   const generateSchedule = async () => {
     if (applicants.length === 0) {
-      alert('Lütfen önce müracaatçı ekleyin.');
+      alert('Lütfen önce hane ekleyin.');
       return;
     }
 
@@ -607,7 +607,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       }
 
       if (availableWorkDays.length < daysNeeded) {
-        alert(`Uyarı: Tüm müracaatçılara ayda 2 kez hizmet verebilmek için ${daysNeeded} iş günü gerekiyor, ancak sistemde sadece ${availableWorkDays.length} iş günü tanımlı. Planlama mevcut günlerle sınırlı kalacaktır.`);
+        alert(`Uyarı: Tüm hanelere ayda 2 kez hizmet verebilmek için ${daysNeeded} iş günü gerekiyor, ancak sistemde sadece ${availableWorkDays.length} iş günü tanımlı. Planlama mevcut günlerle sınırlı kalacaktır.`);
       }
 
       // 6. Group staff into teams
@@ -953,7 +953,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     const data = assignments.flatMap(a => a.items.map(item => ({
       'Tarih': format(parseISO(a.date), 'dd MMMM yyyy', { locale: tr }),
       'Mahalle': item.applicant.neighborhood,
-      'Müracaatçı': `${item.applicant.name} ${item.applicant.surname}`,
+      'Hane': `${item.applicant.name} ${item.applicant.surname}`,
       'TC No': item.applicant.tcNo,
       'Hane Kişi Sayısı': item.applicant.householdSize || 1,
       'Görevli Personeller': item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || 'Atanmamış'
@@ -1029,7 +1029,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               [
                 { text: 'Tarih', style: 'tableHeader' },
                 { text: 'Mahalle', style: 'tableHeader' },
-                { text: 'Müracaatçı', style: 'tableHeader' },
+                { text: 'Hane', style: 'tableHeader' },
                 { text: 'Görevli Personeller', style: 'tableHeader' }
               ],
               ...tableData
@@ -1116,7 +1116,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               <tr style={{ backgroundColor: '#f1f5f9' }}>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Tarih</th>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Mahalle</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Müracaatçı</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Hane</th>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Görevli Personeller</th>
               </tr>
             </thead>
@@ -1151,7 +1151,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
           <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in duration-300">
             <h3 className="text-xl font-bold text-gray-900 mb-2">Temizlik Tamamlandı</h3>
             <p className="text-sm text-gray-500 mb-4">
-              <span className="font-semibold text-blue-600">{completionModal.name}</span> müracaatçının evi için temizlik bitti. Varsa eklemek istediğiniz bilgileri yazın.
+              <span className="font-semibold text-blue-600">{completionModal.name}</span> hanenin evi için temizlik bitti. Varsa eklemek istediğiniz bilgileri yazın.
             </p>
             <textarea
               value={completionNote}
@@ -1321,7 +1321,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                       <div className="text-xs lg:text-sm font-bold text-gray-700 truncate max-w-[150px] sm:max-w-xs">
                         {a.items.length > 0 ? `${a.items[0].applicant.address}` : 'Atama Yapılmamış'}
                       </div>
-                      <div className="text-[10px] lg:text-xs text-gray-400 font-medium">{a.items.length} Müracaatçı</div>
+                      <div className="text-[10px] lg:text-xs text-gray-400 font-medium">{a.items.length} Hane</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1413,7 +1413,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                             </div>
                             <div className="space-y-3">
                               <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Müracaatçı</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Hane</label>
                                 <select
                                   value={item.applicant.id || ''}
                                   disabled={isCompleted}

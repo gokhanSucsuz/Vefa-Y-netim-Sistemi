@@ -177,7 +177,7 @@ export default function App() {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {[
             { id: 'dashboard', label: 'Genel Durum', icon: LayoutDashboard },
-            { id: 'applicants', label: 'Müracaatçı Listesi', icon: Users },
+            { id: 'applicants', label: 'Hane Listesi', icon: Users },
             { id: 'staff', label: 'Personel Listesi', icon: Briefcase },
             { id: 'workdays', label: 'İş Günleri', icon: Calendar },
             { id: 'schedule', label: 'Program Planlama', icon: ClipboardList },

@@ -133,7 +133,7 @@ export default function Statistics() {
       ['Bitiş Tarihi', endDate],
       ['Toplam Temizlik Sayısı', stats.totalCleanings],
       ['Gidilen Mahalle Sayısı', stats.totalNeighborhoods],
-      ['Hizmet Verilen Müracaatçı Sayısı', stats.totalUniqueApplicants]
+      ['Hizmet Verilen Hane Sayısı', stats.totalUniqueApplicants]
     ];
     const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, wsSummary, "Özet");
@@ -142,7 +142,7 @@ export default function Statistics() {
     const neighborhoodData = stats.neighborhoodData.map(n => ({
       'Mahalle': n.name,
       'Temizlik Sayısı': n.count,
-      'Müracaatçı Sayısı': n.uniqueApplicants
+      'Hane Sayısı': n.uniqueApplicants
     }));
     const wsNeighborhood = XLSX.utils.json_to_sheet(neighborhoodData);
     XLSX.utils.book_append_sheet(workbook, wsNeighborhood, "Mahalle İstatistikleri");
@@ -151,7 +151,7 @@ export default function Statistics() {
     const staffData = stats.staffData.map(s => ({
       'Personel': s.name,
       'Toplam İş Sayısı': s.jobCount,
-      'Farklı Müracaatçı Sayısı': s.uniqueApplicantsCount
+      'Farklı Hane Sayısı': s.uniqueApplicantsCount
     }));
     const wsStaff = XLSX.utils.json_to_sheet(staffData);
     XLSX.utils.book_append_sheet(workbook, wsStaff, "Personel İstatistikleri");
@@ -159,7 +159,7 @@ export default function Statistics() {
     // Detailed Log Sheet
     const logData = stats.completedAssignments.map(a => ({
       'Tarih': format(parseISO(a.date), 'dd.MM.yyyy'),
-      'Müracaatçı': `${a.applicant?.name} ${a.applicant?.surname}`,
+      'Hane': `${a.applicant?.name} ${a.applicant?.surname}`,
       'Mahalle': a.applicant?.neighborhood,
       'Personeller': a.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ')
     }));
@@ -222,7 +222,7 @@ export default function Statistics() {
               [{ text: 'İstatistik Özeti', style: 'tableHeader' }, { text: 'Değer', style: 'tableHeader' }],
               ['Toplam Temizlik Sayısı', stats.totalCleanings.toString()],
               ['Gidilen Mahalle Sayısı', stats.totalNeighborhoods.toString()],
-              ['Hizmet Verilen Müracaatçı Sayısı', stats.totalUniqueApplicants.toString()]
+              ['Hizmet Verilen Hane Sayısı', stats.totalUniqueApplicants.toString()]
             ]
           }
         },
@@ -236,7 +236,7 @@ export default function Statistics() {
               [
                 { text: 'Mahalle', style: 'tableHeader' },
                 { text: 'Temizlik Sayısı', style: 'tableHeader' },
-                { text: 'Müracaatçı Sayısı', style: 'tableHeader' }
+                { text: 'Hane Sayısı', style: 'tableHeader' }
               ],
               ...stats.neighborhoodData.map(n => [n.name, n.count.toString(), n.uniqueApplicants.toString()])
             ]
@@ -252,7 +252,7 @@ export default function Statistics() {
               [
                 { text: 'Personel', style: 'tableHeader' },
                 { text: 'Toplam İş', style: 'tableHeader' },
-                { text: 'Müracaatçı Sayısı', style: 'tableHeader' }
+                { text: 'Hane Sayısı', style: 'tableHeader' }
               ],
               ...stats.staffData.map(s => [s.name, s.jobCount.toString(), s.uniqueApplicantsCount.toString()])
             ]
@@ -316,7 +316,7 @@ export default function Statistics() {
               <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>{stats.totalNeighborhoods}</div>
             </div>
             <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', borderRadius: '6px' }}>
-              <div style={{ fontSize: '9pt', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Müracaatçı Sayısı</div>
+              <div className="text-[9pt] color-[#475569] font-bold uppercase mb-[2px]">Hane Sayısı</div>
               <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>{stats.totalUniqueApplicants}</div>
             </div>
           </div>
@@ -327,7 +327,7 @@ export default function Statistics() {
               <tr style={{ backgroundColor: '#f1f5f9' }}>
                 <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Personel Adı Soyadı</th>
                 <th style={{ padding: '10px', textAlign: 'center', border: '1px solid #94a3b8' }}>Toplam İş</th>
-                <th style={{ padding: '10px', textAlign: 'center', border: '1px solid #94a3b8' }}>Farklı Müracaatçı</th>
+                <th style={{ padding: '10px', textAlign: 'center', border: '1px solid #94a3b8' }}>Farklı Hane</th>
               </tr>
             </thead>
             <tbody>
@@ -346,7 +346,7 @@ export default function Statistics() {
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9' }}>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Tarih</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Müracaatçı</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Hane</th>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Mahalle</th>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Görevli Personeller</th>
               </tr>
@@ -445,7 +445,7 @@ export default function Statistics() {
         />
         <StatCard 
           icon={<Users className="w-6 h-6 text-green-600" />}
-          label="Hizmet Alan Kişi"
+          label="Hizmet Alan Hane"
           value={stats.totalUniqueApplicants}
           color="green"
         />
@@ -542,7 +542,7 @@ export default function Statistics() {
               <tr className="border-b border-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                 <th className="px-6 py-4">Personel</th>
                 <th className="px-6 py-4">Toplam İş</th>
-                <th className="px-6 py-4">Farklı Müracaatçı</th>
+                <th className="px-6 py-4">Farklı Hane</th>
                 <th className="px-6 py-4">Son İşler</th>
               </tr>
             </thead>
@@ -557,7 +557,7 @@ export default function Statistics() {
                       {s.jobCount} İş
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{s.uniqueApplicantsCount} Kişi</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{s.uniqueApplicantsCount} Hane</td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
                       {s.details.slice(-2).map((d, i) => (
