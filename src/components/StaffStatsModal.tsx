@@ -129,7 +129,7 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
         }
       ],
       watermark: { 
-        text: `${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} - ${format(new Date(), 'dd.MM.yyyy')}`, 
+        text: 'Edirne Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', 
         color: '#666', 
         opacity: 0.05, 
         bold: true, 
