@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
 import { Staff } from '../types';
 import { format, isToday, isFuture, parseISO } from 'date-fns';

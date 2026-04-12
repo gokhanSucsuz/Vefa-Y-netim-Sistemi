@@ -51,8 +51,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const [showMap, setShowMap] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [isGeocodingDay, setIsGeocodingDay] = useState(false);
-  const [swapSelection, setSwapSelection] = useState<{ date: string; applicantId: number } | null>(null);
-  const [completionModal, setCompletionModal] = useState<{ date: string; applicantId: number; name: string } | null>(null);
+  const [swapSelection, setSwapSelection] = useState<{ date: string; applicantId: string } | null>(null);
+  const [completionModal, setCompletionModal] = useState<{ date: string; applicantId: string; name: string } | null>(null);
   const [completionNote, setCompletionNote] = useState('');
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [dailyLimit, setDailyLimit] = useState(() => {
@@ -60,7 +60,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     return saved ? parseInt(saved) : 6;
   });
 
-  const validateAssignment = (applicantId: number, date: string, currentSchedules: Schedule[], excludeScheduleId?: number) => {
+  const validateAssignment = (applicantId: string, date: string, currentSchedules: Schedule[], excludeScheduleId?: string) => {
     // 1. Single visit per day check
     const daySchedule = currentSchedules.find(s => s.date === date);
     if (daySchedule && daySchedule.id !== excludeScheduleId) {
@@ -100,7 +100,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
 
-  const handleSwap = async (date: string, applicantId: number) => {
+  const handleSwap = async (date: string, applicantId: string) => {
     if (!swapSelection) {
       setSwapSelection({ date, applicantId });
       return;
@@ -157,7 +157,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     alert('Haneler başarıyla yer değiştirildi.');
   };
 
-  const handleCancelAssignment = async (date: string, applicantId: number) => {
+  const handleCancelAssignment = async (date: string, applicantId: string) => {
     const confirmCancel = confirm('Bu ziyareti iptal edip bir sonraki iş gününe kaydırmak istediğinize emin misiniz?');
     if (!confirmCancel) return;
 
@@ -277,7 +277,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         // 7. Handle leftovers
         if (tempPool.length > 0) {
           const lastSchedule = futureSchedules[futureSchedules.length - 1];
-          const nextWorkDays = await dbLocal.workDays.where('date').above(lastSchedule.date).filter(wd => wd.isWorkDay).toArray();
+          const nextWorkDays = (await dbLocal.workDays.where("date").above(lastSchedule.date).toArray()).filter(wd => wd.isWorkDay);
           
           let currentDayIdx = 0;
           while (tempPool.length > 0 && currentDayIdx < nextWorkDays.length) {
@@ -431,7 +431,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         
         if (tempPool.length > 0) {
           const lastSchedule = futureSchedules[futureSchedules.length - 1];
-          const nextWorkDays = await dbLocal.workDays.where('date').above(lastSchedule.date).filter(wd => wd.isWorkDay).toArray();
+          const nextWorkDays = (await dbLocal.workDays.where("date").above(lastSchedule.date).toArray()).filter(wd => wd.isWorkDay);
           
           let currentDayIdx = 0;
           while (tempPool.length > 0 && currentDayIdx < nextWorkDays.length) {
@@ -538,7 +538,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
         // Overwrite: Delete non-completed schedules
         const schedulesToDelete = existingSchedules.filter(s => !s.assignments.some(a => a.isCompleted));
         if (schedulesToDelete.length > 0) {
-          const programIdsToCheck = new Set(schedulesToDelete.map(s => s.programId).filter(Boolean) as number[]);
+          const programIdsToCheck = new Set(schedulesToDelete.map(s => s.programId).filter(Boolean) as string[]);
           await dbLocal.schedules.bulkDelete(schedulesToDelete.map(s => s.id!));
           
           // Clean up programs that no longer have any schedules
@@ -558,7 +558,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     try {
       // 3. Determine starting applicant and cycle
       const sortedApplicants = [...applicants].sort((a, b) => (a.priority || 0) - (b.priority || 0));
-      const lastProgram = await dbLocal.programs.orderBy('id').last();
+      const lastProgram = await dbLocal.programs.orderBy("id").last();
       
       let globalStartIndex = 0;
       if (lastProgram && lastProgram.lastApplicantId) {
@@ -588,10 +588,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       const daysNeeded = Math.ceil(visitsToPlanCount / dailyLimit);
       
       // Search for work days in the database
-      const allFutureWorkDays = await dbLocal.workDays
-        .where('date').aboveOrEqual(actualPlanningStartDate)
-        .filter(wd => wd.isWorkDay)
-        .toArray();
+      const allFutureWorkDays = (await dbLocal.workDays.where("date").aboveOrEqual(actualPlanningStartDate).toArray()).filter(wd => wd.isWorkDay);
       
       // Also filter out days that ALREADY have a schedule (which we didn't delete because they had completed assignments)
       const existingScheduleDates = new Set((await dbLocal.schedules.toArray()).map(s => s.date));
@@ -611,8 +608,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       }
 
       // 6. Group staff into teams
-      const teams: number[][] = [];
-      const processedStaff = new Set<number>();
+      const teams: string[][] = [];
+      const processedStaff = new Set<string>();
       staff.forEach(s => {
         if (processedStaff.has(s.id!)) return;
         if (s.partnerId) {
@@ -629,14 +626,14 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       }
 
       // 7. Distribute into days respecting 14-day rule
-      let lastAssignedId: number | undefined;
+      let lastAssignedId: string | undefined;
       let lastAssignedGlobalIndex: number | undefined;
 
       const scheduleEntries: any[] = [];
       const currentVisitList = [...visitList];
       
       // Keep track of last visit date for each applicant to enforce 14-day rule
-      const lastVisitMap = new Map<number, string>();
+      const lastVisitMap = new Map<string, string>();
       // Initialize with existing schedules (even those before planning start)
       const allExistingSchedules = await dbLocal.schedules.toArray();
       allExistingSchedules.forEach(s => {
@@ -733,7 +730,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       for (const entry of scheduleEntries) {
         await dbLocal.schedules.add({
           ...entry,
-          programId: programId as number
+          programId: programId as string
         });
       }
 
@@ -746,7 +743,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     }
   };
 
-  const toggleCompletion = async (date: string, applicantId: number, note?: string) => {
+  const toggleCompletion = async (date: string, applicantId: string, note?: string) => {
     const schedule = schedules.find(s => s.date === date);
     if (!schedule) return;
 
@@ -768,7 +765,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     setCompletionNote('');
   };
 
-  const updateStaffAssignment = async (date: string, applicantId: number, staffIndex: number, staffId: number) => {
+  const updateStaffAssignment = async (date: string, applicantId: string, staffIndex: number, staffId: string) => {
     const schedule = schedules.find(s => s.date === date);
     if (!schedule) return;
 
@@ -1217,7 +1214,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                 min="1" 
                 max="20"
                 value={dailyLimit}
-                onChange={(e) => setDailyLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={(e) => setDailyLimit(Math.max(1, e.target.value || 1))}
                 className="w-12 text-center text-sm font-bold text-blue-600 bg-transparent border-none focus:ring-0 p-0"
               />
             </div>
@@ -1418,7 +1415,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                   value={item.applicant.id || ''}
                                   disabled={isCompleted}
                                   onChange={(e) => {
-                                    const newId = parseInt(e.target.value);
+                                    const newId = e.target.value;
                                     if (schedule) {
                                       const check = validateAssignment(newId, a.date, schedules, schedule.id);
                                       if (!check.valid) {
@@ -1449,7 +1446,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                       key={sIdx}
                                       value={item.staffMembers[sIdx]?.id || ''}
                                       disabled={isCompleted}
-                                      onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, sIdx, parseInt(e.target.value))}
+                                      onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, sIdx, e.target.value)}
                                       className="w-full text-[10px] font-bold bg-gray-50 border-none rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                                     >
                                       <option value="">Seç...</option>

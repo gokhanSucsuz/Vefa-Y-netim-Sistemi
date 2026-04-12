@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from './hooks/useLiveQuery';
 import { dbLocal } from './db';
 import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp, Menu, X as CloseIcon } from 'lucide-react';
 import ApplicantList from './components/ApplicantList';

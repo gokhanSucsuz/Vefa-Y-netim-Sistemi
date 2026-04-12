@@ -38,7 +38,7 @@ interface Props {
 export default function ApplicantList({ applicants }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Applicant>({
     name: '',
     surname: '',
@@ -67,7 +67,7 @@ export default function ApplicantList({ applicants }: Props) {
       if ((a.priority || 0) !== (b.priority || 0)) {
         return (a.priority || 0) - (b.priority || 0);
       }
-      return (a.id || 0) - (b.id || 0);
+      return String(a.id || '').localeCompare(String(b.id || ''));
     });
 
     for (let i = 0; i < sorted.length; i++) {
@@ -112,7 +112,7 @@ export default function ApplicantList({ applicants }: Props) {
     setIsAdding(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Bu haneyi silmek istediğinize emin misiniz?')) {
       await dbLocal.applicants.delete(id);
       await reindexPriorities();
@@ -280,7 +280,7 @@ export default function ApplicantList({ applicants }: Props) {
     await reindexPriorities();
   };
 
-  const handlePriorityChange = async (id: number, newPriority: number) => {
+  const handlePriorityChange = async (id: string, newPriority: number) => {
     await dbLocal.applicants.update(id, { priority: newPriority });
     await reindexPriorities();
   };

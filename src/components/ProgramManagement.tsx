@@ -13,11 +13,11 @@ export default function ProgramManagement({ programs, schedules }: ProgramManage
     [...programs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
   [programs]);
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Bu programı ve buna bağlı tüm planlamaları silmek istediğinize emin misiniz?')) return;
     
     try {
-      await dbLocal.transaction('rw', [dbLocal.programs, dbLocal.schedules], async () => {
+      await dbLocal.transaction("rw", [], async () => {
         await dbLocal.programs.delete(id);
         const programSchedules = await dbLocal.schedules.where('programId').equals(id).toArray();
         for (const s of programSchedules) {
@@ -30,7 +30,7 @@ export default function ProgramManagement({ programs, schedules }: ProgramManage
     }
   };
 
-  const handleCancel = async (id: number) => {
+  const handleCancel = async (id: string) => {
     if (!confirm('Bu programı iptal etmek istediğinize emin misiniz?')) return;
     try {
       await dbLocal.programs.update(id, { status: 'cancelled' });

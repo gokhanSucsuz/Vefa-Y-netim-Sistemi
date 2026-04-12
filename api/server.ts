@@ -62,7 +62,6 @@ app.get(["/api/auth/url", "/auth/url"], (req, res) => {
       access_type: "offline",
       scope: [
         "https://www.googleapis.com/auth/userinfo.email",
-        "https://www.googleapis.com/auth/drive.file",
       ],
       prompt: "consent",
     });
@@ -147,93 +146,6 @@ app.get(["/api/auth/status", "/auth/status"], async (req, res) => {
 app.post(["/api/auth/logout", "/auth/logout"], (req, res) => {
   res.clearCookie("google_tokens");
   res.json({ success: true });
-});
-
-// Drive Backup
-app.post(["/api/drive/backup", "/drive/backup"], async (req, res) => {
-  const tokensStr = req.cookies.google_tokens;
-  if (!tokensStr) return res.status(401).json({ error: "Unauthorized" });
-
-  try {
-    const tokens = JSON.parse(tokensStr);
-    const client = getOAuth2Client(req);
-    client.setCredentials(tokens);
-    const drive = google.drive({ version: "v3", auth: client });
-
-    const { data, filename } = req.body;
-
-    // Check if file already exists
-    const listRes = await drive.files.list({
-      q: `name = '${filename}' and trashed = false`,
-      fields: "files(id, name)",
-    });
-
-    const fileMetadata = {
-      name: filename,
-      mimeType: "application/json",
-    };
-
-    const media = {
-      mimeType: "application/json",
-      body: JSON.stringify(data),
-    };
-
-    if (listRes.data.files && listRes.data.files.length > 0) {
-      // Update existing file
-      const fileId = listRes.data.files[0].id!;
-      await drive.files.update({
-        fileId: fileId,
-        media: media,
-      });
-      res.json({ success: true, message: "Yedek güncellendi." });
-    } else {
-      // Create new file
-      await drive.files.create({
-        requestBody: fileMetadata,
-        media: media,
-        fields: "id",
-      });
-      res.json({ success: true, message: "Yeni yedek oluşturuldu." });
-    }
-  } catch (error) {
-    console.error("Drive backup error:", error);
-    res.status(500).json({ error: "Yedekleme sırasında bir hata oluştu." });
-  }
-});
-
-// Drive Restore
-app.get(["/api/drive/restore", "/drive/restore"], async (req, res) => {
-  const tokensStr = req.cookies.google_tokens;
-  if (!tokensStr) return res.status(401).json({ error: "Unauthorized" });
-
-  try {
-    const tokens = JSON.parse(tokensStr);
-    const client = getOAuth2Client(req);
-    client.setCredentials(tokens);
-    const drive = google.drive({ version: "v3", auth: client });
-
-    const { filename } = req.query;
-
-    const listRes = await drive.files.list({
-      q: `name = '${filename}' and trashed = false`,
-      fields: "files(id, name)",
-    });
-
-    if (!listRes.data.files || listRes.data.files.length === 0) {
-      return res.status(404).json({ error: "Yedek dosyası bulunamadı." });
-    }
-
-    const fileId = listRes.data.files[0].id!;
-    const fileRes = await drive.files.get({
-      fileId: fileId,
-      alt: "media",
-    });
-
-    res.json(fileRes.data);
-  } catch (error) {
-    console.error("Drive restore error:", error);
-    res.status(500).json({ error: "Geri yükleme sırasında bir hata oluştu." });
-  }
 });
 
 // Geocoding Proxy to avoid CORS and manage rate limiting

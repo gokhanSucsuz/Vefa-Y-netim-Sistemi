@@ -53,9 +53,13 @@ export default function Documentation() {
         phone: `05${Math.floor(100000000 + Math.random() * 900000000)}`
       }));
 
-      await dbLocal.transaction('rw', dbLocal.applicants, dbLocal.staff, async () => {
-        const applicantIds = await dbLocal.applicants.bulkAdd(mockApplicants, { allKeys: true });
-        const staffIds = await dbLocal.staff.bulkAdd(mockStaff, { allKeys: true }) as number[];
+      await dbLocal.transaction('rw', [], async () => {
+        await dbLocal.applicants.bulkAdd(mockApplicants);
+        await dbLocal.staff.bulkAdd(mockStaff);
+        
+        // Since bulkAdd doesn't return IDs, we need to fetch them
+        const allStaff = await dbLocal.staff.toArray();
+        const staffIds = allStaff.slice(-6).map(s => s.id!);
         
         // Create 3 teams (pairs)
         if (staffIds.length >= 6) {

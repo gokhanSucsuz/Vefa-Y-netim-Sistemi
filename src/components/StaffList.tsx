@@ -13,7 +13,7 @@ interface Props {
 export default function StaffList({ staff }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Staff>({
     name: '',
     surname: '',
@@ -30,12 +30,12 @@ export default function StaffList({ staff }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      let newId: number;
+      let newId: string;
       if (editingId) {
         await dbLocal.staff.update(editingId, formData);
         newId = editingId;
       } else {
-        newId = await dbLocal.staff.add(formData) as number;
+        newId = await dbLocal.staff.add(formData);
       }
 
       // Handle bidirectional partner link
@@ -125,7 +125,7 @@ export default function StaffList({ staff }: Props) {
     setIsAdding(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Bu personeli silmek istediğinize emin misiniz?')) {
       const s = staff.find(item => item.id === id);
       if (s?.partnerId) {

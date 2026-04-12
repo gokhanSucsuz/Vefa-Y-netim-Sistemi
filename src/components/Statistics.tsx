@@ -1,5 +1,5 @@
 import { useState, useMemo, ReactNode, useRef } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
 import { format, parseISO, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -57,11 +57,11 @@ export default function Statistics() {
     });
 
     // Neighborhood Stats
-    const neighborhoodMap = new Map<string, Set<number>>();
+    const neighborhoodMap = new Map<string, Set<string>>();
     const neighborhoodCleaningCount = new Map<string, number>();
     
     // Staff Stats
-    const staffMap = new Map<number, { 
+    const staffMap = new Map<string, { 
       name: string; 
       jobCount: number; 
       applicants: Set<string>;
