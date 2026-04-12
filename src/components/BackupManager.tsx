@@ -1,30 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Cloud, Loader2, CheckCircle2, AlertCircle, LogIn, LogOut, DownloadCloud, UploadCloud, Trash2 } from 'lucide-react';
-import { auth, db } from '../firebase';
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { auth } from '../firebase';
+import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { dbLocal } from '../db';
 
 interface BackupManagerProps {
+  user: any;
   onAuthChange?: (authenticated: boolean, email?: string) => void;
   isInitialLoad?: boolean;
 }
 
-export default function BackupManager({ onAuthChange, isInitialLoad = false }: BackupManagerProps) {
+export default function BackupManager({ user, onAuthChange, isInitialLoad = false }: BackupManagerProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [user, setUser] = useState<any>(null);
   const [lastBackupDate, setLastBackupDate] = useState<string | null>(localStorage.getItem('lastBackupDate'));
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (onAuthChange) {
-        onAuthChange(!!currentUser, currentUser?.email || undefined);
-      }
-    });
-    return () => unsubscribe();
-  }, [onAuthChange]);
 
   // Check for auto-backup every time user logs in or app loads
   useEffect(() => {

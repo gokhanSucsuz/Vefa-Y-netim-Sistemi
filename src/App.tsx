@@ -6,6 +6,8 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from './hooks/useLiveQuery';
 import { dbLocal } from './db';
+import { auth } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp, Menu, X as CloseIcon } from 'lucide-react';
 import ApplicantList from './components/ApplicantList';
 import StaffList from './components/StaffList';
@@ -25,12 +27,23 @@ import { APP_LOGO_URL } from './constants/logo';
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'completed' | 'docs' | 'stats'>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
   const [isAdminLoading, setIsAdminLoading] = useState(true);
 
   const AUTHORIZED_EMAIL = 'edirnesydv@gmail.com';
+
+  // Auth listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setIsAuthenticated(!!currentUser);
+      setUser(currentUser);
+      setUserEmail(currentUser?.email || undefined);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleAuthChange = (auth: boolean, email?: string) => {
     setIsAuthenticated(auth);
@@ -43,6 +56,7 @@ export default function App() {
   useEffect(() => {
     if (isAuthorized) {
       const fetchAdmin = async () => {
+        setIsAdminLoading(true);
         try {
           const admins = await dbLocal.admins.toArray();
           const admin = admins.find(a => a.email === AUTHORIZED_EMAIL);
@@ -128,7 +142,7 @@ export default function App() {
   if (isAuthenticated === false || (isAuthenticated === true && userEmail !== AUTHORIZED_EMAIL)) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col pt-10">
-        <BackupManager onAuthChange={handleAuthChange} isInitialLoad={true} />
+        <BackupManager user={user} onAuthChange={handleAuthChange} isInitialLoad={true} />
       </div>
     );
   }
@@ -223,7 +237,7 @@ export default function App() {
         </nav>
 
         <div className="p-4 border-t border-gray-100">
-          <BackupManager onAuthChange={handleAuthChange} />
+          <BackupManager user={user} onAuthChange={handleAuthChange} />
         </div>
       </aside>
 
