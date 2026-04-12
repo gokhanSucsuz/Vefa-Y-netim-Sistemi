@@ -66,10 +66,6 @@ export default function App() {
     setCurrentStaffUser(null);
   };
 
-  if (isGoogleAuthorized && !currentStaffUser) {
-    return <StaffLogin onLogin={handleStaffLogin} />;
-  }
-
   const isAuthorized = isGoogleAuthorized && !!currentStaffUser;
 
   // Fetch current admin - No longer needed as we use currentStaffUser
@@ -143,6 +139,14 @@ export default function App() {
     return () => clearInterval(interval);
   }, [schedules, isAuthorized]);
 
+  if (isAuthenticated === null || isAdminLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
   if (isAuthenticated === false || (isAuthenticated === true && userEmail !== AUTHORIZED_EMAIL)) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col pt-10">
@@ -151,12 +155,8 @@ export default function App() {
     );
   }
 
-  if (isAuthenticated === null || isAdminLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-      </div>
-    );
+  if (isGoogleAuthorized && !currentStaffUser) {
+    return <StaffLogin onLogin={handleStaffLogin} />;
   }
 
   return (
