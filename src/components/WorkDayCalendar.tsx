@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { dbLocal } from '../db';
-import { WorkDay } from '../types';
+import { WorkDay, SystemUser } from '../types';
+import { logAction } from '../services/auditService';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, isWeekend } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, CheckCircle2, Circle } from 'lucide-react';
 
 interface Props {
   workDays: WorkDay[];
+  currentUser: SystemUser;
 }
 
-export default function WorkDayCalendar({ workDays }: Props) {
+export default function WorkDayCalendar({ workDays, currentUser }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const monthStart = startOfMonth(currentMonth);
@@ -46,11 +48,13 @@ export default function WorkDayCalendar({ workDays }: Props) {
     try {
       if (existing) {
         await dbLocal.workDays.delete(existing.id!);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'İş Günü Kaldırma', `${dateStr} tarihi iş günü listesinden kaldırıldı.`);
       } else {
         await dbLocal.workDays.add({
           date: dateStr,
           isWorkDay: true
         });
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'İş Günü Ekleme', `${dateStr} tarihi iş günü olarak eklendi.`);
       }
     } catch (error) {
       console.error("Error toggling work day:", error);
@@ -67,6 +71,7 @@ export default function WorkDayCalendar({ workDays }: Props) {
     today.setHours(0, 0, 0, 0);
 
     try {
+      let addedCount = 0;
       for (const day of days) {
         const dayDate = new Date(day);
         dayDate.setHours(0, 0, 0, 0);
@@ -82,8 +87,12 @@ export default function WorkDayCalendar({ workDays }: Props) {
           const existing = workDays.find(wd => wd.date === dateStr);
           if (!existing) {
             await dbLocal.workDays.add({ date: dateStr, isWorkDay: true });
+            addedCount++;
           }
         }
+      }
+      if (addedCount > 0) {
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Toplu İş Günü Ekleme', `${format(currentMonth, 'MMMM yyyy', { locale: tr })} ayı için ${addedCount} iş günü eklendi.`);
       }
     } catch (error) {
       console.error("Error selecting weekdays:", error);
@@ -99,6 +108,9 @@ export default function WorkDayCalendar({ workDays }: Props) {
       });
       for (const wd of monthDays) {
         await dbLocal.workDays.delete(wd.id!);
+      }
+      if (monthDays.length > 0) {
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ay Temizleme', `${format(currentMonth, 'MMMM yyyy', { locale: tr })} ayına ait tüm iş günleri temizlendi.`);
       }
     } catch (error) {
       console.error("Error clearing month:", error);

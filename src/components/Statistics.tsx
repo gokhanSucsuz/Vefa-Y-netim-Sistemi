@@ -1,7 +1,8 @@
 import { useState, useMemo, ReactNode, useRef } from 'react';
 import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
-import { Admin } from '../types';
+import { Program, Schedule, SystemUser } from '../types';
+import { logAction } from '../services/auditService';
 import { format, parseISO, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { 
@@ -19,7 +20,7 @@ import { setupPdfMakeFonts } from '../lib/pdfFonts';
 
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'];
 
-export default function Statistics({ currentAdmin }: { currentAdmin: Admin | null }) {
+export default function Statistics({ currentUser }: { currentUser: SystemUser }) {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const reportRef = useRef<HTMLDivElement>(null);
@@ -168,6 +169,7 @@ export default function Statistics({ currentAdmin }: { currentAdmin: Admin | nul
     XLSX.utils.book_append_sheet(workbook, wsLog, "Detaylı Kayıtlar");
 
     XLSX.writeFile(workbook, `Vefa_Istatistikleri_${startDate}_${endDate}.xlsx`);
+    logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Excel İstatistik İndirme', `${startDate} - ${endDate} dönemi için Excel raporu alındı.`);
   };
 
   const exportToPDF = async () => {
@@ -284,6 +286,7 @@ export default function Statistics({ currentAdmin }: { currentAdmin: Admin | nul
     };
 
     pdfMake.createPdf(docDefinition).download(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
+    logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'PDF İstatistik İndirme', `${startDate} - ${endDate} dönemi için PDF raporu alındı.`);
   };
 
   return (
@@ -367,13 +370,13 @@ export default function Statistics({ currentAdmin }: { currentAdmin: Admin | nul
           <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ textAlign: 'center', width: '200px' }}>
               <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>Vakıf Müdürü</p>
-              <p style={{ fontSize: '10pt', marginBottom: '40px' }}>{currentAdmin ? `${currentAdmin.name} ${currentAdmin.surname}` : 'Yetkili Personel'}</p>
+              <p style={{ fontSize: '10pt', marginBottom: '40px' }}>{currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'}</p>
               <p>(İmza)</p>
             </div>
           </div>
 
           <div style={{ position: 'absolute', bottom: '15mm', left: '20mm', right: '20mm', textAlign: 'center', fontSize: '8pt', color: '#94a3b8', borderTop: '0.5px solid #cbd5e1', paddingTop: '10px' }}>
-            Bu rapor {currentAdmin ? `${currentAdmin.name} ${currentAdmin.surname}` : 'Yetkili Personel'} tarafından {format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır.
+            Bu rapor {currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından {format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır.
           </div>
         </div>
       </div>

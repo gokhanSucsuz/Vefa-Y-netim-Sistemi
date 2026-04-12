@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Shield, User, Phone, CreditCard, Save, Loader2 } from 'lucide-react';
 import { dbLocal } from '../db';
 import { Admin } from '../types';
+import { logAction } from '../services/auditService';
 
 interface AdminRegistrationProps {
   email: string;
@@ -35,6 +36,7 @@ export default function AdminRegistration({ email, onComplete }: AdminRegistrati
         createdAt: new Date().toISOString(),
       };
       const id = await dbLocal.admins.add(newAdmin);
+      logAction(id, `${newAdmin.name} ${newAdmin.surname}`, 'Yetkili Kaydı', 'Sistemin ilk yetkili personeli kaydedildi.');
       onComplete({ ...newAdmin, id });
     } catch (err: any) {
       console.error('Admin registration error:', err);

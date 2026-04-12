@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { dbLocal } from '../db';
-import { Staff } from '../types';
+import { Staff, SystemUser } from '../types';
+import { logAction } from '../services/auditService';
 import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AnimatePresence } from 'motion/react';
@@ -9,9 +10,10 @@ import StaffStatsModal from './StaffStatsModal';
 
 interface Props {
   staff: Staff[];
+  currentUser: SystemUser;
 }
 
-export default function StaffList({ staff }: Props) {
+export default function StaffList({ staff, currentUser }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -34,9 +36,11 @@ export default function StaffList({ staff }: Props) {
       let newId: string;
       if (editingId) {
         await dbLocal.staff.update(editingId, formData);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Personel Güncelleme', `${formData.name} ${formData.surname} personeli güncellendi.`);
         newId = editingId;
       } else {
         newId = await dbLocal.staff.add(formData);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Personel Ekleme', `${formData.name} ${formData.surname} personeli eklendi.`);
       }
 
       // Handle bidirectional partner link
@@ -109,6 +113,7 @@ export default function StaffList({ staff }: Props) {
 
         if (newStaff.length > 0) {
           await dbLocal.staff.bulkAdd(newStaff);
+          logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Excel İçe Aktarma (Personel)', `${newStaff.length} personel Excel'den yüklendi.`);
           alert(`${newStaff.length} personel başarıyla yüklendi.`);
         }
       } catch (error) {
@@ -127,12 +132,15 @@ export default function StaffList({ staff }: Props) {
   };
 
   const handleDelete = async (id: string) => {
+    const s = staff.find(item => item.id === id);
     if (confirm('Bu personeli silmek istediğinize emin misiniz?')) {
-      const s = staff.find(item => item.id === id);
       if (s?.partnerId) {
         await dbLocal.staff.update(s.partnerId, { partnerId: undefined });
       }
       await dbLocal.staff.delete(id);
+      if (s) {
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Personel Silme', `${s.name} ${s.surname} personeli silindi.`);
+      }
     }
   };
 

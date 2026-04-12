@@ -8,6 +8,26 @@ export interface Admin {
   createdAt: string;
 }
 
+export interface SystemUser {
+  id?: string;
+  name: string;
+  surname: string;
+  tcNo: string;
+  email: string;
+  passwordHash: string;
+  role: 'admin' | 'staff';
+  createdAt: string;
+}
+
+export interface AuditLog {
+  id?: string;
+  userId: string;
+  userName: string;
+  action: string;
+  details: string;
+  timestamp: string;
+}
+
 export interface Applicant {
   id?: string;
   name: string;

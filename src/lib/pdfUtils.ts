@@ -1,5 +1,5 @@
 import pdfMake from 'pdfmake/build/pdfmake';
-import { Applicant, Staff, Admin } from '../types';
+import { Applicant, Staff, SystemUser } from '../types';
 import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { APP_LOGO_URL } from '../constants/logo';
@@ -23,7 +23,7 @@ const getBase64ImageFromURL = (url: string): Promise<string> => {
   });
 };
 
-export const generateCleaningReport = async (applicant: Applicant, staffMembers: Staff[], date: string, currentAdmin: Admin | null) => {
+export const generateCleaningReport = async (applicant: Applicant, staffMembers: Staff[], date: string, currentUser: SystemUser | null) => {
   const fontsLoaded = await setupPdfMakeFonts();
   if (!fontsLoaded) {
     console.error("Fonts could not be loaded for pdfmake");
@@ -136,7 +136,7 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
           {
             stack: [
               { text: 'Onaylayan (Yetkili)', bold: true, alignment: 'center' },
-              { text: currentAdmin ? `${currentAdmin.name} ${currentAdmin.surname}` : 'Yetkili Personel', alignment: 'center', margin: [0, 10, 0, 0] },
+              { text: currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel', alignment: 'center', margin: [0, 10, 0, 0] },
               { text: '(İmza)', alignment: 'center', fontSize: 8 }
             ]
           }
@@ -145,7 +145,7 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
     ],
     footer: (currentPage: number, pageCount: number) => {
       return {
-        text: `Bu rapor ${currentAdmin ? `${currentAdmin.name} ${currentAdmin.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır.`,
+        text: `Bu rapor ${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır. Sayfa ${currentPage} / ${pageCount}`,
         alignment: 'center',
         fontSize: 8,
         color: '#666',

@@ -1,15 +1,16 @@
 import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
-import { Staff } from '../types';
+import { Staff, SystemUser } from '../types';
 import { format, isToday, isFuture, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Users, Briefcase, Calendar, CheckCircle2, Clock, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface Props {
   onNavigate: (tab: any) => void;
+  currentUser: SystemUser;
 }
 
-export default function Dashboard({ onNavigate }: Props) {
+export default function Dashboard({ onNavigate, currentUser }: Props) {
   const applicantCount = useLiveQuery(() => dbLocal.applicants.count()) || 0;
   const staffCount = useLiveQuery(() => dbLocal.staff.count()) || 0;
   const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
@@ -36,7 +37,7 @@ export default function Dashboard({ onNavigate }: Props) {
     <div className="space-y-6 lg:space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Hoş Geldiniz</h2>
+          <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Hoş Geldiniz, {currentUser.name} {currentUser.surname}</h2>
           <p className="text-sm lg:text-base text-gray-500">Vefa Yönetim Sistemi genel durumu ve günlük özet.</p>
         </div>
         <div className="sm:text-right bg-white sm:bg-transparent p-3 sm:p-0 rounded-2xl border border-gray-100 sm:border-0 w-full sm:w-auto shadow-sm sm:shadow-none">

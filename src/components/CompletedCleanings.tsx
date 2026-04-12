@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Applicant, Staff, Schedule, Admin } from '../types';
+import { Applicant, Staff, Schedule, SystemUser } from '../types';
+import { logAction } from '../services/auditService';
 import { Search, FileText, CheckCircle2, Calendar, User, MapPin } from 'lucide-react';
 import { generateCleaningReport } from '../lib/pdfUtils';
 import { maskTcNo } from '../lib/masking';
@@ -8,10 +9,10 @@ interface CompletedCleaningsProps {
   applicants: Applicant[];
   staff: Staff[];
   schedules: Schedule[];
-  currentAdmin: Admin | null;
+  currentUser: SystemUser;
 }
 
-export default function CompletedCleanings({ applicants, staff, schedules, currentAdmin }: CompletedCleaningsProps) {
+export default function CompletedCleanings({ applicants, staff, schedules, currentUser }: CompletedCleaningsProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const completedItems = useMemo(() => {
@@ -96,7 +97,10 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
                 <CheckCircle2 className={`w-5 h-5 ${item.isCompleted ? 'text-green-600' : 'text-orange-600'}`} />
               </div>
               <button
-                onClick={() => generateCleaningReport(item.applicant, item.staffMembers, item.date, currentAdmin)}
+                onClick={() => {
+                  generateCleaningReport(item.applicant, item.staffMembers, item.date, currentUser);
+                  logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Rapor Oluşturma', `${item.applicant.name} ${item.applicant.surname} için rapor oluşturuldu.`);
+                }}
                 className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-lg hover:bg-blue-100 transition-all"
               >
                 <FileText className="w-3.5 h-3.5" />

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { dbLocal } from '../db';
-import { Applicant, EDIRNE_NEIGHBORHOODS } from '../types';
+import { Applicant, EDIRNE_NEIGHBORHOODS, SystemUser } from '../types';
+import { logAction } from '../services/auditService';
 import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
@@ -34,9 +35,10 @@ function LocationPicker({ position, setPosition }: { position: [number, number],
 
 interface Props {
   applicants: Applicant[];
+  currentUser: SystemUser;
 }
 
-export default function ApplicantList({ applicants }: Props) {
+export default function ApplicantList({ applicants, currentUser }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -108,10 +110,12 @@ export default function ApplicantList({ applicants }: Props) {
     try {
       if (editingId) {
         await dbLocal.applicants.update(editingId, formData);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Güncelleme', `${formData.name} ${formData.surname} hanesi güncellendi.`);
         setEditingId(null);
       } else {
         const maxPriority = applicants.reduce((max, a) => Math.max(max, a.priority || 0), 0);
         await dbLocal.applicants.add({ ...formData, priority: maxPriority + 1 });
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Ekleme', `${formData.name} ${formData.surname} hanesi eklendi.`);
         setIsAdding(false);
       }
       setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '', lat: 41.675, lng: 26.570, priority: 0 });
@@ -128,8 +132,12 @@ export default function ApplicantList({ applicants }: Props) {
   };
 
   const handleDelete = async (id: string) => {
+    const applicant = applicants.find(a => a.id === id);
     if (confirm('Bu haneyi silmek istediğinize emin misiniz?')) {
       await dbLocal.applicants.delete(id);
+      if (applicant) {
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Silme', `${applicant.name} ${applicant.surname} hanesi silindi.`);
+      }
       await reindexPriorities();
     }
   };
@@ -138,6 +146,7 @@ export default function ApplicantList({ applicants }: Props) {
     if (confirm('TÜM hane kayıtlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) {
       try {
         await dbLocal.applicants.clear();
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tüm Haneleri Silme', 'Tüm hane kayıtları temizlendi.');
       } catch (error) {
         console.error("Error clearing applicants:", error);
       }
@@ -259,6 +268,7 @@ export default function ApplicantList({ applicants }: Props) {
 
         if (newApplicants.length > 0) {
           await dbLocal.applicants.bulkAdd(newApplicants);
+          logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Excel İçe Aktarma', `${newApplicants.length} hane Excel'den yüklendi.`);
           await reindexPriorities();
           alert(`${newApplicants.length} hane başarıyla yüklendi.`);
         }

@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "SystemUser": {
+      "title": "System User",
+      "description": "Staff members who can log into the system after Google authentication.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "First name" },
+        "surname": { "type": "string", "description": "Last name" },
+        "tcNo": { "type": "string", "description": "11-digit TC Identity Number" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "passwordHash": { "type": "string", "description": "SHA-256 hash of the password" },
+        "role": { "type": "string", "enum": ["admin", "staff"], "description": "User role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["name", "surname", "tcNo", "email", "passwordHash", "role", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "History of actions performed by system users.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of the user who performed the action" },
+        "userName": { "type": "string", "description": "Name of the user" },
+        "action": { "type": "string", "description": "Type of action (e.g., Login, Create Applicant)" },
+        "details": { "type": "string", "description": "Detailed description of the action" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the action occurred" }
+      },
+      "required": ["userId", "userName", "action", "details", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/system_users/{userId}": {
+      "schema": "SystemUser",
+      "description": "Collection of authorized staff members."
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Collection of system activity logs."
+    }
+  }
+}

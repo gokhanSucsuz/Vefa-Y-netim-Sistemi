@@ -1,30 +1,35 @@
 import { useMemo } from 'react';
-import { Program, Schedule, Admin } from '../types';
+import { Program, Schedule, SystemUser } from '../types';
+import { logAction } from '../services/auditService';
 import { dbLocal } from '../db';
 import { Calendar, Trash2, XCircle, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 
 interface ProgramManagementProps {
   programs: Program[];
   schedules: Schedule[];
-  currentAdmin: Admin | null;
+  currentUser: SystemUser;
 }
 
-export default function ProgramManagement({ programs, schedules, currentAdmin }: ProgramManagementProps) {
+export default function ProgramManagement({ programs, schedules, currentUser }: ProgramManagementProps) {
   const sortedPrograms = useMemo(() => 
     [...programs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
   [programs]);
 
   const handleDelete = async (id: string) => {
+    const program = programs.find(p => p.id === id);
     if (!confirm('Bu programı ve buna bağlı tüm planlamaları silmek istediğinize emin misiniz?')) return;
     
     try {
-      await dbLocal.transaction("rw", [], async () => {
+      await dbLocal.transaction("rw", [dbLocal.programs, dbLocal.schedules], async () => {
         await dbLocal.programs.delete(id);
         const programSchedules = await dbLocal.schedules.where('programId').equals(id).toArray();
         for (const s of programSchedules) {
           await dbLocal.schedules.delete(s.id!);
         }
       });
+      if (program) {
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Program Silme', `${program.name} silindi.`);
+      }
     } catch (error) {
       console.error('Program deletion failed:', error);
       alert('Program silinemedi.');
@@ -32,9 +37,13 @@ export default function ProgramManagement({ programs, schedules, currentAdmin }:
   };
 
   const handleCancel = async (id: string) => {
+    const program = programs.find(p => p.id === id);
     if (!confirm('Bu programı iptal etmek istediğinize emin misiniz?')) return;
     try {
       await dbLocal.programs.update(id, { status: 'cancelled' });
+      if (program) {
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Program İptali', `${program.name} iptal edildi.`);
+      }
     } catch (error) {
       console.error('Program cancellation failed:', error);
       alert('Program iptal edilemedi.');
