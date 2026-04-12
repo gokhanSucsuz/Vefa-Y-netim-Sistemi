@@ -43,6 +43,11 @@ export default function App() {
       setIsAuthenticated(!!currentUser);
       setUser(currentUser);
       setUserEmail(currentUser?.email || undefined);
+
+      // Google hesabı kapandığında veya yetkisiz bir hesaba geçildiğinde personel oturumunu da kapat
+      if (!currentUser || currentUser.email !== AUTHORIZED_EMAIL) {
+        setCurrentStaffUser(null);
+      }
     });
     return () => unsubscribe();
   }, []);
