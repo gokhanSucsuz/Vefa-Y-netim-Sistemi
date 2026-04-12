@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Staff, Schedule } from '../types';
+import { Staff, Schedule, SystemUser } from '../types';
 import { dbLocal } from '../db';
 import { X, Calendar, CheckCircle2, Clock, BarChart3, TrendingUp, Download, User } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -12,10 +12,11 @@ import { maskTcNo, maskPhone } from '../lib/masking';
 
 interface Props {
   staff: Staff;
+  currentUser: SystemUser;
   onClose: () => void;
 }
 
-export default function StaffStatsModal({ staff, onClose }: Props) {
+export default function StaffStatsModal({ staff, currentUser, onClose }: Props) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const reportRef = useRef<HTMLDivElement>(null);
@@ -127,9 +128,16 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
           }
         }
       ],
+      watermark: { 
+        text: `${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} - ${format(new Date(), 'dd.MM.yyyy')}`, 
+        color: '#666', 
+        opacity: 0.05, 
+        bold: true, 
+        fontSize: 25
+      },
       footer: (currentPage: number, pageCount: number) => {
         return {
-          text: "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur. Sayfa " + currentPage + " / " + pageCount,
+          text: `Bu rapor ${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır. Sayfa ${currentPage} / ${pageCount}`,
           alignment: 'center',
           fontSize: 8,
           color: '#666',
@@ -239,12 +247,13 @@ export default function StaffStatsModal({ staff, onClose }: Props) {
           <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ textAlign: 'center', width: '200px' }}>
               <p style={{ fontWeight: 'bold', marginBottom: '40px' }}>Vakıf Müdürü</p>
+              <p>{currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'}</p>
               <p>(İmza)</p>
             </div>
           </div>
 
           <div style={{ position: 'absolute', bottom: '15mm', left: '20mm', right: '20mm', textAlign: 'center', fontSize: '8pt', color: '#94a3b8', borderTop: '0.5px solid #cbd5e1', paddingTop: '10px' }}>
-            Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır.
+            Bu belge elektronik ortamda {currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından {format(new Date(), 'dd.MM.yyyy')} tarihinde oluşturulmuştur.
           </div>
         </div>
       </div>

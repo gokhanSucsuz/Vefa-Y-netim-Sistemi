@@ -262,9 +262,16 @@ export default function Statistics({ currentUser }: { currentUser: SystemUser })
           }
         }
       ],
+      watermark: { 
+        text: `${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} - ${format(new Date(), 'dd.MM.yyyy')}`, 
+        color: '#666', 
+        opacity: 0.05, 
+        bold: true, 
+        fontSize: 25
+      },
       footer: (currentPage: number, pageCount: number) => {
         return {
-          text: "Bu rapor sistem tarafından otomatik olarak oluşturulmuştur. Sayfa " + currentPage + " / " + pageCount,
+          text: `Bu rapor ${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır. Sayfa ${currentPage} / ${pageCount}`,
           alignment: 'center',
           fontSize: 8,
           color: '#666',

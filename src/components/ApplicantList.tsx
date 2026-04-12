@@ -712,6 +712,7 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
         {selectedStatsApplicant && (
           <ApplicantStatsModal 
             applicant={selectedStatsApplicant} 
+            currentUser={currentUser}
             onClose={() => setSelectedStatsApplicant(null)} 
           />
         )}

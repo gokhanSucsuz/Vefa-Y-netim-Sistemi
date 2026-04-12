@@ -991,9 +991,16 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
           layout: 'lightHorizontalLines'
         }
       ],
+      watermark: { 
+        text: `${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} - ${format(new Date(), 'dd.MM.yyyy')}`, 
+        color: '#666', 
+        opacity: 0.05, 
+        bold: true, 
+        fontSize: 25
+      },
       footer: (currentPage: number, pageCount: number) => {
         return {
-          text: "Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır. Sayfa " + currentPage + " / " + pageCount,
+          text: `Bu belge elektronik ortamda ${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde oluşturulmuştur. Sayfa ${currentPage} / ${pageCount}`,
           alignment: 'center',
           fontSize: 8,
           color: '#666',

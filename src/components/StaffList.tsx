@@ -402,6 +402,7 @@ export default function StaffList({ staff, currentUser }: Props) {
         {selectedStatsStaff && (
           <StaffStatsModal 
             staff={selectedStatsStaff} 
+            currentUser={currentUser}
             onClose={() => setSelectedStatsStaff(null)} 
           />
         )}

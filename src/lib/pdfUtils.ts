@@ -143,6 +143,13 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
         ]
       }
     ],
+    watermark: { 
+      text: `${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} - ${format(new Date(), 'dd.MM.yyyy')}`, 
+      color: '#666', 
+      opacity: 0.05, 
+      bold: true, 
+      fontSize: 25
+    },
     footer: (currentPage: number, pageCount: number) => {
       return {
         text: `Bu rapor ${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır. Sayfa ${currentPage} / ${pageCount}`,
