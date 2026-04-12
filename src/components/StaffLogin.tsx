@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, User, Lock, LogIn, Loader2, UserPlus, CreditCard, Mail, Phone, Save } from 'lucide-react';
-import { db } from '../firebase';
+import { Shield, User, Lock, LogIn, Loader2, UserPlus, CreditCard, Mail, Phone, Save, LogOut } from 'lucide-react';
+import { db, auth } from '../firebase';
 import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 import { SystemUser } from '../types';
 import CryptoJS from 'crypto-js';
 
@@ -111,6 +112,15 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
     }
   };
 
+  const handleGoogleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error('Google çıkış hatası:', err);
+      setError('Oturum kapatılırken bir hata oluştu.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -154,13 +164,25 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
               ))}
             </div>
 
-            <button
-              onClick={() => setMode('register')}
-              className="flex items-center justify-center gap-2 text-blue-600 font-bold text-sm hover:underline"
-            >
-              <UserPlus className="w-4 h-4" />
-              Yeni Personel Kaydı
-            </button>
+            <div className="flex flex-col gap-4">
+              <button
+                onClick={() => setMode('register')}
+                className="flex items-center justify-center gap-2 text-blue-600 font-bold text-sm hover:underline"
+              >
+                <UserPlus className="w-4 h-4" />
+                Yeni Personel Kaydı
+              </button>
+
+              <div className="h-px bg-gray-100 my-2" />
+
+              <button
+                onClick={handleGoogleLogout}
+                className="flex items-center justify-center gap-2 text-red-600 font-bold text-sm hover:bg-red-50 py-3 rounded-xl transition-all"
+              >
+                <LogOut className="w-4 h-4" />
+                Google Hesabından Çıkış Yap
+              </button>
+            </div>
           </div>
         )}
 

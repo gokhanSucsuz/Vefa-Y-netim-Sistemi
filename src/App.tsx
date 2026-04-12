@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useLiveQuery } from './hooks/useLiveQuery';
 import { dbLocal } from './db';
 import { auth } from './firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp, Menu, X as CloseIcon, LogOut, History } from 'lucide-react';
 import ApplicantList from './components/ApplicantList';
 import StaffList from './components/StaffList';
@@ -59,11 +59,16 @@ export default function App() {
     logAction(user.id!, `${user.name} ${user.surname}`, 'Giriş', 'Sisteme giriş yapıldı.');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (currentStaffUser) {
       logAction(currentStaffUser.id!, `${currentStaffUser.name} ${currentStaffUser.surname}`, 'Çıkış', 'Sistemden çıkış yapıldı.');
     }
     setCurrentStaffUser(null);
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Çıkış yapılırken hata oluştu:', error);
+    }
   };
 
   const isAuthorized = isGoogleAuthorized && !!currentStaffUser;
