@@ -3,6 +3,7 @@ export interface Applicant {
   name: string;
   surname: string;
   tcNo: string;
+  haneNo?: string; // Hane Numarası (Unique)
   phone: string;
   address: string;
   neighborhood?: string; // Optional neighborhood

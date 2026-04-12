@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Cloud, Loader2, CheckCircle2, AlertCircle, LogIn, LogOut } from 'lucide-react';
-import { auth } from '../firebase';
+import { Cloud, Loader2, CheckCircle2, AlertCircle, LogIn, LogOut, DownloadCloud } from 'lucide-react';
+import { auth, db } from '../firebase';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { collection, getDocs } from 'firebase/firestore';
 
 interface BackupManagerProps {
   onAuthChange?: (authenticated: boolean, email?: string) => void;
@@ -12,6 +13,7 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [lastBackupDate, setLastBackupDate] = useState<string | null>(localStorage.getItem('lastBackupDate'));
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -23,12 +25,37 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
     return () => unsubscribe();
   }, [onAuthChange]);
 
+  // Check for auto-backup every time user logs in or app loads
+  useEffect(() => {
+    if (user && user.email === 'edirnesydv@gmail.com') {
+      const checkAutoBackup = async () => {
+        const lastBackup = localStorage.getItem('lastBackupDate');
+        if (!lastBackup) {
+          // No backup ever, let's wait for manual trigger or we can trigger it.
+          return;
+        }
+        const lastBackupTime = new Date(lastBackup).getTime();
+        const now = new Date().getTime();
+        const daysSinceLastBackup = (now - lastBackupTime) / (1000 * 3600 * 24);
+
+        if (daysSinceLastBackup >= 10) {
+          // We need a fresh token for Drive API. We can't automatically get it without user interaction
+          // if the scopes weren't granted recently. We'll prompt the user or just show a warning.
+          setMessage({ type: 'error', text: 'Son yedeklemenin üzerinden 10 günden fazla geçti. Lütfen manuel yedekleme yapın.' });
+        }
+      };
+      checkAutoBackup();
+    }
+  }, [user]);
+
   const handleLogin = async () => {
     setIsSyncing(true);
     setMessage(null);
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
+      // Add Drive scope for backup
+      provider.addScope('https://www.googleapis.com/auth/drive.file');
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       console.error('Login error:', error);
@@ -45,6 +72,70 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
     } catch (error: any) {
       console.error('Logout error:', error);
       setMessage({ type: 'error', text: 'Çıkış yapılamadı.' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleManualBackup = async () => {
+    if (!user) return;
+    setIsSyncing(true);
+    setMessage({ type: 'success', text: 'Yedekleme hazırlanıyor...' });
+
+    try {
+      // 1. Get fresh token with Drive scope
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/drive.file');
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken;
+
+      if (!token) {
+        throw new Error('Google Drive erişim izni alınamadı.');
+      }
+
+      // 2. Fetch all data from Firestore
+      const collections = ['applicants', 'staff', 'workDays', 'schedules', 'programs'];
+      const backupData: Record<string, any[]> = {};
+
+      for (const colName of collections) {
+        const querySnapshot = await getDocs(collection(db, colName));
+        backupData[colName] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+
+      const fileContent = JSON.stringify(backupData, null, 2);
+      const fileName = `vefa_yedek_${new Date().toISOString().split('T')[0]}.json`;
+
+      // 3. Upload to Google Drive
+      const metadata = {
+        name: fileName,
+        mimeType: 'application/json',
+      };
+
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', new Blob([fileContent], { type: 'application/json' }));
+
+      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      });
+
+      if (!response.ok) {
+        throw new Error('Google Drive\'a yükleme başarısız oldu.');
+      }
+
+      const now = new Date().toISOString();
+      localStorage.setItem('lastBackupDate', now);
+      setLastBackupDate(now);
+      setMessage({ type: 'success', text: 'Yedekleme Google Drive\'a başarıyla kaydedildi.' });
+
+    } catch (error: any) {
+      console.error('Backup error:', error);
+      setMessage({ type: 'error', text: 'Yedekleme hatası: ' + error.message });
     } finally {
       setIsSyncing(false);
     }
@@ -131,6 +222,24 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
             </button>
           )}
         </div>
+
+        {user && user.email === 'edirnesydv@gmail.com' && (
+          <div className="pt-2 border-t border-gray-100">
+            <button
+              onClick={handleManualBackup}
+              disabled={isSyncing}
+              className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
+              Drive'a Yedekle
+            </button>
+            {lastBackupDate && (
+              <p className="text-[9px] text-gray-400 text-center mt-2">
+                Son Yedek: {new Date(lastBackupDate).toLocaleDateString('tr-TR')}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {message && (

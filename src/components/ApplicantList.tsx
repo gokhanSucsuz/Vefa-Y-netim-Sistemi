@@ -43,6 +43,7 @@ export default function ApplicantList({ applicants }: Props) {
     name: '',
     surname: '',
     tcNo: '',
+    haneNo: '',
     phone: '',
     address: '',
     neighborhood: '',
@@ -90,6 +91,19 @@ export default function ApplicantList({ applicants }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check TC No uniqueness
+    if (applicants.some(a => a.tcNo === formData.tcNo && a.id !== editingId)) {
+      alert('Bu TC Kimlik Numarası ile kayıtlı bir hane zaten mevcut.');
+      return;
+    }
+
+    // Check Hane No uniqueness
+    if (formData.haneNo && applicants.some(a => a.haneNo === formData.haneNo && a.id !== editingId)) {
+      alert('Bu Hane Numarası ile kayıtlı bir hane zaten mevcut.');
+      return;
+    }
+
     try {
       if (editingId) {
         await dbLocal.applicants.update(editingId, formData);
@@ -231,6 +245,7 @@ export default function ApplicantList({ applicants }: Props) {
             name: name,
             surname: surname,
             tcNo: (row['tc kimlik no'] || row['TC No'] || '').toString().replace(/\D/g, ''),
+            haneNo: (row['hane no'] || row['Hane No'] || '').toString(),
             phone: (row['telefon'] || row['Telefon'] || '').toString(),
             address: address,
             householdSize: parseInt(row['kişi sayısı'] || row['Kişi Sayısı'] || '1'),
@@ -422,6 +437,16 @@ export default function ApplicantList({ applicants }: Props) {
               />
             </div>
             <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Hane No</label>
+              <input
+                type="text"
+                value={formData.haneNo || ''}
+                onChange={e => setFormData({ ...formData, haneNo: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="İsteğe bağlı"
+              />
+            </div>
+            <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">Mahalle / Köy</label>
               <select
                 required
@@ -579,7 +604,7 @@ export default function ApplicantList({ applicants }: Props) {
                 <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ad Soyad</th>
                 <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Mahalle/Köy</th>
                 <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Adres Bilgisi</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">TC Kimlik No</th>
+                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">TC Kimlik / Hane No</th>
                 <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Kişi Sayısı</th>
                 <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 text-right uppercase tracking-wider">İşlemler</th>
               </tr>
@@ -632,7 +657,12 @@ export default function ApplicantList({ applicants }: Props) {
                         <span className="line-clamp-2 leading-relaxed">{applicant.address}</span>
                       </div>
                     </td>
-                    <td className="px-4 lg:px-6 py-4 text-gray-600 font-mono text-xs font-bold">{applicant.tcNo}</td>
+                    <td className="px-4 lg:px-6 py-4">
+                      <div className="text-gray-600 font-mono text-xs font-bold">{applicant.tcNo}</div>
+                      {applicant.haneNo && (
+                        <div className="text-[10px] text-gray-500 font-medium mt-0.5">Hane: {applicant.haneNo}</div>
+                      )}
+                    </td>
                     <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{applicant.householdSize || 1} Kişi</td>
                     <td className="px-4 lg:px-6 py-4 text-right">
                       <div className="flex justify-end gap-1 lg:gap-2 opacity-100 transition-all">
