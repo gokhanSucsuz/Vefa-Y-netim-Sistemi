@@ -36,7 +36,7 @@ export default function Documentation() {
               <b>Veritabanı Kuralları (Firestore Rules):</b> Bulut veritabanı üzerinde uygulanan güvenlik kuralları, yalnızca doğrulanmış resmi kurum e-postasının okuma, yazma ve silme işlemlerine izin vermektedir. Ayrıca "Haneler" tablosuna veri eklenirken şema doğrulaması yapılarak, sisteme zararlı veya tanımlanmamış veri girişleri engellenmektedir.
             </li>
             <li>
-              <b>Otomatik Yedekleme Mekanizması:</b> Olası veri kayıplarına karşı sistem, veritabanının tam yedeğini yetkili kurum hesabının (edirnesydv@gmail.com) Google Drive alanına şifreli JSON formatında aktarabilmektedir. Sisteme 10 günden fazla yedek alınmadığında resmi kullanıcıya uyarı verilmektedir.
+              <b>Veri Yedekleme ve Geri Yükleme:</b> Olası veri kayıplarına karşı sistem, veritabanının tam yedeğini yetkili kurum hesabının (edirnesydv@gmail.com) Google Drive alanına JSON formatında aktarabilmektedir. Bu yedek dosyası, sistemdeki "Yedekten Geri Yükle" özelliği kullanılarak tüm veritabanını eski haline getirmek için kullanılabilir. Geri yükleme işlemi sırasında mevcut veriler silinir ve yedek dosyasındaki veriler tekrar şifrelenerek veritabanına yazılır.
             </li>
           </ul>
         </div>

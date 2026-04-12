@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Cloud, Loader2, CheckCircle2, AlertCircle, LogIn, LogOut, DownloadCloud } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Cloud, Loader2, CheckCircle2, AlertCircle, LogIn, LogOut, DownloadCloud, UploadCloud, Trash2 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { dbLocal } from '../db';
 
 interface BackupManagerProps {
   onAuthChange?: (authenticated: boolean, email?: string) => void;
@@ -86,6 +87,10 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
       return;
     }
 
+    if (!window.confirm('Veritabanını Google Drive\'a yedeklemek istediğinize emin misiniz? Verileriniz güvenli bir şekilde JSON formatında kaydedilecektir.')) {
+      return;
+    }
+
     setIsSyncing(true);
     setMessage({ type: 'success', text: 'Yedekleme hazırlanıyor...' });
 
@@ -94,7 +99,6 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
       const provider = new GoogleAuthProvider();
       provider.addScope('https://www.googleapis.com/auth/drive.file');
       
-      // Force the login hint to the specific email to prevent accidental selection of other accounts
       provider.setCustomParameters({ 
         login_hint: 'edirnesydv@gmail.com',
         prompt: 'select_account'
@@ -102,9 +106,8 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
       
       const result = await signInWithPopup(auth, provider);
       
-      // STRICT SECURITY CHECK: Verify the account selected in the popup is exactly the authorized one
       if (result.user.email !== 'edirnesydv@gmail.com') {
-        throw new Error('Güvenlik İhlali: Seçilen hesap yetkisiz. Yedekleme sadece edirnesydv@gmail.com hesabının Drive alanına yapılabilir.');
+        throw new Error('Güvenlik İhlali: Seçilen hesap yetkisiz.');
       }
 
       const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -114,14 +117,14 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
         throw new Error('Google Drive erişim izni alınamadı.');
       }
 
-      // 2. Fetch all data from Firestore
-      const collections = ['applicants', 'staff', 'workDays', 'schedules', 'programs'];
-      const backupData: Record<string, any[]> = {};
-
-      for (const colName of collections) {
-        const querySnapshot = await getDocs(collection(db, colName));
-        backupData[colName] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      }
+      // 2. Fetch all data from Firestore (Decrypted via dbLocal)
+      const backupData: Record<string, any[]> = {
+        applicants: await dbLocal.applicants.toArray(),
+        staff: await dbLocal.staff.toArray(),
+        workDays: await dbLocal.workDays.toArray(),
+        schedules: await dbLocal.schedules.toArray(),
+        programs: await dbLocal.programs.toArray()
+      };
 
       const fileContent = JSON.stringify(backupData, null, 2);
       const fileName = `vefa_yedek_${new Date().toISOString().split('T')[0]}.json`;
@@ -159,6 +162,63 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (user.email !== 'edirnesydv@gmail.com') {
+      setMessage({ type: 'error', text: 'Güvenlik İhlali: Geri yükleme işlemi sadece yetkili hesap ile yapılabilir.' });
+      return;
+    }
+
+    if (!window.confirm('DİKKAT: Bu işlem mevcut tüm verileri silecek ve yedek dosyasındaki verileri yükleyecektir. Devam etmek istediğinize emin misiniz?')) {
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    setIsSyncing(true);
+    setMessage({ type: 'success', text: 'Veriler geri yükleniyor...' });
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const content = evt.target?.result as string;
+        const backupData = JSON.parse(content);
+
+        // Basic validation
+        const requiredKeys = ['applicants', 'staff', 'workDays', 'schedules', 'programs'];
+        const hasAllKeys = requiredKeys.every(key => Array.isArray(backupData[key]));
+
+        if (!hasAllKeys) {
+          throw new Error('Geçersiz yedek dosyası formatı.');
+        }
+
+        // Restore process
+        for (const key of requiredKeys) {
+          // Clear collection
+          await (dbLocal as any)[key].clear();
+          // Bulk add
+          const items = backupData[key].map((item: any) => {
+            const { id, ...rest } = item;
+            return rest;
+          });
+          await (dbLocal as any)[key].bulkAdd(items);
+        }
+
+        setMessage({ type: 'success', text: 'Veriler başarıyla geri yüklendi. Sayfa yenileniyor...' });
+        setTimeout(() => window.location.reload(), 2000);
+
+      } catch (error: any) {
+        console.error('Restore error:', error);
+        setMessage({ type: 'error', text: 'Geri yükleme hatası: ' + error.message });
+      } finally {
+        setIsSyncing(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsText(file);
   };
 
   if (isInitialLoad) {
@@ -244,7 +304,7 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
         </div>
 
         {user && user.email === 'edirnesydv@gmail.com' && (
-          <div className="pt-2 border-t border-gray-100">
+          <div className="pt-2 border-t border-gray-100 space-y-2">
             <button
               onClick={handleManualBackup}
               disabled={isSyncing}
@@ -253,6 +313,25 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
               {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
               Drive'a Yedekle
             </button>
+            
+            <div className="relative">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleRestore}
+                disabled={isSyncing}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                title="Yedekten Geri Yükle"
+              />
+              <button
+                disabled={isSyncing}
+                className="w-full flex items-center justify-center gap-2 bg-orange-50 hover:bg-orange-100 text-orange-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+              >
+                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                Yedekten Geri Yükle
+              </button>
+            </div>
+
             {lastBackupDate && (
               <p className="text-[9px] text-gray-400 text-center mt-2">
                 Son Yedek: {new Date(lastBackupDate).toLocaleDateString('tr-TR')}
