@@ -79,6 +79,13 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
 
   const handleManualBackup = async () => {
     if (!user) return;
+    
+    // STRICT SECURITY CHECK: Only edirnesydv@gmail.com can initiate backup
+    if (user.email !== 'edirnesydv@gmail.com') {
+      setMessage({ type: 'error', text: 'Güvenlik İhlali: Yedekleme işlemi sadece yetkili hesap (edirnesydv@gmail.com) ile yapılabilir.' });
+      return;
+    }
+
     setIsSyncing(true);
     setMessage({ type: 'success', text: 'Yedekleme hazırlanıyor...' });
 
@@ -86,7 +93,20 @@ export default function BackupManager({ onAuthChange, isInitialLoad = false }: B
       // 1. Get fresh token with Drive scope
       const provider = new GoogleAuthProvider();
       provider.addScope('https://www.googleapis.com/auth/drive.file');
+      
+      // Force the login hint to the specific email to prevent accidental selection of other accounts
+      provider.setCustomParameters({ 
+        login_hint: 'edirnesydv@gmail.com',
+        prompt: 'select_account'
+      });
+      
       const result = await signInWithPopup(auth, provider);
+      
+      // STRICT SECURITY CHECK: Verify the account selected in the popup is exactly the authorized one
+      if (result.user.email !== 'edirnesydv@gmail.com') {
+        throw new Error('Güvenlik İhlali: Seçilen hesap yetkisiz. Yedekleme sadece edirnesydv@gmail.com hesabının Drive alanına yapılabilir.');
+      }
+
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const token = credential?.accessToken;
 
