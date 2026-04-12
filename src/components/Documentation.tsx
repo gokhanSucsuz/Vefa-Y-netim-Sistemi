@@ -7,8 +7,8 @@ export default function Documentation() {
         <div className="inline-flex items-center justify-center p-3 bg-blue-50 rounded-2xl mb-4">
           <Book className="w-8 h-8 text-blue-700" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">Sistem Kullanım ve Güvenlik Kılavuzu</h2>
-        <p className="text-lg text-gray-600 font-medium">T.C. Edirne Valiliği Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı Vefa Yönetim Sistemi</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-4">Edirne Merkez Vefa Modülü</h2>
+        <p className="text-lg text-gray-600 font-medium">Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı</p>
       </div>
 
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-red-100 bg-red-50/30 mb-8">

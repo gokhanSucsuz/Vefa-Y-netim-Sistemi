@@ -218,7 +218,7 @@ export default function BackupManager({ user, onAuthChange, isInitialLoad = fals
             <Cloud className="w-10 h-10 text-blue-600" />
           </div>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Edirne SYDV Vefa</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Edirne Merkez Vefa Modülü</h2>
         
         {!user ? (
           <>

@@ -171,7 +171,7 @@ export default function App() {
             referrerPolicy="no-referrer"
             crossOrigin="anonymous"
           />
-          <span className="font-bold text-sm text-gray-900 truncate max-w-[150px]">Edirne SYDV Vefa</span>
+          <span className="font-bold text-sm text-gray-900 truncate max-w-[150px]">Edirne Merkez Vefa</span>
         </div>
         <button 
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -204,8 +204,8 @@ export default function App() {
               crossOrigin="anonymous"
             />
             <div>
-              <span className="font-bold text-sm text-gray-900 block leading-tight">Edirne Merkez SYDV</span>
-              <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Vefa Yönetim Sistemi</span>
+              <span className="font-bold text-sm text-gray-900 block leading-tight">Edirne Merkez Vefa Modülü</span>
+              <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Sosyal Yardımlaşma ve Dayanışma Vakfı</span>
             </div>
           </div>
         </div>
