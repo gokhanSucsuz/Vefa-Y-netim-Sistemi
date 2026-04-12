@@ -33,16 +33,18 @@ export default function App() {
     setUserEmail(email);
   };
   
-  const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
-  const staff = useLiveQuery(() => dbLocal.staff.toArray()) || [];
-  const workDays = useLiveQuery(() => dbLocal.workDays.toArray()) || [];
-  const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
-  const programs = useLiveQuery(() => dbLocal.programs.toArray()) || [];
+  const isAuthorized = isAuthenticated === true && userEmail === AUTHORIZED_EMAIL;
+
+  const applicants = useLiveQuery(() => isAuthorized ? dbLocal.applicants.toArray() : Promise.resolve([]), [isAuthorized]) || [];
+  const staff = useLiveQuery(() => isAuthorized ? dbLocal.staff.toArray() : Promise.resolve([]), [isAuthorized]) || [];
+  const workDays = useLiveQuery(() => isAuthorized ? dbLocal.workDays.toArray() : Promise.resolve([]), [isAuthorized]) || [];
+  const schedules = useLiveQuery(() => isAuthorized ? dbLocal.schedules.toArray() : Promise.resolve([]), [isAuthorized]) || [];
+  const programs = useLiveQuery(() => isAuthorized ? dbLocal.programs.toArray() : Promise.resolve([]), [isAuthorized]) || [];
 
   // Otomatik Onaylama Mantığı (17:30 kuralı)
   useEffect(() => {
     const checkAutoCompletion = () => {
-      if (!schedules.length) return;
+      if (!isAuthorized || !schedules.length) return;
 
       const now = new Date();
       const today = new Date(now);
@@ -97,20 +99,12 @@ export default function App() {
     checkAutoCompletion();
     const interval = setInterval(checkAutoCompletion, 60000); // Her dakika kontrol et
     return () => clearInterval(interval);
-  }, [schedules]);
+  }, [schedules, isAuthorized]);
 
   if (isAuthenticated === false || (isAuthenticated === true && userEmail !== AUTHORIZED_EMAIL)) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex flex-col pt-10">
         <BackupManager onAuthChange={handleAuthChange} isInitialLoad={true} />
-        {isAuthenticated === true && userEmail !== AUTHORIZED_EMAIL && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" />
-              Yetkisiz hesap: {userEmail}. Lütfen {AUTHORIZED_EMAIL} ile giriş yapın.
-            </div>
-          </div>
-        )}
       </div>
     );
   }
