@@ -258,6 +258,11 @@ export default function App() {
           <div className="mt-4">
             <BackupManager user={user} onAuthChange={handleAuthChange} />
           </div>
+          <div className="mt-6 text-center">
+            <p className="text-[10px] text-gray-400 font-medium">
+              Tasarlayan ve Yöneten: <span className="text-gray-500">Gökhan SUÇSUZ</span>
+            </p>
+          </div>
         </div>
       </aside>
 

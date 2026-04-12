@@ -353,6 +353,12 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
             </div>
           </form>
         )}
+        
+        <div className="mt-8 pt-6 border-t border-gray-50 text-center">
+          <p className="text-[10px] text-gray-400 font-medium tracking-wide">
+            Sistem Tasarım ve Yönetim: <span className="text-gray-500">Gökhan SUÇSUZ</span>
+          </p>
+        </div>
       </div>
     </div>
   );

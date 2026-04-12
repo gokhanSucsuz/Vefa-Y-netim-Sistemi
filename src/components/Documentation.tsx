@@ -377,6 +377,12 @@ export default function Documentation() {
           </div>
         </div>
       </div>
+
+      <div className="text-center pb-8">
+        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-[0.3em]">
+          Sistem Tasarım ve Yönetim: <span className="text-gray-500">Gökhan SUÇSUZ</span>
+        </p>
+      </div>
     </div>
   );
 }
