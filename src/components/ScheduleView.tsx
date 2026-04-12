@@ -968,7 +968,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
         { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
         { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
         { 
-          text: `${format(selectedMonth, 'MMMM yyyy', { locale: tr }).toUpperCase()} AYI VEFA PROGRAMI ÇİZELGESİ`, 
+          text: `VEFA PROGRAMI ÇİZELGESİ (${format(startOfMonth(selectedMonth), 'dd.MM.yyyy')} - ${format(endOfMonth(selectedMonth), 'dd.MM.yyyy')})`, 
           style: 'title', 
           alignment: 'center', 
           margin: [0, 15, 0, 15] 

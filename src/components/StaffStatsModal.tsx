@@ -229,7 +229,7 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
                 return (
                   <tr key={s.id}>
                     <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{schedules.length - idx}</td>
-                    <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{format(parseISO(s.date), 'dd MMMM yyyy, EEEE', { locale: tr })}</td>
+                    <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{format(parseISO(s.date), 'dd.MM.yyyy')}</td>
                     <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: '500' }}>
                       {assignment?.isCompleted ? 'Tamamlandı' : 'Beklemede'}
                     </td>

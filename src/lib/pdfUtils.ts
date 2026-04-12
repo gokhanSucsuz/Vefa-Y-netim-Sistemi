@@ -29,7 +29,7 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
     console.error("Fonts could not be loaded for pdfmake");
   }
 
-  const formattedDate = format(parseISO(date), 'd MMMM yyyy', { locale: tr });
+  const formattedDate = format(parseISO(date), 'dd.MM.yyyy');
   let logoBase64 = '';
   
   try {
