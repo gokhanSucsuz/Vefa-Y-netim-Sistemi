@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
-import { Program, Schedule } from '../types';
+import { Program, Schedule, Admin } from '../types';
 import { dbLocal } from '../db';
 import { Calendar, Trash2, XCircle, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 
 interface ProgramManagementProps {
   programs: Program[];
   schedules: Schedule[];
+  currentAdmin: Admin | null;
 }
 
-export default function ProgramManagement({ programs, schedules }: ProgramManagementProps) {
+export default function ProgramManagement({ programs, schedules, currentAdmin }: ProgramManagementProps) {
   const sortedPrograms = useMemo(() => 
     [...programs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
   [programs]);

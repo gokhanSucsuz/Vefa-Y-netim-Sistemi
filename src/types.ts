@@ -1,3 +1,13 @@
+export interface Admin {
+  id?: string;
+  name: string;
+  surname: string;
+  email: string;
+  tcNo: string;
+  phone: string;
+  createdAt: string;
+}
+
 export interface Applicant {
   id?: string;
   name: string;

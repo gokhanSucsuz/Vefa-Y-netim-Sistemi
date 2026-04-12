@@ -1,6 +1,6 @@
 import { db } from '../firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, writeBatch, getDoc, orderBy, limit } from 'firebase/firestore';
-import { Applicant, Staff, WorkDay, Schedule, Program } from '../types';
+import { Applicant, Staff, WorkDay, Schedule, Program, Admin } from '../types';
 import CryptoJS from 'crypto-js';
 
 const SECRET_KEY = (import.meta as any).env?.VITE_ENCRYPTION_KEY || 'vefa-sydv-secret-key-2026';
@@ -206,6 +206,7 @@ export const dbService = {
   workDays: new FirestoreTable<WorkDay>('workDays'),
   schedules: new FirestoreTable<Schedule>('schedules'),
   programs: new FirestoreTable<Program>('programs'),
+  admins: new FirestoreTable<Admin>('admins'),
   
   transaction: async (mode: string, tables: any, callback: () => Promise<void>) => {
     await callback();

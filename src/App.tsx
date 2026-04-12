@@ -17,6 +17,8 @@ import BackupManager from './components/BackupManager';
 import ProgramManagement from './components/ProgramManagement';
 import CompletedCleanings from './components/CompletedCleanings';
 import Statistics from './components/Statistics';
+import AdminRegistration from './components/AdminRegistration';
+import { Admin } from './types';
 
 import { APP_LOGO_URL } from './constants/logo';
 
@@ -25,6 +27,8 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
+  const [isAdminLoading, setIsAdminLoading] = useState(true);
 
   const AUTHORIZED_EMAIL = 'edirnesydv@gmail.com';
 
@@ -34,6 +38,26 @@ export default function App() {
   };
   
   const isAuthorized = isAuthenticated === true && userEmail === AUTHORIZED_EMAIL;
+
+  // Fetch current admin
+  useEffect(() => {
+    if (isAuthorized) {
+      const fetchAdmin = async () => {
+        try {
+          const admins = await dbLocal.admins.toArray();
+          const admin = admins.find(a => a.email === AUTHORIZED_EMAIL);
+          setCurrentAdmin(admin || null);
+        } catch (err) {
+          console.error('Error fetching admin:', err);
+        } finally {
+          setIsAdminLoading(false);
+        }
+      };
+      fetchAdmin();
+    } else {
+      setIsAdminLoading(false);
+    }
+  }, [isAuthorized]);
 
   const applicants = useLiveQuery(() => isAuthorized ? dbLocal.applicants.toArray() : Promise.resolve([]), [isAuthorized]) || [];
   const staff = useLiveQuery(() => isAuthorized ? dbLocal.staff.toArray() : Promise.resolve([]), [isAuthorized]) || [];
@@ -109,12 +133,16 @@ export default function App() {
     );
   }
 
-  if (isAuthenticated === null) {
+  if (isAuthenticated === null || isAdminLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <BackupManager onAuthChange={handleAuthChange} isInitialLoad={true} />
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
       </div>
     );
+  }
+
+  if (isAuthorized && !currentAdmin) {
+    return <AdminRegistration email={AUTHORIZED_EMAIL} onComplete={setCurrentAdmin} />;
   }
 
   return (
@@ -206,10 +234,10 @@ export default function App() {
           {activeTab === 'applicants' && <ApplicantList applicants={applicants} />}
           {activeTab === 'staff' && <StaffList staff={staff} />}
           {activeTab === 'workdays' && <WorkDayCalendar workDays={workDays} />}
-          {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} />}
-          {activeTab === 'programs' && <ProgramManagement programs={programs} schedules={schedules} />}
-          {activeTab === 'completed' && <CompletedCleanings applicants={applicants} staff={staff} schedules={schedules} />}
-          {activeTab === 'stats' && <Statistics />}
+          {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} currentAdmin={currentAdmin} />}
+          {activeTab === 'programs' && <ProgramManagement programs={programs} schedules={schedules} currentAdmin={currentAdmin} />}
+          {activeTab === 'completed' && <CompletedCleanings applicants={applicants} staff={staff} schedules={schedules} currentAdmin={currentAdmin} />}
+          {activeTab === 'stats' && <Statistics currentAdmin={currentAdmin} />}
           {activeTab === 'docs' && <Documentation />}
         </div>
       </main>

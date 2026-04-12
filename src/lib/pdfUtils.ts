@@ -1,5 +1,5 @@
 import pdfMake from 'pdfmake/build/pdfmake';
-import { Applicant, Staff } from '../types';
+import { Applicant, Staff, Admin } from '../types';
 import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { APP_LOGO_URL } from '../constants/logo';
@@ -23,7 +23,7 @@ const getBase64ImageFromURL = (url: string): Promise<string> => {
   });
 };
 
-export const generateCleaningReport = async (applicant: Applicant, staffMembers: Staff[], date: string) => {
+export const generateCleaningReport = async (applicant: Applicant, staffMembers: Staff[], date: string, currentAdmin: Admin | null) => {
   const fontsLoaded = await setupPdfMakeFonts();
   if (!fontsLoaded) {
     console.error("Fonts could not be loaded for pdfmake");
@@ -132,13 +132,20 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
               { text: 'Hizmet Sunan (Görevli)', bold: true, alignment: 'center' },
               { text: 'Ad Soyad / İmza', alignment: 'center', margin: [0, 10, 0, 0] }
             ]
+          },
+          {
+            stack: [
+              { text: 'Onaylayan (Yetkili)', bold: true, alignment: 'center' },
+              { text: currentAdmin ? `${currentAdmin.name} ${currentAdmin.surname}` : 'Yetkili Personel', alignment: 'center', margin: [0, 10, 0, 0] },
+              { text: '(İmza)', alignment: 'center', fontSize: 8 }
+            ]
           }
         ]
       }
     ],
     footer: (currentPage: number, pageCount: number) => {
       return {
-        text: "Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı - Vefa Projesi Takip Formu",
+        text: `Bu rapor ${currentAdmin ? `${currentAdmin.name} ${currentAdmin.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır.`,
         alignment: 'center',
         fontSize: 8,
         color: '#666',

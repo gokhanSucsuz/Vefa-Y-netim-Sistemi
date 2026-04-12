@@ -27,10 +27,16 @@ export default function Documentation() {
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <b>Katı Yetkilendirme (Strict Authorization):</b> Sisteme giriş ve veri erişimi <u>sadece ve sadece</u> kurumun resmi e-posta adresi olan <b>edirnesydv@gmail.com</b> hesabı üzerinden yapılabilmektedir. Diğer tüm Google hesapları veya anonim giriş denemeleri veritabanı (Firestore) seviyesinde kesin olarak reddedilmektedir.
+              <b>Yetkili Personel ve Sorumluluk:</b> Sisteme ilk girişte bir "Yetkili Personel" kaydı zorunludur. Bu personel, sistemdeki tüm işlemlerden ve raporlamalardan yasal olarak sorumludur.
+            </li>
+            <li>
+              <b>Rapor Filigranı ve Alt Bilgi:</b> Sistemden alınan tüm PDF raporlarının ve istatistiklerin altında, raporu oluşturan yetkili personelin adı-soyadı ve raporlama tarihi otomatik olarak "filigran" şeklinde eklenmektedir. Bu, veri bütünlüğünü ve izlenebilirliği sağlar.
             </li>
             <li>
               <b>AES-256 Kriptolama:</b> Vatandaşlara ait T.C. Kimlik Numarası, Hane Numarası ve sistem şifreleri gibi kritik veriler, veritabanına kaydedilmeden önce istemci tarafında (client-side) AES-256 askeri düzey şifreleme algoritması ile şifrelenmektedir. Veritabanına doğrudan erişim sağlansa dahi bu veriler okunamamaktadır.
+            </li>
+            <li>
+              <b>Katı Yetkilendirme (Strict Authorization):</b> Sisteme giriş ve veri erişimi <u>sadece ve sadece</u> kurumun resmi e-posta adresi olan <b>edirnesydv@gmail.com</b> hesabı üzerinden yapılabilmektedir. Diğer tüm Google hesapları veya anonim giriş denemeleri veritabanı (Firestore) seviyesinde kesin olarak reddedilmektedir.
             </li>
             <li>
               <b>Veritabanı Kuralları (Firestore Rules):</b> Bulut veritabanı üzerinde uygulanan güvenlik kuralları, yalnızca doğrulanmış resmi kurum e-postasının okuma, yazma ve silme işlemlerine izin vermektedir. Ayrıca "Haneler" tablosuna veri eklenirken şema doğrulaması yapılarak, sisteme zararlı veya tanımlanmamış veri girişleri engellenmektedir.
@@ -91,6 +97,13 @@ export default function Documentation() {
             <h3 className="text-xl font-bold">Operasyonel Kurallar ve Kısıtlar</h3>
           </div>
           <ul className="space-y-4 text-slate-300 text-sm">
+            <li className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+              <div>
+                <strong className="text-white block mb-1">Gelişmiş Gün İptali ve Kaydırma</strong>
+                Yetkili personel, herhangi bir gündeki temizlik işlerini tamamen iptal edebilir. İptal edilen işler, personelin seçimine göre ya bir sonraki iş gününe ya da takvimden seçilen özel bir tarihe otomatik olarak kaydırılır. Bu işlem sırasında diğer tüm planlamalar, belirlenen sırayı bozmayacak şekilde ileriye ötelenir.
+              </div>
+            </li>
             <li className="flex items-start gap-3">
               <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />
               <div>

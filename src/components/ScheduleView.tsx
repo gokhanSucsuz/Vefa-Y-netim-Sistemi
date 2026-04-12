@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { dbLocal } from '../db';
-import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program } from '../types';
+import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program, Admin } from '../types';
 import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download } from 'lucide-react';
+import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
@@ -21,6 +21,7 @@ interface Props {
   staff: Staff[];
   workDays: WorkDay[];
   schedules: Schedule[];
+  currentAdmin: Admin | null;
 }
 
 function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
@@ -45,7 +46,7 @@ function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
   return null;
 }
 
-export default function ScheduleView({ applicants, staff, workDays, schedules }: Props) {
+export default function ScheduleView({ applicants, staff, workDays, schedules, currentAdmin }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -56,6 +57,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
   const [completionModal, setCompletionModal] = useState<{ date: string; applicantId: string; name: string } | null>(null);
   const [completionNote, setCompletionNote] = useState('');
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [rescheduleModal, setRescheduleModal] = useState<{ date: string } | null>(null);
+  const [targetRescheduleDate, setTargetRescheduleDate] = useState('');
   const [dailyLimit, setDailyLimit] = useState(() => {
     const saved = localStorage.getItem('dailyLimit');
     return saved ? parseInt(saved) : 6;
@@ -344,7 +347,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
     }
   };
 
-  const handleCancelDay = async (date: string) => {
+  const handleCancelDay = async (date: string, targetDateStr?: string) => {
     const schedule = schedules.find(s => s.date === date);
     if (!schedule) return;
 
@@ -354,48 +357,74 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
       return;
     }
 
-    const confirmCancel = confirm(`Bu gündeki tüm tamamlanmamış (${uncompletedAssignments.length}) ziyaretleri iptal edip sonraki günlere kaydırmak istediğinize emin misiniz?`);
+    const confirmMsg = targetDateStr 
+      ? `Bu gündeki tüm tamamlanmamış (${uncompletedAssignments.length}) ziyaretleri iptal edip ${format(parseISO(targetDateStr), 'dd.MM.yyyy')} tarihine ve sonrasına kaydırmak istediğinize emin misiniz?`
+      : `Bu gündeki tüm tamamlanmamış (${uncompletedAssignments.length}) ziyaretleri iptal edip sonraki günlere kaydırmak istediğinize emin misiniz?`;
+
+    const confirmCancel = confirm(confirmMsg);
     if (!confirmCancel) return;
 
     setIsRescheduling(true);
     try {
       await dbLocal.transaction('rw', [dbLocal.schedules, dbLocal.workDays], async () => {
         const allSchedules = await dbLocal.schedules.toArray();
+        
+        // If targetDateStr is provided, we shift everything from that date onwards
+        const effectiveTargetDate = targetDateStr || date;
+
         const futureSchedules = allSchedules
-          .filter(s => s.date >= date)
+          .filter(s => s.date >= effectiveTargetDate || s.date === date)
           .sort((a, b) => a.date.localeCompare(b.date));
 
         let uncompletedPool: any[] = [];
+        // Add current day's uncompleted first
+        uncompletedPool.push(...uncompletedAssignments);
+        
+        // Add other future uncompleted (excluding current day's which are already added)
         for (const s of futureSchedules) {
+          if (s.date === date) continue;
           const uncompletedInDay = s.assignments.filter(a => !a.isCompleted);
           uncompletedPool.push(...uncompletedInDay);
         }
 
-        const todayUncompletedIds = new Set(uncompletedAssignments.map(a => a.applicantId));
-        const filteredPool = uncompletedPool.filter(a => !todayUncompletedIds.has(a.applicantId));
-        const newPool = [...uncompletedAssignments, ...filteredPool];
+        // Deduplicate pool (just in case)
+        const seenIds = new Set();
+        const uniquePool = uncompletedPool.filter(a => {
+          if (seenIds.has(a.applicantId)) return false;
+          seenIds.add(a.applicantId);
+          return true;
+        });
 
-        const tempPool = [...newPool];
-        for (let i = 0; i < futureSchedules.length; i++) {
-          const s = futureSchedules[i];
-          const completedOnes = s.assignments.filter(a => a.isCompleted);
-          const isCanceledDay = s.date === date;
-          const targetDate = parseISO(s.date);
+        const tempPool = [...uniquePool];
+        
+        // We need to handle the case where targetDateStr is a new date not in futureSchedules
+        let planningDates = futureSchedules.map(s => s.date);
+        if (targetDateStr && !planningDates.includes(targetDateStr)) {
+          planningDates.push(targetDateStr);
+          planningDates.sort();
+        }
+
+        // Filter out the canceled day from receiving new assignments if it's the source
+        const receivingDates = planningDates.filter(d => d !== date);
+
+        for (const dStr of receivingDates) {
+          const s = allSchedules.find(as => as.date === dStr);
+          const completedOnes = s ? s.assignments.filter(a => a.isCompleted) : [];
+          const targetDate = parseISO(dStr);
           
-          const targetUncompletedCount = isCanceledDay ? 0 : Math.max(0, dailyLimit - completedOnes.length);
+          const targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
           
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {
             let foundIdx = -1;
-            // First pass: try to satisfy 14-day rule
             for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
               const item = tempPool[pIdx];
               const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
               if (isAlreadyInDay) continue;
 
               const otherVisits = [
-                ...allSchedules.filter(as => as.date < s.date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
-                ...newUncompleted.filter(a => a.applicantId === item.applicantId).map(() => s.date)
+                ...allSchedules.filter(as => as.date < dStr && as.date !== date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
+                ...newUncompleted.filter(a => a.applicantId === item.applicantId).map(() => dStr)
               ];
               let isGapOk = true;
               for (const vDateStr of otherVisits) {
@@ -410,7 +439,6 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               }
             }
 
-            // Second pass: fallback
             if (foundIdx === -1) {
               for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
                 const item = tempPool[pIdx];
@@ -426,17 +454,37 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
               newUncompleted.push(tempPool.splice(foundIdx, 1)[0]);
             }
           }
-          await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
-          s.assignments = [...completedOnes, ...newUncompleted];
+
+          if (s) {
+            await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
+          } else {
+            // Check if it's a work day
+            const workDays = await dbLocal.workDays.toArray();
+            const wd = workDays.find(w => w.date === dStr);
+            if (wd?.isWorkDay) {
+              await dbLocal.schedules.add({ date: dStr, programId: schedule.programId, assignments: newUncompleted });
+            }
+          }
         }
+
+        // Clear the canceled day's uncompleted assignments
+        const completedToday = schedule.assignments.filter(a => a.isCompleted);
+        await dbLocal.schedules.update(schedule.id!, { assignments: completedToday });
         
+        // Handle leftovers
         if (tempPool.length > 0) {
-          const lastSchedule = futureSchedules[futureSchedules.length - 1];
-          const nextWorkDays = (await dbLocal.workDays.where("date").above(lastSchedule.date).toArray()).filter(wd => wd.isWorkDay);
+          const lastDate = receivingDates[receivingDates.length - 1] || date;
+          const nextWorkDays = (await dbLocal.workDays.where("date").above(lastDate).toArray()).filter(wd => wd.isWorkDay);
           
           let currentDayIdx = 0;
           while (tempPool.length > 0 && currentDayIdx < nextWorkDays.length) {
             const wd = nextWorkDays[currentDayIdx];
+            // Skip if already processed
+            if (receivingDates.includes(wd.date)) {
+              currentDayIdx++;
+              continue;
+            }
+            
             const dailyAssignments: any[] = [];
             const targetDate = parseISO(wd.date);
 
@@ -448,7 +496,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                 if (isAlreadyInDay) continue;
 
                 const otherVisits = [
-                  ...allSchedules.filter(as => as.date < wd.date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
+                  ...allSchedules.filter(as => as.date < wd.date && as.date !== date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
                   ...dailyAssignments.filter(a => a.applicantId === item.applicantId).map(() => wd.date)
                 ];
                 let isGapOk = true;
@@ -469,16 +517,18 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
             }
 
             if (dailyAssignments.length > 0) {
-              await dbLocal.schedules.add({ date: wd.date, programId: lastSchedule.programId, assignments: dailyAssignments });
+              await dbLocal.schedules.add({ date: wd.date, programId: schedule.programId, assignments: dailyAssignments });
             }
             currentDayIdx++;
           }
         }
       });
-      alert('Gündeki tüm ziyaretler başarıyla sonraki günlere kaydırıldı.');
+      alert('Ziyaretler başarıyla kaydırıldı.');
+      setRescheduleModal(null);
+      setTargetRescheduleDate('');
     } catch (error) {
       console.error('Rescheduling error:', error);
-      alert('Günü kaydırma işlemi sırasında bir hata oluştu.');
+      alert('Kaydırma işlemi sırasında bir hata oluştu.');
     } finally {
       setIsRescheduling(false);
     }
@@ -1132,16 +1182,69 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
 
           <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ textAlign: 'center', width: '200px' }}>
-              <p style={{ fontWeight: 'bold', marginBottom: '40px' }}>Vakıf Müdürü</p>
+              <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>Vakıf Müdürü</p>
+              <p style={{ fontSize: '10pt', marginBottom: '40px' }}>{currentAdmin ? `${currentAdmin.name} ${currentAdmin.surname}` : 'Yetkili Personel'}</p>
               <p>(İmza)</p>
             </div>
           </div>
 
           <div style={{ position: 'absolute', bottom: '15mm', left: '20mm', right: '20mm', textAlign: 'center', fontSize: '8pt', color: '#94a3b8', borderTop: '0.5px solid #cbd5e1', paddingTop: '10px' }}>
-            Bu belge elektronik ortamda oluşturulmuş olup resmi evrak niteliği taşımaktadır.
+            Bu belge elektronik ortamda {currentAdmin ? `${currentAdmin.name} ${currentAdmin.surname}` : 'Yetkili Personel'} tarafından {format(new Date(), 'dd.MM.yyyy')} tarihinde oluşturulmuştur.
           </div>
         </div>
       </div>
+
+      {/* Reschedule Day Modal */}
+      {rescheduleModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in duration-300">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Günü İptal Et ve Kaydır</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              {format(parseISO(rescheduleModal.date), 'dd MMMM yyyy', { locale: tr })} tarihindeki tüm tamamlanmamış ziyaretleri nereye kaydırmak istersiniz?
+            </p>
+            
+            <div className="space-y-3 mb-6">
+              <button
+                onClick={() => handleCancelDay(rescheduleModal.date)}
+                className="w-full py-3 px-4 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-100 transition-all text-left flex items-center justify-between"
+              >
+                <span>Bir Sonraki İş Gününe Kaydır</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Belirli Bir Tarihe Kaydır</label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    min={format(addDays(parseISO(rescheduleModal.date), 1), 'yyyy-MM-dd')}
+                    value={targetRescheduleDate}
+                    onChange={(e) => setTargetRescheduleDate(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    disabled={!targetRescheduleDate}
+                    onClick={() => handleCancelDay(rescheduleModal.date, targetRescheduleDate)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
+                  >
+                    Uygula
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setRescheduleModal(null);
+                setTargetRescheduleDate('');
+              }}
+              className="w-full py-3 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-all"
+            >
+              Vazgeç
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Completion Note Modal */}
       {completionModal && (
@@ -1331,7 +1434,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleCancelDay(a.date);
+                          setRescheduleModal({ date: a.date });
                         }}
                         className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-1"
                         title="Günü İptal Et ve Kaydır"
