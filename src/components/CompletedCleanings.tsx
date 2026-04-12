@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Applicant, Staff, Schedule } from '../types';
 import { Search, FileText, CheckCircle2, Calendar, User, MapPin } from 'lucide-react';
 import { generateCleaningReport } from '../lib/pdfUtils';
+import { maskTcNo } from '../lib/masking';
 
 interface CompletedCleaningsProps {
   applicants: Applicant[];
@@ -108,7 +109,7 @@ export default function CompletedCleanings({ applicants, staff, schedules }: Com
                   {item.applicant.name} {item.applicant.surname}
                 </h3>
                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">
-                  TC: {item.applicant.tcNo}
+                  TC: {maskTcNo(item.applicant.tcNo)}
                 </p>
               </div>
 

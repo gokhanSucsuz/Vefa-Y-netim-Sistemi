@@ -8,6 +8,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { AnimatePresence } from 'motion/react';
 
 import { geocodeAddress } from '../services/geocoding';
+import { maskTcNo, maskPhone } from '../lib/masking';
 import ApplicantStatsModal from './ApplicantStatsModal';
 
 // Leaflet icon fix removed as it's not needed for MapLibre
@@ -644,7 +645,7 @@ export default function ApplicantList({ applicants }: Props) {
                     </td>
                     <td className="px-4 lg:px-6 py-4">
                       <div className="font-bold text-gray-900 text-sm">{applicant.name} {applicant.surname}</div>
-                      <div className="text-[10px] text-gray-400 font-medium">{applicant.phone}</div>
+                      <div className="text-[10px] text-gray-400 font-medium">{maskPhone(applicant.phone)}</div>
                     </td>
                     <td className="px-4 lg:px-6 py-4">
                       <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100 uppercase tracking-wider">
@@ -658,7 +659,7 @@ export default function ApplicantList({ applicants }: Props) {
                       </div>
                     </td>
                     <td className="px-4 lg:px-6 py-4">
-                      <div className="text-gray-600 font-mono text-xs font-bold">{applicant.tcNo}</div>
+                      <div className="text-gray-600 font-mono text-xs font-bold">{maskTcNo(applicant.tcNo)}</div>
                       {applicant.haneNo && (
                         <div className="text-[10px] text-gray-500 font-medium mt-0.5">Hane: {applicant.haneNo}</div>
                       )}

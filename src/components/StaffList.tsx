@@ -4,6 +4,7 @@ import { Staff } from '../types';
 import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AnimatePresence } from 'motion/react';
+import { maskTcNo, maskPhone } from '../lib/masking';
 import StaffStatsModal from './StaffStatsModal';
 
 interface Props {
@@ -341,8 +342,8 @@ export default function StaffList({ staff }: Props) {
                         <div className="font-bold text-gray-900 text-sm">{s.name} {s.surname}</div>
                         <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Vefa Personeli</div>
                       </td>
-                      <td className="px-4 lg:px-6 py-4 text-gray-600 font-mono text-xs font-bold">{s.tcNo}</td>
-                      <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{s.phone || '-'}</td>
+                      <td className="px-4 lg:px-6 py-4 text-gray-600 font-mono text-xs font-bold">{maskTcNo(s.tcNo)}</td>
+                      <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{maskPhone(s.phone) || '-'}</td>
                       <td className="px-4 lg:px-6 py-4">
                         {partner ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">

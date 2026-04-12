@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
+import { maskTcNo } from '../lib/masking';
 import { Map as MapGL, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { geocodeAddress } from '../services/geocoding';
@@ -1370,7 +1371,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules }:
                                 <div className="text-[10px] text-blue-600 font-bold line-clamp-1 uppercase tracking-tight">{item.applicant.neighborhood}</div>
                               </div>
                               <div className="flex flex-col items-end gap-1 shrink-0">
-                                <div className="text-[9px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-mono font-bold">{item.applicant.tcNo}</div>
+                                <div className="text-[9px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-mono font-bold">{maskTcNo(item.applicant.tcNo)}</div>
                                 {isCompleted && (
                                   <span className="text-[8px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">BİTTİ</span>
                                 )}

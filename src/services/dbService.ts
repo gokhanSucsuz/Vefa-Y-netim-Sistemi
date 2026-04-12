@@ -27,6 +27,8 @@ function prepareDataForDB(data: any): any {
   if (result.tcNo) result.tcNo = encryptField(result.tcNo);
   if (result.haneNo) result.haneNo = encryptField(result.haneNo);
   if (result.password) result.password = encryptField(result.password);
+  if (result.phone) result.phone = encryptField(result.phone);
+  if (result.address) result.address = encryptField(result.address);
   return result;
 }
 
@@ -36,6 +38,8 @@ function prepareDataFromDB(data: any): any {
   if (result.tcNo) result.tcNo = decryptField(result.tcNo);
   if (result.haneNo) result.haneNo = decryptField(result.haneNo);
   if (result.password) result.password = decryptField(result.password);
+  if (result.phone) result.phone = decryptField(result.phone);
+  if (result.address) result.address = decryptField(result.address);
   return result;
 }
 
