@@ -176,24 +176,34 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
   router.get("/", async (req, res) => {
     try {
       await connectDB();
-      const items = await model.find().lean();
+      const items = await model.find().lean().exec();
       res.json(items.map((item: any) => prepareFromDB(item)));
     } catch (err: any) {
-      console.error(`[GET /api/${name}] Error:`, err);
-      res.status(500).json({ error: err.message });
+      console.error(`[GET /api/${name}] API Error:`, err);
+      res.status(500).json({ 
+        error: "Veri çekme hatası", 
+        message: err.message,
+        path: `/api/${name}`
+      });
     }
   });
 
   router.post("/", async (req, res) => {
     try {
       await connectDB();
+      console.log(`[POST /api/${name}] Incoming data:`, req.body);
       const data = prepareForDB(req.body);
       const item = new model(data);
       await item.save();
+      console.log(`[POST /api/${name}] Saved successfully`);
       res.json(prepareFromDB(item));
     } catch (err: any) {
-      console.error(`[POST /api/${name}] Error:`, err);
-      res.status(500).json({ error: err.message });
+      console.error(`[POST /api/${name}] API Error:`, err);
+      res.status(500).json({ 
+        error: "Kayıt hatası", 
+        message: err.message,
+        path: `/api/${name}`
+      });
     }
   });
 
