@@ -23,6 +23,7 @@ const StaffSchema = new mongoose.Schema({
   role: String,
   tcNo: String, // Encrypted
   password: String, // Encrypted
+  partnerId: String, // Linked teammate
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
 });
@@ -71,10 +72,12 @@ const UserSchema = new mongoose.Schema({
   fullName: String,
   tcNo: { type: String, unique: true }, // Encrypted
   phone: String,
-  email: String,
+  email: { type: String, unique: true },
   password: String, // Encrypted/Plain (AES)
   passwordHash: String, // reserved for bcrypt if needed
   role: { type: String, default: 'staff' },
+  isApproved: { type: Boolean, default: false },
+  isSuperAdmin: { type: Boolean, default: false },
   status: { type: String, default: 'active' },
   createdAt: { type: String, default: () => new Date().toISOString() }
 });

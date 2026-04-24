@@ -216,7 +216,18 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
   router.get("/", async (req, res) => {
     try {
       await connectDB();
-      const items = await model.find().lean().exec();
+      let query = {};
+      
+      // Specialized logic for AuditLogs
+      if (name === 'auditlog') {
+        const userId = req.headers['x-user-id'];
+        const userRole = req.headers['x-user-role'];
+        if (userRole !== 'superadmin' && userRole !== 'admin') {
+          query = { userId };
+        }
+      }
+
+      const items = await model.find(query).lean().exec();
       res.json(items.map((item: any) => prepareFromDB(item)));
     } catch (err: any) {
       console.error(`[GET /api/${name}] API Error:`, err);
@@ -234,7 +245,22 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     try {
       await connectDB();
       console.log(`[POST /api/${name}] Incoming data:`, req.body);
+      
       const data = prepareForDB(req.body);
+
+      // Specialized logic for Users
+      if (name === 'user') {
+        const userCount = await model.countDocuments();
+        if (userCount === 0) {
+          data.isApproved = true;
+          data.isSuperAdmin = true;
+          data.role = 'superadmin';
+        } else {
+          data.isApproved = false;
+          data.isSuperAdmin = false;
+        }
+      }
+
       const item = new model(data);
       await item.save();
       console.log(`[POST /api/${name}] Saved successfully`);

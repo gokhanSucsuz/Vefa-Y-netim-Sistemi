@@ -60,6 +60,12 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
 
     const hash = CryptoJS.SHA256(password).toString();
     if (hash === selectedUser.passwordHash) {
+      if (!selectedUser.isApproved) {
+        setError('Hesabınız henüz onaylanmamıştır. Lütfen Süper Admin onayı bekleyin.');
+        setIsSubmitting(false);
+        return;
+      }
+      localStorage.setItem('currentStaffUser', JSON.stringify(selectedUser));
       onLogin(selectedUser);
     } else {
       setError('Hatalı şifre.');
@@ -90,18 +96,32 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
         return;
       }
 
+      const isFirstUser = users.length === 0;
+
       const newUser: Omit<SystemUser, 'id'> = {
         name: regData.name,
         surname: regData.surname,
         tcNo: regData.tcNo,
         email: regData.email,
         passwordHash: CryptoJS.SHA256(regData.password).toString(),
-        role: users.length === 0 ? 'admin' : 'staff', // First user is admin
+        role: isFirstUser ? 'superadmin' : 'staff',
+        isApproved: isFirstUser, 
+        isSuperAdmin: isFirstUser,
         createdAt: new Date().toISOString(),
       };
 
       const id = await dbService.users.add(newUser as any);
-      onLogin({ id, ...newUser });
+      
+      if (isFirstUser) {
+        const fullUser = { id, ...newUser };
+        localStorage.setItem('currentStaffUser', JSON.stringify(fullUser));
+        onLogin(fullUser);
+      } else {
+        setError('Kaydınız alındı. Giriş yapabilmek için Süper Admin onayı gerekmektedir.');
+        setIsSubmitting(false);
+        setMode('select');
+        fetchUsers();
+      }
     } catch (err) {
       console.error('Registration error:', err);
       setError('Kayıt sırasında bir hata oluştu.');

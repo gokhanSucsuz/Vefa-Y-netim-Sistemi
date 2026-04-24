@@ -210,50 +210,24 @@ export default function BackupManager({ user, onAuthChange, isInitialLoad = fals
     reader.readAsText(file);
   };
 
-  if (isInitialLoad) {
+  if (!user) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-lg max-w-md w-full mx-auto text-center mt-20">
-        <div className="flex justify-center mb-6">
-          <div className="bg-blue-100 p-4 rounded-full">
-            <Cloud className="w-10 h-10 text-blue-600" />
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-center">
+        <div className="flex justify-center mb-3">
+          <div className="bg-blue-100 p-2 rounded-lg">
+            <Cloud className="w-5 h-5 text-blue-600" />
           </div>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Edirne Merkez Vefa Modülü</h2>
-        
-        {!user ? (
-          <>
-            <p className="text-gray-500 mb-8">Sisteme erişmek için yetkili hesap ile giriş yapmalısınız.</p>
-            <button
-              onClick={handleLogin}
-              disabled={isSyncing}
-              className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition-colors disabled:opacity-50"
-            >
-              {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
-              Google ile Giriş Yap
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="bg-red-50 text-red-700 p-4 rounded-xl mb-6 text-sm">
-              <p className="font-bold mb-1">Yetkisiz Hesap</p>
-              <p>{user.email} hesabının bu sisteme erişim yetkisi yoktur. Lütfen yetkili hesap ile giriş yapın.</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              disabled={isSyncing}
-              className="w-full flex items-center justify-center gap-3 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-bold transition-colors disabled:opacity-50"
-            >
-              {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut className="w-5 h-5" />}
-              Farklı Hesapla Giriş Yap
-            </button>
-          </>
-        )}
-
-        {message && (
-          <div className={`mt-4 p-3 rounded-xl text-sm font-bold ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-            {message.text}
-          </div>
-        )}
+        <h3 className="text-xs font-bold text-gray-900 mb-2">Veri Yedekleme</h3>
+        <p className="text-[10px] text-gray-500 mb-3">İşlem yapabilmek için Google Drive erişimi gereklidir.</p>
+        <button
+          onClick={handleLogin}
+          disabled={isSyncing}
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-[10px] font-bold transition-colors disabled:opacity-50"
+        >
+          {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />}
+          Google ile Bağlan
+        </button>
       </div>
     );
   }
@@ -263,36 +237,26 @@ export default function BackupManager({ user, onAuthChange, isInitialLoad = fals
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="bg-blue-100 p-2 rounded-lg">
-            <Cloud className="w-5 h-5 text-blue-600" />
+            <DownloadCloud className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-gray-900">Bulut Veritabanı</h3>
-            <p className="text-[10px] text-gray-500 font-medium">Firestore Senkronizasyonu</p>
+            <h3 className="text-sm font-bold text-gray-900">Veri Yedekleme</h3>
+            <p className="text-[10px] text-gray-500 font-medium">Google Drive Güvenli Yedek</p>
           </div>
         </div>
       </div>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-xl border border-gray-100">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full" />
-            <span className="text-xs text-gray-600 font-medium truncate">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className="w-2 h-2 bg-green-500 rounded-full shrink-0" />
+            <span className="text-xs text-gray-600 font-medium truncate whitespace-nowrap">
               {user ? user.email : 'Bağlı Değil'}
             </span>
           </div>
-          {user && (
-            <button
-              onClick={handleLogout}
-              disabled={isSyncing}
-              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Çıkış Yap"
-            >
-              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
-            </button>
-          )}
         </div>
 
-        {user && user.email === 'edirnesydv@gmail.com' && (
+        {user && (
           <div className="pt-2 border-t border-gray-100 space-y-2">
             <button
               onClick={handleManualBackup}
@@ -317,14 +281,27 @@ export default function BackupManager({ user, onAuthChange, isInitialLoad = fals
                 className="w-full flex items-center justify-center gap-2 bg-orange-50 hover:bg-orange-100 text-orange-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
               >
                 {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-                Yedekten Geri Yükle
+                Dosyadan Yükle
               </button>
             </div>
 
             {lastBackupDate && (
-              <p className="text-[9px] text-gray-400 text-center mt-2">
-                Son Yedek: {new Date(lastBackupDate).toLocaleDateString('tr-TR')}
-              </p>
+              <div className="mt-2 text-center">
+                <p className="text-[9px] text-gray-400 font-medium">
+                  Son Yedek: {new Date(lastBackupDate).toLocaleDateString('tr-TR')}
+                </p>
+                {(() => {
+                  const days = Math.floor((new Date().getTime() - new Date(lastBackupDate).getTime()) / (1000 * 3600 * 24));
+                  if (days >= 10) {
+                    return (
+                      <p className="text-[9px] text-red-500 font-bold animate-pulse mt-0.5">
+                        DİKKAT: YEDEKLEME SÜRESİ GEÇTİ ({days} GÜN)
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             )}
           </div>
         )}
