@@ -36,7 +36,7 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^0.546.0",
     "maplibre-gl": "^5.21.1",
-    "mongoose": "^9.5.0",
+    "mongoose": "^8.11.0",
     "motion": "^12.23.24",
     "node-fetch": "^2.7.0",
     "pdfmake": "^0.3.7",

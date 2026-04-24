@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import fetch from "node-fetch";
 import { google } from "googleapis";
 import cookieParser from "cookie-parser";
@@ -73,23 +74,31 @@ app.use(cookieParser(process.env.COOKIE_SECRET || "edirne-sydv-secret"));
 
 // MongoDB Connection
 let mongoPromise: Promise<typeof mongoose> | null = null;
-async function connectDB() {
-  if (mongoPromise) return mongoPromise;
-  if (!MONGODB_URI) {
-    throw new Error("MONGODB_URI environment variable is not defined");
-  }
-  mongoPromise = mongoose.connect(MONGODB_URI);
-  return mongoPromise;
-}
 
-if (MONGODB_URI) {
-  connectDB()
-    .then(() => {
-      console.log("✅ MongoDB'ye başarıyla bağlandı.");
-    })
-    .catch(err => {
-      console.error("❌ MongoDB bağlantı hatası:", err.message);
-    });
+async function connectDB() {
+  if (mongoose.connection.readyState === 1) return mongoose;
+  
+  if (mongoPromise) return mongoPromise;
+  
+  if (!MONGODB_URI) {
+    console.error("CRITICAL: MONGODB_URI is missing!");
+    throw new Error("MONGODB_URI environment variable is not defined. Please add it to your environment variables.");
+  }
+
+  console.log("Connecting to MongoDB...");
+  mongoPromise = mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000,
+  });
+
+  try {
+    const conn = await mongoPromise;
+    console.log("✅ MongoDB'ye başarıyla bağlandı.");
+    return conn;
+  } catch (err: any) {
+    mongoPromise = null;
+    console.error("❌ MongoDB bağlantı hatası:", err.message);
+    throw err;
+  }
 }
 
 // Database Status
@@ -383,6 +392,16 @@ app.get(["/api/geocode", "/geocode"], async (req, res) => {
   }
 });
 
+// Final catch-all for API errors
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Unhandled Error:", err);
+  res.status(500).json({ 
+    error: "Sunucu hatası oluştu", 
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+});
+
 // Vite middleware for development
 async function setupVite() {
   if (process.env.NODE_ENV !== "production") {
@@ -397,18 +416,29 @@ async function setupVite() {
       console.error("Vite setup error:", error);
     }
   } else {
+    // In production (Vercel), we serve static files from dist
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
   }
 }
 
-setupVite().then(() => {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+// Start server or handle Vercel deployment
+if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+  setupVite().then(() => {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
   });
-});
+} else {
+  // On Vercel, we don't call app.listen, we just export it.
+  // We still need to run setupVite for static file serving, 
+  // but Vercel handles the listener.
+  setupVite();
+}
 
 export default app;
