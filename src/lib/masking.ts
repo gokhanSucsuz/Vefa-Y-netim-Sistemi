@@ -1,10 +1,32 @@
-export function maskTcNo(tcNo: string | undefined): string {
-  if (!tcNo || tcNo.length !== 11) return tcNo || '';
-  return `${tcNo.substring(0, 2)}*******${tcNo.substring(9)}`;
-}
+/**
+ * Veri Maskeleme Yardımcıları
+ * Kişisel verilerin korunması kanununa (KVKK) uyumlu arayüz görünümü sağlar.
+ */
 
-export function maskPhone(phone: string | undefined): string {
-  if (!phone || phone.length < 10) return phone || '';
-  // Assuming format like 05XX XXX XX XX -> 05XX *** ** XX
-  return `${phone.substring(0, 4)} *** ** ${phone.substring(phone.length - 2)}`;
-}
+export const maskTCNo = (tc: string): string => {
+  if (!tc || tc.length < 11) return tc;
+  return `${tc.substring(0, 3)}******${tc.substring(9)}`;
+};
+
+export const maskPhone = (phone: string): string => {
+  if (!phone) return phone;
+  // Temizle
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length < 10) return phone;
+  
+  // Format: 05xx *** ** 11
+  const match = cleaned.match(/^(\d{4})(\d{3})(\d{2})(\d{2})$/);
+  if (match) {
+    return `${match[1]} *** ** ${match[4]}`;
+  }
+  return phone;
+};
+
+export const maskAddress = (address: string): string => {
+  if (!address || address.length < 10) return address;
+  const parts = address.split(' ');
+  if (parts.length < 2) return `${address.substring(0, 5)}...`;
+  
+  // İlk iki kelimeyi (genelde mahalle/cadde) göster, gerisini maskele
+  return `${parts[0]} ${parts[1]} ... ${address.substring(address.length - 5)}`;
+};

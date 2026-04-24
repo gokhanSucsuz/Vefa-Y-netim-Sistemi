@@ -29,6 +29,17 @@ export default function StaffList({ staff, currentUser }: Props) {
   const [sortBy, setSortBy] = useState<'name' | 'tcNo'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStatsStaff, setSelectedStatsStaff] = useState<Staff | null>(null);
+  const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
+
+  const toggleReveal = (id: string) => {
+    const newRevealed = new Set(revealedItems);
+    if (newRevealed.has(id)) {
+      newRevealed.delete(id);
+    } else {
+      newRevealed.add(id);
+    }
+    setRevealedItems(newRevealed);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -356,11 +367,15 @@ export default function StaffList({ staff, currentUser }: Props) {
                         <div className="font-bold text-gray-900 text-sm">{s.name} {s.surname}</div>
                         <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Vefa Personeli</div>
                       </td>
-                      <td className="px-4 lg:px-6 py-4 text-gray-600 font-mono text-xs font-bold">{maskTcNo(s.tcNo)}</td>
-                      <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{maskPhone(s.phone) || '-'}</td>
+                      <td className="px-4 lg:px-6 py-4 text-gray-600 font-mono text-xs font-bold">
+                        {revealedItems.has(s.id!) ? s.tcNo : maskTcNo(s.tcNo)}
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">
+                        {revealedItems.has(s.id!) ? s.phone : maskPhone(s.phone)}
+                      </td>
                       <td className="px-4 lg:px-6 py-4">
                         {partner ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase tracking-wider">
                             <Users className="w-3 h-3" />
                             {partner.name} {partner.surname}
                           </span>
@@ -371,10 +386,17 @@ export default function StaffList({ staff, currentUser }: Props) {
                         )}
                       </td>
                       <td className="px-4 lg:px-6 py-4 text-right">
-                        <div className="flex justify-end gap-1 lg:gap-2 opacity-100 transition-all">
+                        <div className="flex justify-end gap-1 lg:gap-2">
+                          <button
+                            onClick={() => toggleReveal(s.id!)}
+                            className={`p-2 rounded-lg transition-all ${revealedItems.has(s.id!) ? 'text-amber-600 bg-amber-50' : 'text-slate-400 hover:bg-slate-100'}`}
+                            title={revealedItems.has(s.id!) ? 'Gizle' : 'Göster'}
+                          >
+                            <Search className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
                           <button
                             onClick={() => setSelectedStatsStaff(s)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            className="p-2 text-institution-blue hover:bg-blue-50 rounded-lg transition-all"
                             title="Performans ve Rapor"
                           >
                             <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5" />

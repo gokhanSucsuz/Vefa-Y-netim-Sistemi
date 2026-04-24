@@ -3,7 +3,8 @@ import { dbLocal } from '../db';
 import { Staff, SystemUser } from '../types';
 import { format, isToday, isFuture, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Users, Briefcase, Calendar, CheckCircle2, Clock, AlertCircle, ArrowRight } from 'lucide-react';
+import { Users, Briefcase, Calendar, Clock, AlertCircle, ArrowRight, ShieldCheck, MapPin } from 'lucide-react';
+import { maskAddress } from '../lib/masking';
 
 interface Props {
   onNavigate: (tab: any) => void;
@@ -16,7 +17,6 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
   const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
   const staff = useLiveQuery(() => dbLocal.staff.toArray()) || [];
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
-  const workDays = useLiveQuery(() => dbLocal.workDays.toArray()) || [];
 
   const todaySchedule = schedules.find(s => isToday(parseISO(s.date)));
   const upcomingSchedules = schedules
@@ -27,79 +27,88 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
   const totalPeopleCount = applicants.reduce((sum, app) => sum + (app.householdSize || 1), 0);
 
   const stats = [
-    { label: 'Toplam Hane', value: applicantCount, icon: Users, color: 'bg-blue-500' },
-    { label: 'Kişi Sayısı', value: totalPeopleCount, icon: Users, color: 'bg-purple-500' },
-    { label: 'Aktif Personel', value: staffCount, icon: Briefcase, color: 'bg-indigo-500' },
-    { label: 'Planlanan Gün', value: schedules.length, icon: Calendar, color: 'bg-green-500' },
+    { label: 'Kayıtlı Hane', value: applicantCount, icon: Users, color: 'bg-institution-blue' },
+    { label: 'Toplam Hizmet Alan', value: totalPeopleCount, icon: ShieldCheck, color: 'bg-institution-dark' },
+    { label: 'Görevli Personel', value: staffCount, icon: Briefcase, color: 'bg-slate-700' },
+    { label: 'Ziyaret Programı', value: schedules.length, icon: Calendar, color: 'bg-emerald-600' },
   ];
 
   return (
-    <div className="space-y-6 lg:space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+    <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Hoş Geldiniz, {currentUser.name} {currentUser.surname}</h2>
-          <p className="text-sm lg:text-base text-gray-500">Vefa Yönetim Sistemi genel durumu ve günlük özet.</p>
+          <h2 className="text-2xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">Sistem Özeti</h2>
+          <p className="text-sm lg:text-base text-slate-500 font-medium">Hoş geldiniz, {currentUser.name} {currentUser.surname}</p>
         </div>
-        <div className="sm:text-right bg-white sm:bg-transparent p-3 sm:p-0 rounded-2xl border border-gray-100 sm:border-0 w-full sm:w-auto shadow-sm sm:shadow-none">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Bugün</p>
-          <p className="text-base lg:text-lg font-bold text-gray-900">{format(new Date(), 'dd MMMM yyyy, EEEE', { locale: tr })}</p>
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 w-full sm:w-auto shadow-sm shadow-slate-100/50">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+            <Calendar className="w-3 h-3" />
+            Sistem Tarihi
+          </p>
+          <p className="text-sm lg:text-base font-bold text-institution-blue">{format(new Date(), 'dd MMMM yyyy, EEEE', { locale: tr })}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {stats.map((stat, i) => (
-          <div key={i} className="bg-white p-5 lg:p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4 lg:gap-5 hover:shadow-md transition-shadow">
-            <div className={`${stat.color} p-3 lg:p-4 rounded-2xl text-white shadow-lg shrink-0`}>
+          <div key={i} className="official-card p-5 lg:p-6 flex items-center gap-4 lg:gap-5 group hover:shadow-md transition-all">
+            <div className={`${stat.color} p-3 lg:p-4 rounded-2xl text-white shadow-lg shrink-0 group-hover:scale-110 transition-transform`}>
               <stat.icon className="w-5 h-5 lg:w-6 lg:h-6" />
             </div>
             <div>
-              <p className="text-xs lg:text-sm font-medium text-gray-500">{stat.label}</p>
-              <p className="text-xl lg:text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-[10px] lg:text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
+              <p className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tighter">{stat.value}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Today's Plan */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-5 lg:p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-            <h3 className="text-lg lg:text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Clock className="text-blue-600 w-5 h-5" />
-              Bugünkü Program
+        <div className="lg:col-span-2 flex flex-col">
+          <div className="flex items-center justify-between mb-4 px-2">
+            <h3 className="text-lg lg:text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span className="w-2 h-6 bg-institution-blue rounded-full" />
+              Bugünkü Saha Görevleri
             </h3>
             {todaySchedule && (
               <button 
                 onClick={() => onNavigate('schedule')}
-                className="text-blue-600 text-xs lg:text-sm font-bold hover:underline flex items-center gap-1"
+                className="text-institution-blue text-xs lg:text-sm font-bold bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-1.5"
               >
-                Detaylar <ArrowRight className="w-4 h-4" />
+                Tüm Detaylar <ArrowRight className="w-4 h-4" />
               </button>
             )}
           </div>
-          <div className="p-5 lg:p-6 flex-1">
+          
+          <div className="official-card flex-1 divide-y divide-slate-50">
             {todaySchedule ? (
-              <div className="space-y-3">
+              <div className="p-2 space-y-2">
                 {todaySchedule.assignments.map((a, i) => {
                   const applicant = applicants.find(app => app.id === a.applicantId);
                   const staffMembers = (a.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[];
                   return (
-                    <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs shrink-0">
+                    <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-slate-50 transition-all rounded-2xl gap-3">
+                      <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center font-black text-xs shrink-0 shadow-sm">
                           {i + 1}
                         </div>
                         <div>
-                          <p className="font-bold text-gray-900 text-sm lg:text-base">
+                          <p className="font-bold text-slate-900 text-sm lg:text-base leading-none mb-1">
                             {applicant ? `${applicant.name} ${applicant.surname}` : `Hane #${a.applicantId}`}
                           </p>
-                          {applicant && <p className="text-[10px] lg:text-xs text-blue-600 font-medium line-clamp-1">{applicant.address}</p>}
+                          {applicant && (
+                            <div className="flex items-center gap-1.5 text-[10px] lg:text-xs text-slate-500 font-medium">
+                              <MapPin className="w-3 h-3 text-slate-300" />
+                              <span className="line-clamp-1">{maskAddress(applicant.address)}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] lg:text-xs font-bold text-gray-500 bg-white px-3 py-1.5 rounded-lg border border-gray-100 self-start sm:self-auto">
-                        <Briefcase className="w-3 h-3 text-blue-500" />
-                        <span className="truncate max-w-[150px]">
-                          {staffMembers.length > 0 ? staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') : 'Atanmamış'}
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 bg-slate-100 px-3 py-2 rounded-xl self-start sm:self-auto border border-slate-200">
+                        <Users className="w-3.5 h-3.5 text-institution-blue" />
+                        <span className="truncate max-w-[200px] uppercase tracking-tighter">
+                          {staffMembers.length > 0 ? staffMembers.map(s => `${s.name} ${s.surname}`).join(' / ') : 'PERSONEL ATANMAMIŞ'}
                         </span>
                       </div>
                     </div>
@@ -107,16 +116,17 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
                 })}
               </div>
             ) : (
-              <div className="text-center py-10 lg:py-12">
-                <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <AlertCircle className="w-8 h-8 text-gray-300" />
+              <div className="text-center py-16 px-6">
+                <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 border border-slate-100 shadow-inner">
+                  <Clock className="w-10 h-10 text-slate-200" />
                 </div>
-                <p className="text-sm lg:text-base text-gray-500 font-medium">Bugün için planlanmış bir program bulunmuyor.</p>
+                <p className="text-base lg:text-lg text-slate-500 font-bold mb-2">Bugün İçin Plan Bulunmuyor</p>
+                <p className="text-xs text-slate-400 mb-6 max-w-[250px] mx-auto">Sisteme yeni bir ziyaret planı eklemek için program oluşturucuya gidebilirsiniz.</p>
                 <button 
                   onClick={() => onNavigate('schedule')}
-                  className="mt-4 px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+                  className="px-8 py-3 bg-institution-blue text-white text-sm font-bold rounded-2xl hover:bg-institution-dark transition-all shadow-lg shadow-blue-200 uppercase tracking-widest"
                 >
-                  Yeni Program Oluştur
+                  Program Oluştur
                 </button>
               </div>
             )}
@@ -124,38 +134,39 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
         </div>
 
         {/* Upcoming Plans */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-5 lg:p-6 border-b border-gray-50 bg-gray-50/30">
-            <h3 className="text-lg lg:text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Calendar className="text-indigo-600 w-5 h-5" />
-              Yaklaşan Programlar
+        <div className="flex flex-col">
+          <div className="flex items-center mb-4 px-2">
+            <h3 className="text-lg lg:text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span className="w-2 h-6 bg-slate-400 rounded-full" />
+              Gelecek Planlar
             </h3>
           </div>
-          <div className="divide-y divide-gray-50 flex-1">
+          
+          <div className="official-card divide-y divide-slate-50 flex-1">
             {upcomingSchedules.length > 0 ? (
               upcomingSchedules.map((s, i) => (
-                <div key={i} className="p-4 lg:p-5 hover:bg-gray-50 transition-all flex items-center justify-between cursor-pointer group" onClick={() => onNavigate('schedule')}>
+                <div key={i} className="p-5 hover:bg-slate-50 transition-all flex items-center justify-between cursor-pointer group" onClick={() => onNavigate('schedule')}>
                   <div className="flex items-center gap-4">
-                    <div className="text-center w-12 bg-indigo-50 p-2 rounded-xl border border-indigo-100 group-hover:bg-indigo-100 transition-colors">
-                      <p className="text-base lg:text-lg font-bold text-indigo-700 leading-none">{format(parseISO(s.date), 'dd')}</p>
-                      <p className="text-[10px] text-indigo-500 uppercase font-bold mt-1">{format(parseISO(s.date), 'MMM', { locale: tr })}</p>
+                    <div className="text-center w-12 bg-slate-50 py-3 rounded-2xl border border-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all shadow-sm">
+                      <p className="text-lg font-black leading-none mb-1">{format(parseISO(s.date), 'dd')}</p>
+                      <p className="text-[9px] uppercase font-bold tracking-tighter">{format(parseISO(s.date), 'MMM', { locale: tr })}</p>
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900 text-sm lg:text-base">{format(parseISO(s.date), 'EEEE', { locale: tr })}</p>
-                      <p className="text-xs text-gray-500 font-medium">{s.assignments.length} Hane Planlandı</p>
+                      <p className="font-bold text-slate-900 text-sm">{format(parseISO(s.date), 'EEEE', { locale: tr })}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{s.assignments.length} Görev Planlandı</p>
                     </div>
                   </div>
-                  <div className="bg-green-50 p-2 rounded-full">
-                    <CheckCircle2 className="text-green-500 w-4 h-4 lg:w-5 lg:h-5" />
+                  <div className="bg-slate-100 p-2 rounded-xl text-slate-400 group-hover:bg-institution-blue group-hover:text-white transition-colors">
+                    <ArrowRight className="w-4 h-4" />
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-10 lg:p-12 text-center">
-                <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="w-8 h-8 text-gray-300" />
+              <div className="p-16 text-center">
+                <div className="bg-slate-50 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-slate-100 rotate-12">
+                  <Calendar className="w-8 h-8 text-slate-200" />
                 </div>
-                <p className="text-sm lg:text-base text-gray-400 font-medium">Yakın zamanda planlanmış program yok.</p>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Plan Yok</p>
               </div>
             )}
           </div>

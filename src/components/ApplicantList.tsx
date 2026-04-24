@@ -9,7 +9,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { AnimatePresence } from 'motion/react';
 
 import { geocodeAddress } from '../services/geocoding';
-import { maskTcNo, maskPhone } from '../lib/masking';
+import { maskTcNo, maskPhone, maskAddress } from '../lib/masking';
 import ApplicantStatsModal from './ApplicantStatsModal';
 
 // Leaflet icon fix removed as it's not needed for MapLibre
@@ -63,6 +63,17 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
   const [sortBy, setSortBy] = useState<'priority' | 'name' | 'neighborhood'>('priority');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStatsApplicant, setSelectedStatsApplicant] = useState<Applicant | null>(null);
+  const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
+
+  const toggleReveal = (id: string) => {
+    const newRevealed = new Set(revealedItems);
+    if (newRevealed.has(id)) {
+      newRevealed.delete(id);
+    } else {
+      newRevealed.add(id);
+    }
+    setRevealedItems(newRevealed);
+  };
 
   const reindexPriorities = async () => {
     const allApplicants = await dbLocal.applicants.toArray();
@@ -655,31 +666,44 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
                     </td>
                     <td className="px-4 lg:px-6 py-4">
                       <div className="font-bold text-gray-900 text-sm">{applicant.name} {applicant.surname}</div>
-                      <div className="text-[10px] text-gray-400 font-medium">{maskPhone(applicant.phone)}</div>
+                      <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
+                        {revealedItems.has(applicant.id!) ? applicant.phone : maskPhone(applicant.phone)}
+                      </div>
                     </td>
                     <td className="px-4 lg:px-6 py-4">
-                      <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100 uppercase tracking-wider">
+                      <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded-lg border border-slate-200 uppercase tracking-wider">
                         {applicant.neighborhood}
                       </span>
                     </td>
                     <td className="px-4 lg:px-6 py-4 max-w-xs">
                       <div className="flex items-start gap-1.5 text-xs text-gray-600">
-                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-500" />
-                        <span className="line-clamp-2 leading-relaxed">{applicant.address}</span>
+                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-institution-blue/60" />
+                        <span className="line-clamp-2 leading-relaxed">
+                          {revealedItems.has(applicant.id!) ? applicant.address : maskAddress(applicant.address)}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 lg:px-6 py-4">
-                      <div className="text-gray-600 font-mono text-xs font-bold">{maskTcNo(applicant.tcNo)}</div>
+                      <div className="text-gray-600 font-mono text-xs font-bold">
+                        {revealedItems.has(applicant.id!) ? applicant.tcNo : maskTcNo(applicant.tcNo)}
+                      </div>
                       {applicant.haneNo && (
                         <div className="text-[10px] text-gray-500 font-medium mt-0.5">Hane: {applicant.haneNo}</div>
                       )}
                     </td>
                     <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{applicant.householdSize || 1} Kişi</td>
                     <td className="px-4 lg:px-6 py-4 text-right">
-                      <div className="flex justify-end gap-1 lg:gap-2 opacity-100 transition-all">
+                      <div className="flex justify-end gap-1 lg:gap-2">
+                        <button
+                          onClick={() => toggleReveal(applicant.id!)}
+                          className={`p-2 rounded-lg transition-all ${revealedItems.has(applicant.id!) ? 'text-amber-600 bg-amber-50' : 'text-slate-400 hover:bg-slate-100'}`}
+                          title={revealedItems.has(applicant.id!) ? 'Gizle' : 'Göster'}
+                        >
+                          <Search className="w-4 h-4 lg:w-5 lg:h-5" />
+                        </button>
                         <button
                           onClick={() => setSelectedStatsApplicant(applicant)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                          className="p-2 text-institution-blue hover:bg-blue-50 rounded-lg transition-all"
                           title="İstatistik ve Rapor"
                         >
                           <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5" />

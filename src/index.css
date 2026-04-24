@@ -1,8 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-institution-blue: #003366;
+  --color-institution-dark: #002244;
+  --color-institution-light: #f0f4f8;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+@layer base {
+  body {
+    @apply bg-institution-light text-slate-900 font-sans antialiased selection:bg-institution-blue selection:text-white;
+  }
+}
+
+@layer components {
+  .official-card {
+    @apply bg-white border border-slate-200 shadow-sm rounded-2xl transition-all duration-200;
+  }
+  
+  .official-button-primary {
+    @apply bg-institution-blue hover:bg-institution-dark text-white font-semibold py-2 px-4 rounded-xl transition-all active:scale-95 disabled:opacity-50;
+  }
 }
 
 @layer base {
