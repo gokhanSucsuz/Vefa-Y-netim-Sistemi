@@ -68,11 +68,15 @@ const AdminSchema = new mongoose.Schema({
 const UserSchema = new mongoose.Schema({
   name: String,
   surname: String,
+  fullName: String,
   tcNo: { type: String, unique: true }, // Encrypted
+  phone: String,
   email: String,
-  passwordHash: String,
-  role: String,
-  createdAt: String
+  password: String, // Encrypted/Plain (AES)
+  passwordHash: String, // reserved for bcrypt if needed
+  role: { type: String, default: 'staff' },
+  status: { type: String, default: 'active' },
+  createdAt: { type: String, default: () => new Date().toISOString() }
 });
 
 export const ApplicantModel = mongoose.models.Applicant || mongoose.model('Applicant', ApplicantSchema);

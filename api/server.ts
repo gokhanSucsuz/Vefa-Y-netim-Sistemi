@@ -23,7 +23,7 @@ import {
 dotenv.config();
 
 const ALLOWED_EMAIL = "edirnesydv@gmail.com";
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI?.trim();
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "vefa-sydv-secure-encryption-key-2026-64-chars-long-string-needed"; 
 // AES-256-CBC Encryption
 const IV_LENGTH = 16;
@@ -78,25 +78,35 @@ let mongoPromise: Promise<typeof mongoose> | null = null;
 async function connectDB() {
   if (mongoose.connection.readyState === 1) return mongoose;
   
-  if (mongoPromise) return mongoPromise;
+  if (mongoPromise) {
+    try {
+      return await mongoPromise;
+    } catch (e) {
+      console.error("Existing mongoPromise failed, retrying...", e);
+      mongoPromise = null; 
+    }
+  }
   
   if (!MONGODB_URI) {
-    console.error("CRITICAL: MONGODB_URI is missing!");
-    throw new Error("MONGODB_URI environment variable is not defined. Please add it to your environment variables.");
+    console.error("CRITICAL: MONGODB_URI is missing or empty!");
+    throw new Error("Veritabanı bağlantı adresi (MONGODB_URI) eksik.");
   }
 
-  console.log("Connecting to MongoDB...");
+  console.log("Connecting to MongoDB Atlas (Serverless Mode)...");
   mongoPromise = mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    bufferCommands: false,
   });
 
   try {
     const conn = await mongoPromise;
-    console.log("✅ MongoDB'ye başarıyla bağlandı.");
+    console.log("✅ MongoDB Connection Successful:", conn.connection.name);
     return conn;
   } catch (err: any) {
     mongoPromise = null;
-    console.error("❌ MongoDB bağlantı hatası:", err.message);
+    console.error("❌ MongoDB Connection Error:", err.message);
     throw err;
   }
 }
@@ -180,10 +190,12 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       res.json(items.map((item: any) => prepareFromDB(item)));
     } catch (err: any) {
       console.error(`[GET /api/${name}] API Error:`, err);
+      if (err.stack) console.error(err.stack);
       res.status(500).json({ 
         error: "Veri çekme hatası", 
         message: err.message,
-        path: `/api/${name}`
+        path: `/api/${name}`,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
       });
     }
   });
@@ -199,10 +211,12 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       res.json(prepareFromDB(item));
     } catch (err: any) {
       console.error(`[POST /api/${name}] API Error:`, err);
+      if (err.stack) console.error(err.stack);
       res.status(500).json({ 
         error: "Kayıt hatası", 
         message: err.message,
-        path: `/api/${name}`
+        path: `/api/${name}`,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
       });
     }
   });
@@ -261,14 +275,14 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
 };
 
 // API Routes
-app.use("/api/applicants", createCrudRoutes(ApplicantModel, 'applicant', ['tcNo', 'phone', 'address', 'haneNo']));
-app.use("/api/staff", createCrudRoutes(StaffModel, 'staff', ['phone', 'tcNo', 'password']));
+app.use("/api/applicants", createCrudRoutes(ApplicantModel, 'applicant', ['name', 'surname', 'fullName', 'tcNo', 'phone', 'address', 'haneNo']));
+app.use("/api/staff", createCrudRoutes(StaffModel, 'staff', ['name', 'surname', 'fullName', 'phone', 'tcNo', 'password']));
 app.use("/api/workdays", createCrudRoutes(WorkDayModel, 'workday'));
 app.use("/api/schedules", createCrudRoutes(ScheduleModel, 'schedule'));
 app.use("/api/programs", createCrudRoutes(ProgramModel, 'program'));
 app.use("/api/auditlogs", createCrudRoutes(AuditLogModel, 'auditlog'));
 app.use("/api/admins", createCrudRoutes(AdminModel, 'admin'));
-app.use("/api/users", createCrudRoutes(UserModel, 'user', ['tcNo']));
+app.use("/api/users", createCrudRoutes(UserModel, 'user', ['name', 'surname', 'fullName', 'tcNo', 'phone', 'password', 'email']));
 
 // ... (Rest of OAuth and setupVite remains similar)
 
