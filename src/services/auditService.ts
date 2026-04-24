@@ -1,5 +1,4 @@
-import { db } from '../firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { dbService } from '../db';
 import { AuditLog } from '../types';
 
 export const logAction = async (userId: string, userName: string, action: string, details: string) => {
@@ -11,7 +10,7 @@ export const logAction = async (userId: string, userName: string, action: string
       details,
       timestamp: new Date().toISOString(),
     };
-    await addDoc(collection(db, 'audit_logs'), log);
+    await dbService.auditLogs.add(log as any);
   } catch (error) {
     console.error('Error logging action:', error);
   }

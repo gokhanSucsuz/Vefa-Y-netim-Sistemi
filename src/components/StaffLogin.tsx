@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, User, Lock, LogIn, Loader2, UserPlus, CreditCard, Mail, Phone, Save, LogOut } from 'lucide-react';
-import { db, auth } from '../firebase';
-import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
+import { dbService } from '../db';
+import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { SystemUser } from '../types';
 import CryptoJS from 'crypto-js';
@@ -36,9 +36,8 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, 'system_users'));
-      const usersList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SystemUser));
-      setUsers(usersList);
+      const usersList = await dbService.users.toArray();
+      setUsers(usersList as any);
       if (usersList.length === 0) {
         setMode('register');
       } else {
@@ -83,10 +82,9 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
     setError(null);
 
     try {
-      // Check if TC or Email already exists
-      const tcQuery = query(collection(db, 'system_users'), where('tcNo', '==', regData.tcNo));
-      const tcSnap = await getDocs(tcQuery);
-      if (!tcSnap.empty) {
+      // Check if TC already exists
+      const existing = await dbService.users.where('tcNo').equals(regData.tcNo).toArray();
+      if (existing.length > 0) {
         setError('Bu T.C. Kimlik No ile kayıtlı bir kullanıcı zaten var.');
         setIsSubmitting(false);
         return;
@@ -102,8 +100,8 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
         createdAt: new Date().toISOString(),
       };
 
-      const docRef = await addDoc(collection(db, 'system_users'), newUser);
-      onLogin({ id: docRef.id, ...newUser });
+      const id = await dbService.users.add(newUser as any);
+      onLogin({ id, ...newUser });
     } catch (err) {
       console.error('Registration error:', err);
       setError('Kayıt sırasında bir hata oluştu.');

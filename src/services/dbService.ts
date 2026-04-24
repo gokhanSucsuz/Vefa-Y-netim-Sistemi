@@ -1,46 +1,20 @@
-import { db } from '../firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, writeBatch, getDoc, orderBy, limit } from 'firebase/firestore';
 import { Applicant, Staff, WorkDay, Schedule, Program, Admin } from '../types';
-import CryptoJS from 'crypto-js';
 
-const SECRET_KEY = (import.meta as any).env?.VITE_ENCRYPTION_KEY || 'vefa-sydv-secret-key-2026';
+const API_BASE = '/api';
 
-function encryptField(text: string | undefined): string | undefined {
-  if (!text) return text;
-  return CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
-}
-
-function decryptField(ciphertext: string | undefined): string | undefined {
-  if (!ciphertext) return ciphertext;
-  try {
-    const bytes = CryptoJS.AES.decrypt(ciphertext, SECRET_KEY);
-    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-    return decrypted || ciphertext;
-  } catch (e) {
-    return ciphertext;
+async function apiFetch(path: string, options?: RequestInit) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Bilinmeyen hata' }));
+    throw new Error(error.error || `API hatası: ${response.status}`);
   }
-}
-
-function prepareDataForDB(data: any): any {
-  if (!data) return data;
-  const result = { ...data };
-  if (result.tcNo) result.tcNo = encryptField(result.tcNo);
-  if (result.haneNo) result.haneNo = encryptField(result.haneNo);
-  if (result.password) result.password = encryptField(result.password);
-  if (result.phone) result.phone = encryptField(result.phone);
-  if (result.address) result.address = encryptField(result.address);
-  return result;
-}
-
-function prepareDataFromDB(data: any): any {
-  if (!data) return data;
-  const result = { ...data };
-  if (result.tcNo) result.tcNo = decryptField(result.tcNo);
-  if (result.haneNo) result.haneNo = decryptField(result.haneNo);
-  if (result.password) result.password = decryptField(result.password);
-  if (result.phone) result.phone = decryptField(result.phone);
-  if (result.address) result.address = decryptField(result.address);
-  return result;
+  return response.json();
 }
 
 type Listener = () => void;
@@ -57,7 +31,7 @@ export const subscribeToDbChanges = (listener: Listener) => {
   };
 };
 
-class FirestoreTable<T extends { id?: string }> {
+class ApiTable<T extends { id?: string }> {
   collectionName: string;
 
   constructor(collectionName: string) {
@@ -65,65 +39,59 @@ class FirestoreTable<T extends { id?: string }> {
   }
 
   async toArray(): Promise<T[]> {
-    const querySnapshot = await getDocs(collection(db, this.collectionName));
-    return querySnapshot.docs.map(doc => prepareDataFromDB({ id: doc.id, ...doc.data() }) as unknown as T);
+    return apiFetch(`/${this.collectionName}`);
   }
 
   async add(item: T): Promise<string> {
-    const dataToSave = prepareDataForDB(item);
-    const docRef = await addDoc(collection(db, this.collectionName), dataToSave);
+    const res = await apiFetch(`/${this.collectionName}`, {
+      method: 'POST',
+      body: JSON.stringify(item),
+    });
     notifyListeners();
-    return docRef.id;
+    return res.id;
   }
 
   async update(id: string, changes: Partial<T>): Promise<void> {
-    const dataToSave = prepareDataForDB(changes);
-    const docRef = doc(db, this.collectionName, id);
-    await updateDoc(docRef, dataToSave as any);
+    await apiFetch(`/${this.collectionName}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(changes),
+    });
     notifyListeners();
   }
 
   async delete(id: string): Promise<void> {
-    await deleteDoc(doc(db, this.collectionName, id));
+    await apiFetch(`/${this.collectionName}/${id}`, {
+      method: 'DELETE',
+    });
     notifyListeners();
   }
 
   async clear(): Promise<void> {
-    const querySnapshot = await getDocs(collection(db, this.collectionName));
-    const batch = writeBatch(db);
-    querySnapshot.docs.forEach(doc => {
-      batch.delete(doc.ref);
+    await apiFetch(`/${this.collectionName}`, {
+      method: 'DELETE',
     });
-    await batch.commit();
     notifyListeners();
   }
 
   async count(): Promise<number> {
-    const querySnapshot = await getDocs(collection(db, this.collectionName));
-    return querySnapshot.size;
+    const items = await this.toArray();
+    return items.length;
   }
 
   async bulkAdd(items: T[]): Promise<void> {
     if (items.length === 0) return;
-    const batch = writeBatch(db);
-    items.forEach(item => {
-      const docRef = doc(collection(db, this.collectionName));
-      const dataToSave = prepareDataForDB(item);
-      batch.set(docRef, dataToSave);
+    await apiFetch(`/${this.collectionName}/bulk`, {
+      method: 'POST',
+      body: JSON.stringify(items),
     });
-    await batch.commit();
     notifyListeners();
   }
 
   async bulkDelete(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    const batch = writeBatch(db);
-    ids.forEach(id => {
-      const docRef = doc(db, this.collectionName, id);
-      batch.delete(docRef);
-    });
-    await batch.commit();
-    notifyListeners();
+    for (const id of ids) {
+      await this.delete(id);
+    }
   }
 
   async put(item: T): Promise<string> {
@@ -138,27 +106,26 @@ class FirestoreTable<T extends { id?: string }> {
   where(field: string) {
     const createQueryMethods = (op: '<' | '<=' | '==' | '>=' | '>', value: any) => ({
       toArray: async (): Promise<T[]> => {
-        // Warning: Firestore queries on encrypted fields will only work for exact matches (==)
-        // and only if the value being queried is also encrypted.
-        // For now, we assume where() is used for non-encrypted fields or exact matches.
-        const q = query(collection(db, this.collectionName), where(field, op, value));
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => prepareDataFromDB({ id: doc.id, ...doc.data() }) as unknown as T);
+        const all = await this.toArray();
+        return all.filter((item: any) => {
+          const val = item[field];
+          if (op === '==') return val === value;
+          if (op === '<') return val < value;
+          if (op === '<=') return val <= value;
+          if (op === '>') return val > value;
+          if (op === '>=') return val >= value;
+          return false;
+        });
       },
       delete: async (): Promise<void> => {
-        const q = query(collection(db, this.collectionName), where(field, op, value));
-        const querySnapshot = await getDocs(q);
-        const batch = writeBatch(db);
-        querySnapshot.docs.forEach(doc => {
-          batch.delete(doc.ref);
-        });
-        await batch.commit();
-        notifyListeners();
+        const items = await this.where(field).equals(value).toArray();
+        for (const item of items) {
+          if (item.id) await this.delete(item.id);
+        }
       },
       count: async (): Promise<number> => {
-        const q = query(collection(db, this.collectionName), where(field, op, value));
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.size;
+        const items = await this.where(field).equals(value).toArray();
+        return items.length;
       }
     });
 
@@ -174,26 +141,20 @@ class FirestoreTable<T extends { id?: string }> {
   orderBy(field: string) {
     return {
       last: async (): Promise<T | undefined> => {
-        const q = query(collection(db, this.collectionName), orderBy(field, 'desc'), limit(1));
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) return undefined;
-        const docSnap = querySnapshot.docs[0];
-        return prepareDataFromDB({ id: docSnap.id, ...docSnap.data() }) as unknown as T;
+        const all = await this.toArray();
+        if (all.length === 0) return undefined;
+        return all.sort((a: any, b: any) => (a[field] < b[field] ? -1 : 1)).pop();
       },
       reverse: () => ({
         first: async (): Promise<T | undefined> => {
-          const q = query(collection(db, this.collectionName), orderBy(field, 'desc'), limit(1));
-          const querySnapshot = await getDocs(q);
-          if (querySnapshot.empty) return undefined;
-          const docSnap = querySnapshot.docs[0];
-          return prepareDataFromDB({ id: docSnap.id, ...docSnap.data() }) as unknown as T;
+          const all = await this.toArray();
+          if (all.length === 0) return undefined;
+          return all.sort((a: any, b: any) => (a[field] > b[field] ? -1 : 1)).shift();
         },
         last: async (): Promise<T | undefined> => {
-          const q = query(collection(db, this.collectionName), orderBy(field, 'asc'), limit(1));
-          const querySnapshot = await getDocs(q);
-          if (querySnapshot.empty) return undefined;
-          const docSnap = querySnapshot.docs[0];
-          return prepareDataFromDB({ id: docSnap.id, ...docSnap.data() }) as unknown as T;
+          const all = await this.toArray();
+          if (all.length === 0) return undefined;
+          return all.sort((a: any, b: any) => (a[field] < b[field] ? -1 : 1)).pop();
         }
       })
     };
@@ -201,12 +162,14 @@ class FirestoreTable<T extends { id?: string }> {
 }
 
 export const dbService = {
-  applicants: new FirestoreTable<Applicant>('applicants'),
-  staff: new FirestoreTable<Staff>('staff'),
-  workDays: new FirestoreTable<WorkDay>('workDays'),
-  schedules: new FirestoreTable<Schedule>('schedules'),
-  programs: new FirestoreTable<Program>('programs'),
-  admins: new FirestoreTable<Admin>('admins'),
+  applicants: new ApiTable<Applicant>('applicants'),
+  staff: new ApiTable<Staff>('staff'),
+  workDays: new ApiTable<WorkDay>('workdays'),
+  schedules: new ApiTable<Schedule>('schedules'),
+  programs: new ApiTable<Program>('programs'),
+  admins: new ApiTable<Admin>('admins'),
+  auditLogs: new ApiTable<any>('auditlogs'),
+  users: new ApiTable<any>('users'),
   
   transaction: async (mode: string, tables: any, callback: () => Promise<void>) => {
     await callback();

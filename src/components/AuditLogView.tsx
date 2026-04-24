@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { dbService } from '../db';
 import { AuditLog } from '../types';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -14,10 +13,12 @@ export default function AuditLogView() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100));
-        const snapshot = await getDocs(q);
-        const fetchedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog));
-        setLogs(fetchedLogs);
+        const fetchedLogs = await dbService.auditLogs.toArray();
+        // MongoDB returns them in any order, so we sort by timestamp desc
+        const sortedLogs = [...fetchedLogs].sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        setLogs(sortedLogs.slice(0, 100)); // Limit to last 100
       } catch (error) {
         console.error('Error fetching audit logs:', error);
       } finally {

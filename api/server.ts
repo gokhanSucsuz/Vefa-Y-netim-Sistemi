@@ -4,25 +4,85 @@ import fetch from "node-fetch";
 import { google } from "googleapis";
 import cookieParser from "cookie-parser";
 import { OAuth2Client } from "google-auth-library";
+import mongoose from "mongoose";
+import crypto from "crypto";
+import cors from "cors";
+import dotenv from "dotenv";
+import { 
+  ApplicantModel, 
+  StaffModel, 
+  WorkDayModel, 
+  ScheduleModel, 
+  ProgramModel, 
+  AuditLogModel, 
+  AdminModel,
+  UserModel
+} from "./models";
+
+dotenv.config();
 
 const ALLOWED_EMAIL = "edirnesydv@gmail.com";
+const MONGODB_URI = process.env.MONGODB_URI;
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "vefa-sydv-secure-encryption-key-2026-64-chars-long-string-needed"; 
+// Note: Key should be 32 bytes for aes-256. If not, we'll hash it.
+const IV_LENGTH = 16;
+
+function getEncryptionKey() {
+  return crypto.createHash('sha256').update(String(ENCRYPTION_KEY)).digest();
+}
+
+function encrypt(text: string | undefined): string | undefined {
+  if (!text) return text;
+  try {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-cbc', getEncryptionKey(), iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+  } catch (e) {
+    console.error("Encryption error:", e);
+    return text;
+  }
+}
+
+function decrypt(text: string | undefined): string | undefined {
+  if (!text || !text.includes(':')) return text;
+  try {
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift()!, 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', getEncryptionKey(), iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (e) {
+    console.error("Decryption error:", e);
+    return text;
+  }
+}
 
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json());
 app.use(cookieParser(process.env.COOKIE_SECRET || "edirne-sydv-secret"));
+
+// MongoDB Connection
+if (MONGODB_URI) {
+  mongoose.connect(MONGODB_URI)
+    .then(() => console.log("Connected to MongoDB"))
+    .catch(err => console.error("MongoDB connection error:", err));
+} else {
+  console.warn("WARNING: MONGODB_URI is missing. Database operations will fail.");
+}
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
-if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-  console.warn("WARNING: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing. OAuth features will not work.");
-}
-
+// ... (OAuth2Client preparation remains similar)
 const getAppUrl = () => {
   let url = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-  // Remove trailing slash if exists
   return url.replace(/\/$/, "");
 };
 
@@ -42,6 +102,105 @@ const getOAuth2Client = (req?: express.Request) => {
     redirectUri
   );
 };
+
+// Generic CRUD helper
+const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = []) => {
+  const router = express.Router();
+
+  const prepareForDB = (data: any) => {
+    const result = { ...data };
+    encryptedFields.forEach(field => {
+      if (result[field]) result[field] = encrypt(result[field]);
+    });
+    return result;
+  };
+
+  const prepareFromDB = (data: any) => {
+    if (!data) return data;
+    const result = data.toObject ? data.toObject() : { ...data };
+    result.id = result._id.toString();
+    delete result._id;
+    delete result.__v;
+    encryptedFields.forEach(field => {
+      if (result[field]) result[field] = decrypt(result[field]);
+    });
+    return result;
+  };
+
+  router.get("/", async (req, res) => {
+    try {
+      const items = await model.find();
+      res.json(items.map(prepareFromDB));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post("/", async (req, res) => {
+    try {
+      const data = prepareForDB(req.body);
+      const item = new model(data);
+      await item.save();
+      res.json(prepareFromDB(item));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.put("/:id", async (req, res) => {
+    try {
+      const data = prepareForDB(req.body);
+      const item = await model.findByIdAndUpdate(req.params.id, data, { new: true });
+      if (!item) return res.status(404).json({ error: "Not found" });
+      res.json(prepareFromDB(item));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.delete("/:id", async (req, res) => {
+    try {
+      await model.findByIdAndDelete(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Bulk operations
+  router.post("/bulk", async (req, res) => {
+    try {
+      const items = req.body.map(prepareForDB);
+      await model.insertMany(items);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.delete("/", async (req, res) => {
+    try {
+      await model.deleteMany({});
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  return router;
+};
+
+// API Routes
+app.use("/api/applicants", createCrudRoutes(ApplicantModel, 'applicant', ['tcNo', 'phone', 'address', 'haneNo']));
+app.use("/api/staff", createCrudRoutes(StaffModel, 'staff', ['phone', 'tcNo', 'password']));
+app.use("/api/workdays", createCrudRoutes(WorkDayModel, 'workday'));
+app.use("/api/schedules", createCrudRoutes(ScheduleModel, 'schedule'));
+app.use("/api/programs", createCrudRoutes(ProgramModel, 'program'));
+app.use("/api/auditlogs", createCrudRoutes(AuditLogModel, 'auditlog'));
+app.use("/api/admins", createCrudRoutes(AdminModel, 'admin'));
+app.use("/api/users", createCrudRoutes(UserModel, 'user', ['tcNo']));
+
+// ... (Rest of OAuth and setupVite remains similar)
 
 // Health check
 app.get(["/api/health", "/health"], (req, res) => {
