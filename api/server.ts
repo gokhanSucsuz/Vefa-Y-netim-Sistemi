@@ -18,7 +18,7 @@ import {
   AuditLogModel, 
   AdminModel,
   UserModel
-} from "./models";
+} from "./models.js";
 
 dotenv.config();
 
