@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { ApplicantModel, StaffModel, UserModel } from '../api/models.js';
-import CryptoJS from 'crypto-js';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,11 +11,25 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/vefa';
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'default-encryption-key-for-dev-!@#';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'vefa-sydv-secure-encryption-key-2026-64-chars-long-string-needed';
+
+const IV_LENGTH = 16;
+function getEncryptionKey() {
+  return crypto.createHash('sha256').update(String(ENCRYPTION_KEY)).digest();
+}
 
 function encrypt(text: string): string {
-    if (!text) return '';
-    return CryptoJS.AES.encrypt(text, ENCRYPTION_KEY).toString();
+  if (!text) return '';
+  try {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-cbc', getEncryptionKey(), iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+  } catch (e) {
+    console.error("Encryption error:", e);
+    return text;
+  }
 }
 
 const neighborhoods = [
