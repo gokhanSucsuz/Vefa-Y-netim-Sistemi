@@ -24,15 +24,14 @@ dotenv.config();
 const ALLOWED_EMAIL = "edirnesydv@gmail.com";
 const MONGODB_URI = process.env.MONGODB_URI;
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "vefa-sydv-secure-encryption-key-2026-64-chars-long-string-needed"; 
-// Note: Key should be 32 bytes for aes-256. If not, we'll hash it.
+// AES-256-CBC Encryption
 const IV_LENGTH = 16;
-
 function getEncryptionKey() {
   return crypto.createHash('sha256').update(String(ENCRYPTION_KEY)).digest();
 }
 
 function encrypt(text: string | undefined): string | undefined {
-  if (!text) return text;
+  if (!text || typeof text !== 'string') return text;
   try {
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv('aes-256-cbc', getEncryptionKey(), iv);
@@ -46,11 +45,15 @@ function encrypt(text: string | undefined): string | undefined {
 }
 
 function decrypt(text: string | undefined): string | undefined {
-  if (!text || !text.includes(':')) return text;
+  if (!text || typeof text !== 'string' || !text.includes(':')) return text;
   try {
-    const textParts = text.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const parts = text.split(':');
+    const ivHex = parts.shift();
+    const encryptedHex = parts.join(':');
+    if (!ivHex || !encryptedHex) return text;
+    
+    const iv = Buffer.from(ivHex, 'hex');
+    const encryptedText = Buffer.from(encryptedHex, 'hex');
     const decipher = crypto.createDecipheriv('aes-256-cbc', getEncryptionKey(), iv);
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
@@ -69,18 +72,23 @@ app.use(express.json());
 app.use(cookieParser(process.env.COOKIE_SECRET || "edirne-sydv-secret"));
 
 // MongoDB Connection
+let mongoPromise: Promise<typeof mongoose> | null = null;
+async function connectDB() {
+  if (mongoPromise) return mongoPromise;
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI environment variable is not defined");
+  }
+  mongoPromise = mongoose.connect(MONGODB_URI);
+  return mongoPromise;
+}
+
 if (MONGODB_URI) {
-  mongoose.connect(MONGODB_URI)
+  connectDB()
     .then(() => {
       console.log("✅ MongoDB'ye başarıyla bağlandı.");
-      // Force creation of collections by listing them or check connection state
-      mongoose.connection.db.listCollections().toArray().then(cols => {
-        console.log(`📂 Mevcut koleksiyon sayısı: ${cols.length}`);
-      });
     })
     .catch(err => {
       console.error("❌ MongoDB bağlantı hatası:", err.message);
-      console.error("Lütfen MONGODB_URI değişkenini kontrol edin.");
     });
 }
 
@@ -133,6 +141,11 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
 
   const prepareForDB = (data: any) => {
     const result = { ...data };
+    delete result.id;
+    // Sanitize undefined
+    Object.keys(result).forEach(key => {
+      if (result[key] === undefined) delete result[key];
+    });
     encryptedFields.forEach(field => {
       if (result[field]) result[field] = encrypt(result[field]);
     });
@@ -142,7 +155,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
   const prepareFromDB = (data: any) => {
     if (!data) return data;
     const result = data.toObject ? data.toObject() : { ...data };
-    result.id = result._id.toString();
+    result.id = result._id ? result._id.toString() : result.id;
     delete result._id;
     delete result.__v;
     encryptedFields.forEach(field => {
@@ -153,40 +166,48 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
 
   router.get("/", async (req, res) => {
     try {
-      const items = await model.find();
-      res.json(items.map(prepareFromDB));
+      await connectDB();
+      const items = await model.find().lean();
+      res.json(items.map((item: any) => prepareFromDB(item)));
     } catch (err: any) {
+      console.error(`[GET /api/${name}] Error:`, err);
       res.status(500).json({ error: err.message });
     }
   });
 
   router.post("/", async (req, res) => {
     try {
+      await connectDB();
       const data = prepareForDB(req.body);
       const item = new model(data);
       await item.save();
       res.json(prepareFromDB(item));
     } catch (err: any) {
+      console.error(`[POST /api/${name}] Error:`, err);
       res.status(500).json({ error: err.message });
     }
   });
 
   router.put("/:id", async (req, res) => {
     try {
+      await connectDB();
       const data = prepareForDB(req.body);
       const item = await model.findByIdAndUpdate(req.params.id, data, { new: true });
       if (!item) return res.status(404).json({ error: "Not found" });
       res.json(prepareFromDB(item));
     } catch (err: any) {
+      console.error(`[PUT /api/${name}] Error:`, err);
       res.status(500).json({ error: err.message });
     }
   });
 
   router.delete("/:id", async (req, res) => {
     try {
+      await connectDB();
       await model.findByIdAndDelete(req.params.id);
       res.json({ success: true });
     } catch (err: any) {
+      console.error(`[DELETE /api/${name}] Error:`, err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -194,19 +215,25 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
   // Bulk operations
   router.post("/bulk", async (req, res) => {
     try {
-      const items = req.body.map(prepareForDB);
-      await model.insertMany(items);
-      res.json({ success: true });
+      await connectDB();
+      const items = (Array.isArray(req.body) ? req.body : []).map(prepareForDB);
+      if (items.length > 0) {
+        await model.insertMany(items);
+      }
+      res.json({ success: true, count: items.length });
     } catch (err: any) {
+      console.error(`[POST /api/${name}/bulk] Error:`, err);
       res.status(500).json({ error: err.message });
     }
   });
 
   router.delete("/", async (req, res) => {
     try {
+      await connectDB();
       await model.deleteMany({});
       res.json({ success: true });
     } catch (err: any) {
+      console.error(`[DELETE ALL /api/${name}] Error:`, err);
       res.status(500).json({ error: err.message });
     }
   });
