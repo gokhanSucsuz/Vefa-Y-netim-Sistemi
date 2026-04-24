@@ -82,31 +82,39 @@ async function connectDB() {
     try {
       return await mongoPromise;
     } catch (e) {
-      console.error("Existing mongoPromise failed, retrying...", e);
+      console.error("Previous mongoPromise failed, retrying...");
       mongoPromise = null; 
     }
   }
   
   if (!MONGODB_URI) {
-    console.error("CRITICAL: MONGODB_URI is missing or empty!");
+    console.error("MONGODB_URI is MISSING!");
     throw new Error("Veritabanı bağlantı adresi (MONGODB_URI) eksik.");
   }
 
-  console.log("Connecting to MongoDB Atlas (Serverless Mode)...");
+  console.log("Connecting to MongoDB Atlas... URI length:", MONGODB_URI.length);
+  mongoose.set('bufferCommands', false);
   mongoPromise = mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
-    bufferCommands: false,
   });
 
   try {
     const conn = await mongoPromise;
-    console.log("✅ MongoDB Connection Successful:", conn.connection.name);
+    console.log("✅ MongoDB Connection Established:", conn.connection.name);
+    
+    // Ensure all models are initialized and indexes are created
+    // This is important for unique constraints
+    await Promise.all(Object.values(mongoose.models).map(m => m.init().catch(e => console.warn(`Model ${m.modelName} init error:`, e))));
+    
     return conn;
   } catch (err: any) {
     mongoPromise = null;
-    console.error("❌ MongoDB Connection Error:", err.message);
+    console.error("❌ MongoDB Connection Error Details:", {
+      name: err.name,
+      message: err.message,
+      code: err.code
+    });
     throw err;
   }
 }
@@ -159,28 +167,50 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
   const router = express.Router();
 
   const prepareForDB = (data: any) => {
-    const result = { ...data };
-    delete result.id;
-    // Sanitize undefined
-    Object.keys(result).forEach(key => {
-      if (result[key] === undefined) delete result[key];
-    });
-    encryptedFields.forEach(field => {
-      if (result[field]) result[field] = encrypt(result[field]);
-    });
-    return result;
+    try {
+      const result = { ...data };
+      delete result.id;
+      // Sanitize undefined
+      Object.keys(result).forEach(key => {
+        if (result[key] === undefined) delete result[key];
+      });
+      encryptedFields.forEach(field => {
+        if (result[field]) {
+          try {
+            result[field] = encrypt(String(result[field]));
+          } catch (e) {
+            console.error(`Field encryption error [${field}]:`, e);
+          }
+        }
+      });
+      return result;
+    } catch (e: any) {
+      console.error(`prepareForDB error:`, e);
+      throw new Error(`Veri hazırlama hatası: ${e.message}`);
+    }
   };
 
   const prepareFromDB = (data: any) => {
-    if (!data) return data;
-    const result = data.toObject ? data.toObject() : { ...data };
-    result.id = result._id ? result._id.toString() : result.id;
-    delete result._id;
-    delete result.__v;
-    encryptedFields.forEach(field => {
-      if (result[field]) result[field] = decrypt(result[field]);
-    });
-    return result;
+    try {
+      if (!data) return data;
+      const result = data.toObject ? data.toObject() : { ...data };
+      result.id = result._id ? result._id.toString() : result.id;
+      delete result._id;
+      delete result.__v;
+      encryptedFields.forEach(field => {
+        if (result[field]) {
+          try {
+            result[field] = decrypt(String(result[field]));
+          } catch (e) {
+            console.error(`Field decryption error [${field}]:`, e);
+          }
+        }
+      });
+      return result;
+    } catch (e: any) {
+      console.error(`prepareFromDB error:`, e);
+      return data; // Return raw data if prep fails
+    }
   };
 
   router.get("/", async (req, res) => {
@@ -287,8 +317,44 @@ app.use("/api/users", createCrudRoutes(UserModel, 'user', ['name', 'surname', 'f
 // ... (Rest of OAuth and setupVite remains similar)
 
 // Health check
-app.get(["/api/health", "/health"], (req, res) => {
-  res.json({ status: "ok", env: process.env.NODE_ENV });
+app.get(["/api/health", "/health", "/api/ping"], (req, res) => {
+  res.json({ 
+    status: "ok", 
+    env: process.env.NODE_ENV,
+    db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    time: new Date().toISOString()
+  });
+});
+
+// Direct DB Test Route
+app.get("/api/test-db-connection", async (req, res) => {
+  try {
+    console.log("Manual DB connection test started...");
+    if (!MONGODB_URI) throw new Error("MONGODB_URI is missing");
+    
+    // Attempt a brand new connection for testing
+    const testConn = await mongoose.createConnection(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000
+    }).asPromise();
+    
+    const collections = await testConn.db.listCollections().toArray();
+    await testConn.close();
+    
+    res.json({ 
+      success: true, 
+      message: "Connection successful", 
+      collections: collections.map(c => c.name) 
+    });
+  } catch (err: any) {
+    console.error("Manual DB connection test failed:", err);
+    res.status(500).json({ 
+      success: false, 
+      error: err.message, 
+      name: err.name,
+      code: err.code,
+      stack: err.stack
+    });
+  }
 });
 
 // Auth URL

@@ -11,8 +11,19 @@ async function apiFetch(path: string, options?: RequestInit) {
     },
   });
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Bilinmeyen hata' }));
-    throw new Error(error.error || `API hatası: ${response.status}`);
+    const text = await response.text();
+    let errorMsg = `API Hatası: ${response.status}`;
+    try {
+      const errorData = JSON.parse(text);
+      errorMsg = errorData.message || errorData.error || errorMsg;
+      if (errorData.stack) console.error("Server Stack:", errorData.stack);
+    } catch (e) {
+      // Not JSON, probably Vercel's HTML error page
+      if (text.includes("MONGODB_URI")) errorMsg = "Veritabanı yapılandırma hatası detected.";
+      else if (text.includes("Serverless Function Execution Error")) errorMsg = "Vercel Sunucu Hatası (Function Crash)";
+      else errorMsg = text.substring(0, 100) || `Bilinmeyen hata (${response.status})`;
+    }
+    throw new Error(errorMsg);
   }
   return response.json();
 }
