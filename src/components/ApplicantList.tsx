@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, EDIRNE_NEIGHBORHOODS, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3 } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3, Eye, EyeOff } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -696,10 +696,10 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
                       <div className="flex justify-end gap-1 lg:gap-2">
                         <button
                           onClick={() => toggleReveal(applicant.id!)}
-                          className={`p-2 rounded-lg transition-all ${revealedItems.has(applicant.id!) ? 'text-amber-600 bg-amber-50' : 'text-slate-400 hover:bg-slate-100'}`}
+                          className={`p-2 rounded-lg transition-all ${revealedItems.has(applicant.id!) ? 'text-amber-600 bg-amber-50 shadow-sm border border-amber-100' : 'text-slate-400 hover:bg-slate-100'}`}
                           title={revealedItems.has(applicant.id!) ? 'Gizle' : 'Göster'}
                         >
-                          <Search className="w-4 h-4 lg:w-5 lg:h-5" />
+                          {revealedItems.has(applicant.id!) ? <EyeOff className="w-4 h-4 lg:w-5 lg:h-5" /> : <Eye className="w-4 h-4 lg:w-5 lg:h-5" />}
                         </button>
                         <button
                           onClick={() => setSelectedStatsApplicant(applicant)}

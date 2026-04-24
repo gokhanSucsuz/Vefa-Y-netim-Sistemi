@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Staff, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, BarChart3 } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Eye, EyeOff } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AnimatePresence } from 'motion/react';
 import { maskTcNo, maskPhone } from '../lib/masking';
@@ -398,10 +398,10 @@ export default function StaffList({ staff, currentUser }: Props) {
                         <div className="flex justify-end gap-1.5">
                           <button
                             onClick={() => toggleReveal(s.id!)}
-                            className={`p-2 rounded-xl transition-all ${revealedItems.has(s.id!) ? 'text-amber-600 bg-amber-50 shadow-sm' : 'text-slate-300 hover:bg-slate-100'}`}
+                            className={`p-2 rounded-xl transition-all ${revealedItems.has(s.id!) ? 'text-amber-600 bg-amber-50 shadow-sm border border-amber-100' : 'text-slate-300 hover:bg-slate-100'}`}
                             title={revealedItems.has(s.id!) ? 'Gizle' : 'Göster'}
                           >
-                            <Search className="w-4 h-4" />
+                            {revealedItems.has(s.id!) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={() => setSelectedStatsStaff(s)}

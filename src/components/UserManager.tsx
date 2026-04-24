@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, CheckCircle, XCircle, Trash2, Loader2, Search, Mail, Phone, CreditCard, Activity } from 'lucide-react';
+import { User, Shield, CheckCircle, XCircle, Trash2, Loader2, Search, Mail, Phone, CreditCard, Activity, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { dbService } from '../db';
 import { SystemUser } from '../types';
 import { logAction } from '../services/auditService';
@@ -125,15 +125,52 @@ export default function UserManager({ currentUser }: UserManagerProps) {
           <p className="text-gray-500 text-sm">Sisteme kayıtlı personellerin yetki ve onay durumlarını yönetin.</p>
         </div>
         
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Personel ara..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-          />
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          {currentUser.isSuperAdmin && (
+            <button
+              onClick={async () => {
+                if (confirm('Tüm hane ve personel kayıtları silinecek ve yerlerine gerçekçi örnek veriler yüklenecek. Onaylıyor musunuz?')) {
+                  try {
+                    setIsProcessing('mock-reset');
+                    const response = await fetch('/api/admin/reset-mock-data', {
+                      method: 'POST',
+                      headers: {
+                        'x-user-role': currentUser.role || '',
+                        'x-user-id': currentUser.id || ''
+                      }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                      alert(data.message);
+                      window.location.reload();
+                    } else {
+                      alert('Hata: ' + data.error);
+                    }
+                  } catch (err) {
+                    alert('Sıfırlama sırasında bir hata oluştu.');
+                  } finally {
+                    setIsProcessing(null);
+                  }
+                }
+              }}
+              disabled={isProcessing === 'mock-reset'}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-rose-50 text-rose-700 px-4 py-2 rounded-xl hover:bg-rose-100 transition-all font-bold border border-rose-100 text-xs"
+            >
+              <RefreshCw className={`w-4 h-4 ${isProcessing === 'mock-reset' ? 'animate-spin' : ''}`} />
+              SİSTEMİ SIFIRLA (MOCK DATA)
+            </button>
+          )}
+
+          <div className="relative flex-1 md:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Personel ara..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            />
+          </div>
         </div>
       </div>
 
@@ -193,10 +230,10 @@ export default function UserManager({ currentUser }: UserManagerProps) {
                     <div className="flex justify-end gap-2">
                       <button 
                         onClick={() => toggleReveal(user.id!)}
-                        className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"
+                        className={`p-2 rounded-xl transition-all ${revealedItems.has(user.id!) ? 'text-amber-600 bg-amber-50 shadow-sm border border-amber-100' : 'text-slate-400 hover:bg-slate-100'}`}
                         title={revealedItems.has(user.id!) ? 'Gizle' : 'Göster'}
                       >
-                        <Search className="w-4 h-4" />
+                        {revealedItems.has(user.id!) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                       
                       <button

@@ -25,11 +25,10 @@ dotenv.config();
 const ALLOWED_EMAIL = "edirnesydv@gmail.com";
 const MONGODB_URI = process.env.MONGODB_URI?.trim();
 const IV_LENGTH = 16;
-const ENCRYPTION_KEY = (process.env.ENCRYPTION_KEY || "vefa-sydv-secure-encryption-key-2026-64-chars-long-string-needed-32chars").trim();
+const ENCRYPTION_KEY_RAW = (process.env.ENCRYPTION_KEY || "vefa-sydv-secure-encryption-key-2026-64-chars-long-string-needed-32chars").trim();
 
 function getEncryptionKey() {
-  // Always use a 32-byte key generated from the environment variable
-  return crypto.createHash('sha256').update(ENCRYPTION_KEY).digest();
+  return crypto.createHash('sha256').update(ENCRYPTION_KEY_RAW).digest();
 }
 
 function encrypt(text: string | undefined): string | undefined {
@@ -65,6 +64,7 @@ function decrypt(text: string | undefined): string | undefined {
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted.toString('utf8');
   } catch (e) {
+    // If decryption fails, return original text to avoid losing data
     return text;
   }
 }
@@ -226,12 +226,22 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       await connectDB();
       let query = {};
       
+      const userRole = req.headers['x-user-role'];
+      const userId = req.headers['x-user-id'];
+
       // Specialized logic for AuditLogs
       if (name === 'auditlog') {
-        const userId = req.headers['x-user-id'];
-        const userRole = req.headers['x-user-role'];
         if (userRole !== 'superadmin' && userRole !== 'admin') {
           query = { userId };
+        }
+      }
+
+      // Specialized logic for Users: regular admins shouldn't see superadmins if we want isolation,
+      // but the user wants superadmin to see everyone and to be seen if they are superadmin.
+      // Let's just return all users for any admin level.
+      if (name === 'user') {
+        if (userRole !== 'superadmin' && userRole !== 'admin') {
+          return res.status(403).json({ error: "Yetkiniz yok" });
         }
       }
 
@@ -346,7 +356,93 @@ app.use("/api/schedules", createCrudRoutes(ScheduleModel, 'schedule'));
 app.use("/api/programs", createCrudRoutes(ProgramModel, 'program'));
 app.use("/api/auditlogs", createCrudRoutes(AuditLogModel, 'auditlog'));
 app.use("/api/admins", createCrudRoutes(AdminModel, 'admin'));
-app.use("/api/users", createCrudRoutes(UserModel, 'user', ['name', 'surname', 'fullName', 'tcNo', 'phone', 'password', 'email']));
+app.use("/api/users", createCrudRoutes(UserModel, 'user', ['name', 'surname', 'fullName', 'tcNo', 'phone', 'password', 'passwordHash', 'email']));
+
+// Reset Mock Data Route
+app.post("/api/admin/reset-mock-data", async (req, res) => {
+  const userRole = req.headers['x-user-role'];
+  if (userRole !== 'superadmin') {
+    return res.status(403).json({ error: "Sadece Süper Admin bu işlemi yapabilir." });
+  }
+
+  try {
+    await connectDB();
+    
+    // Clear existing data
+    await ApplicantModel.deleteMany({});
+    await StaffModel.deleteMany({});
+    await ScheduleModel.deleteMany({});
+    await WorkDayModel.deleteMany({});
+    await ProgramModel.deleteMany({});
+
+    const neighborhoods = [
+      "1. Murat", "Abdurrahman", "Atatürk", "Babademirtaş", "Barutluk", "Çavuşbey", 
+      "Cumhuriyet", "Dilaverbey", "Fatih", "İstasyon", "Karaağaç", "Kocasinan", 
+      "Kurtuluş", "Medrese Alibey", "Menzilahir", "Meydan", "Mithatpaşa", "Nişancıpaşa"
+    ];
+
+    const surnames = ["Yılmaz", "Kaya", "Demir", "Çelik", "Yıldız", "Aydın", "Özdemir", "Arslan", "Doğan", "Kılıç", "Çetin", "Öztürk", "Aksoy", "Yavuz", "Erdem"];
+    const maleNames = ["Gökhan", "Ahmet", "Mehmet", "Mustafa", "Ali", "Murat", "Hüseyin", "İbrahim", "Ömer", "Can", "Deniz", "Eren", "Emre", "Serkan", "Hakan"];
+    const femaleNames = ["Fatma", "Ayşe", "Emine", "Hatice", "Zeynep", "Elif", "Merve", "Selin", "Gizem", "Derya", "Sultan", "Melek", "Pınar", "Özlem", "Arzu"];
+
+    console.log('Generating 100 realistic households...');
+    const applicants = [];
+    for (let i = 1; i <= 100; i++) {
+      const isMale = Math.random() > 0.5;
+      const name = isMale ? maleNames[Math.floor(Math.random() * maleNames.length)] : femaleNames[Math.floor(Math.random() * femaleNames.length)];
+      const surname = surnames[Math.floor(Math.random() * surnames.length)];
+      const neighborhood = neighborhoods[i % neighborhoods.length];
+      const tcNo = (10000000000 + Math.floor(Math.random() * 89999999999)).toString();
+
+      applicants.push({
+        name,
+        surname,
+        tcNo: encrypt(tcNo),
+        phone: encrypt("05" + (Math.floor(Math.random() * 900000000) + 100000000).toString()),
+        address: encrypt(`${neighborhood} Mahallesi, No: ${Math.floor(Math.random() * 100) + 1}, Edirne`),
+        neighborhood,
+        haneNo: encrypt(`HANE-${2000 + i}`),
+        householdSize: Math.floor(Math.random() * 5) + 1,
+        priority: i,
+        lat: 41.675 + (Math.random() - 0.5) * 0.02,
+        lng: 26.570 + (Math.random() - 0.5) * 0.02,
+      });
+    }
+    await ApplicantModel.insertMany(applicants);
+
+    console.log('Generating 6 realistic staff members...');
+    const staffNames = [
+      { n: "Ali", s: "Vefa" }, { n: "Ayşe", s: "Yardım" }, { n: "Mehmet", s: "Hizmet" },
+      { n: "Fatma", s: "Saha" }, { n: "Can", s: "Destek" }, { n: "Elif", s: "Ekip" }
+    ];
+    const staffList = [];
+    for (let i = 0; i < 6; i++) {
+      staffList.push({
+        name: staffNames[i].n,
+        surname: staffNames[i].s,
+        phone: encrypt("05" + (Math.floor(Math.random() * 900000000) + 100000000).toString()),
+        role: i % 2 === 0 ? 'Teknik Personel' : 'Temizlik Personeli',
+        tcNo: encrypt((20000000000 + Math.floor(Math.random() * 79999999999)).toString()),
+        password: encrypt('123456'),
+        isActive: true
+      });
+    }
+    const createdStaff = await StaffModel.insertMany(staffList);
+    
+    // Partner up
+    await StaffModel.findByIdAndUpdate(createdStaff[0]._id, { partnerId: createdStaff[1]._id.toString() });
+    await StaffModel.findByIdAndUpdate(createdStaff[1]._id, { partnerId: createdStaff[0]._id.toString() });
+    await StaffModel.findByIdAndUpdate(createdStaff[2]._id, { partnerId: createdStaff[3]._id.toString() });
+    await StaffModel.findByIdAndUpdate(createdStaff[3]._id, { partnerId: createdStaff[2]._id.toString() });
+    await StaffModel.findByIdAndUpdate(createdStaff[4]._id, { partnerId: createdStaff[5]._id.toString() });
+    await StaffModel.findByIdAndUpdate(createdStaff[5]._id, { partnerId: createdStaff[4]._id.toString() });
+
+    res.json({ success: true, message: "Veriler başarıyla sıfırlandı ve gerçekçi mock data ile dolduruldu." });
+  } catch (err: any) {
+    console.error("Reset error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ... (Rest of OAuth and setupVite remains similar)
 
