@@ -24,11 +24,12 @@ dotenv.config();
 
 const ALLOWED_EMAIL = "edirnesydv@gmail.com";
 const MONGODB_URI = process.env.MONGODB_URI?.trim();
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "vefa-sydv-secure-encryption-key-2026-64-chars-long-string-needed"; 
-// AES-256-CBC Encryption
 const IV_LENGTH = 16;
+const ENCRYPTION_KEY = (process.env.ENCRYPTION_KEY || "vefa-sydv-secure-encryption-key-2026-64-chars-long-string-needed-32chars").trim();
+
 function getEncryptionKey() {
-  return crypto.createHash('sha256').update(String(ENCRYPTION_KEY)).digest();
+  // Always use a 32-byte key generated from the environment variable
+  return crypto.createHash('sha256').update(ENCRYPTION_KEY).digest();
 }
 
 function encrypt(text: string | undefined): string | undefined {
@@ -36,7 +37,7 @@ function encrypt(text: string | undefined): string | undefined {
   try {
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv('aes-256-cbc', getEncryptionKey(), iv);
-    let encrypted = cipher.update(text);
+    let encrypted = cipher.update(text, 'utf8');
     encrypted = Buffer.concat([encrypted, cipher.final()]);
     return iv.toString('hex') + ':' + encrypted.toString('hex');
   } catch (e) {
@@ -47,20 +48,23 @@ function encrypt(text: string | undefined): string | undefined {
 
 function decrypt(text: string | undefined): string | undefined {
   if (!text || typeof text !== 'string' || !text.includes(':')) return text;
+  
   try {
     const parts = text.split(':');
     const ivHex = parts.shift();
     const encryptedHex = parts.join(':');
-    if (!ivHex || !encryptedHex) return text;
+    
+    if (!ivHex || !encryptedHex || ivHex.length !== (IV_LENGTH * 2)) {
+      return text;
+    }
     
     const iv = Buffer.from(ivHex, 'hex');
     const encryptedText = Buffer.from(encryptedHex, 'hex');
     const decipher = crypto.createDecipheriv('aes-256-cbc', getEncryptionKey(), iv);
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
+    return decrypted.toString('utf8');
   } catch (e) {
-    console.error("Decryption error:", e);
     return text;
   }
 }
@@ -194,9 +198,13 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     try {
       if (!data) return data;
       const result = data.toObject ? data.toObject() : { ...data };
-      result.id = result._id ? result._id.toString() : result.id;
+      
+      // Ensure ID is present
+      result.id = result._id?.toString() || result.id;
       delete result._id;
       delete result.__v;
+
+      // Decrypt requested fields
       encryptedFields.forEach(field => {
         if (result[field]) {
           try {
@@ -209,7 +217,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       return result;
     } catch (e: any) {
       console.error(`prepareFromDB error:`, e);
-      return data; // Return raw data if prep fails
+      return data;
     }
   };
 

@@ -339,81 +339,90 @@ export default function StaffList({ staff, currentUser }: Props) {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
-        <div className="overflow-x-auto scrollbar-hide w-full">
-          <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-full">
+      <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ad Soyad</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">TC Kimlik No</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Telefon</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ekip Arkadaşı</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 text-right uppercase tracking-wider">İşlemler</th>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Personel Bilgileri</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-44">T.C. Kimlik No</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-40">Telefon</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-48">Ekip Arkadaşı</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-48 text-right">İşlemler</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-slate-50">
               {filteredAndSortedStaff.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500 font-medium">
-                    Arama kriterlerine uygun personel bulunamadı.
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                    Kayıt bulunamadı.
                   </td>
                 </tr>
               ) : (
                 filteredAndSortedStaff.map(s => {
                   const partner = staff.find(p => p.id === s.partnerId);
                   return (
-                    <tr key={s.id} className="hover:bg-gray-50/50 transition-all group">
-                      <td className="px-4 lg:px-6 py-4">
-                        <div className="font-bold text-gray-900 text-sm">{s.name} {s.surname}</div>
-                        <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Vefa Personeli</div>
+                    <tr key={s.id} className="hover:bg-slate-50/50 transition-all group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-50 text-institution-blue rounded-xl flex items-center justify-center shrink-0 border border-blue-100">
+                            <Users className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 text-sm">{s.name} {s.surname}</div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Vefa Saha Personeli</div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-4 lg:px-6 py-4 text-gray-600 font-mono text-xs font-bold">
-                        {revealedItems.has(s.id!) ? s.tcNo : maskTcNo(s.tcNo)}
+                      <td className="px-6 py-4 text-slate-700 font-mono text-xs font-bold bg-white/50">
+                        <span className="bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                          {revealedItems.has(s.id!) ? s.tcNo : maskTcNo(s.tcNo)}
+                        </span>
                       </td>
-                      <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">
+                      <td className="px-6 py-4 text-slate-600 text-[10px] font-bold uppercase tracking-tighter">
                         {revealedItems.has(s.id!) ? s.phone : maskPhone(s.phone)}
                       </td>
-                      <td className="px-4 lg:px-6 py-4">
+                      <td className="px-6 py-4">
                         {partner ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase tracking-wider">
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-blue-50 text-institution-blue border border-blue-100 uppercase tracking-widest w-fit shadow-sm">
                             <Users className="w-3 h-3" />
                             {partner.name} {partner.surname}
-                          </span>
+                          </div>
                         ) : (
-                          <span className="text-[10px] font-bold bg-gray-50 text-gray-400 px-2 py-1 rounded-lg border border-gray-100 uppercase tracking-wider">
-                            Bireysel
+                          <span className="text-[10px] font-black bg-slate-100 text-slate-400 px-3 py-1.5 rounded-xl border border-slate-200 uppercase tracking-widest w-fit">
+                            BİREYSEL
                           </span>
                         )}
                       </td>
-                      <td className="px-4 lg:px-6 py-4 text-right">
-                        <div className="flex justify-end gap-1 lg:gap-2">
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1.5">
                           <button
                             onClick={() => toggleReveal(s.id!)}
-                            className={`p-2 rounded-lg transition-all ${revealedItems.has(s.id!) ? 'text-amber-600 bg-amber-50' : 'text-slate-400 hover:bg-slate-100'}`}
+                            className={`p-2 rounded-xl transition-all ${revealedItems.has(s.id!) ? 'text-amber-600 bg-amber-50 shadow-sm' : 'text-slate-300 hover:bg-slate-100'}`}
                             title={revealedItems.has(s.id!) ? 'Gizle' : 'Göster'}
                           >
-                            <Search className="w-4 h-4 lg:w-5 lg:h-5" />
+                            <Search className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setSelectedStatsStaff(s)}
-                            className="p-2 text-institution-blue hover:bg-blue-50 rounded-lg transition-all"
-                            title="Performans ve Rapor"
+                            className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"
+                            title="İstatistik"
                           >
-                            <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5" />
+                            <BarChart3 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleEdit(s)}
-                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                            className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"
                             title="Düzenle"
                           >
-                            <Edit2 className="w-4 h-4 lg:w-5 lg:h-5" />
+                            <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(s.id!)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            className="p-2 text-rose-300 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-all"
                             title="Sil"
                           >
-                            <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>

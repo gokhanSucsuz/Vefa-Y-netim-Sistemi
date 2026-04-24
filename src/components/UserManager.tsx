@@ -3,6 +3,7 @@ import { User, Shield, CheckCircle, XCircle, Trash2, Loader2, Search, Mail, Phon
 import { dbService } from '../db';
 import { SystemUser } from '../types';
 import { logAction } from '../services/auditService';
+import { maskTcNo } from '../lib/masking';
 
 interface UserManagerProps {
   currentUser: SystemUser;
@@ -13,6 +14,17 @@ export default function UserManager({ currentUser }: UserManagerProps) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
+
+  const toggleReveal = (id: string) => {
+    const newRevealed = new Set(revealedItems);
+    if (newRevealed.has(id)) {
+      newRevealed.delete(id);
+    } else {
+      newRevealed.add(id);
+    }
+    setRevealedItems(newRevealed);
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -82,11 +94,20 @@ export default function UserManager({ currentUser }: UserManagerProps) {
     }
   };
 
-  const filteredUsers = users.filter(u => 
-    `${u.name} ${u.surname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.tcNo?.includes(searchTerm) ||
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    const name = (u.name || '').toLowerCase();
+    const surname = (u.surname || '').toLowerCase();
+    const tcNo = (u.tcNo || '');
+    const email = (u.email || '').toLowerCase();
+    const search = searchTerm.toLowerCase();
+
+    return (
+      `${name} ${surname}`.includes(search) ||
+      tcNo.includes(search) ||
+      email.includes(search) ||
+      (u.role || '').toLowerCase().includes(search)
+    );
+  });
 
   if (loading) {
     return (
@@ -116,88 +137,105 @@ export default function UserManager({ currentUser }: UserManagerProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredUsers.map((user) => (
-          <div 
-            key={user.id} 
-            className={`bg-white rounded-3xl border ${user.isSuperAdmin ? 'border-orange-200 ring-4 ring-orange-50' : 'border-gray-100'} p-6 shadow-sm hover:shadow-md transition-all relative overflow-hidden group`}
-          >
-            {user.isSuperAdmin && (
-              <div className="absolute top-0 right-0 bg-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">
-                Süper Admin
-              </div>
-            )}
-            
-            <div className="flex items-start gap-4 mb-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${user.isSuperAdmin ? 'bg-orange-100 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>
-                <User className="w-6 h-6" />
-              </div>
-              <div className="overflow-hidden">
-                <h3 className="font-bold text-gray-900 truncate">{user.name} {user.surname}</h3>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <Activity className={`w-3 h-3 ${user.isApproved ? 'text-green-500' : 'text-amber-500'}`} />
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${user.isApproved ? 'text-green-600' : 'text-amber-600'}`}>
-                    {user.isApproved ? 'Aktif / Onaylı' : 'Onay Bekliyor'}
-                  </span>
-                </div>
-              </div>
-            </div>
+      <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Kullanıcı Bilgileri</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-48">E-Posta</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-44">T.C. No</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-32">Rol</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-32">Durum</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-64 text-right">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className={`hover:bg-slate-50/50 transition-all group ${user.isSuperAdmin ? 'bg-orange-50/20' : ''}`}>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${user.isSuperAdmin ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                        <User className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                          {user.name} {user.surname}
+                          {user.isSuperAdmin && (
+                            <span className="bg-orange-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">S.Admin</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{user.id?.substring(0, 8)}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-xs text-slate-600 font-medium">
+                      {revealedItems.has(user.id!) ? user.email : '*******@****.***'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-xs text-slate-700 font-mono font-bold bg-white border border-slate-100 px-2 py-0.5 rounded w-fit">
+                      {revealedItems.has(user.id!) ? user.tcNo : maskTcNo(user.tcNo)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-xs font-bold capitalize text-slate-600">
+                    {user.role}
+                  </td>
+                  <td className="px-6 py-4 text-xs font-bold">
+                    {user.isApproved ? (
+                      <span className="text-green-600 flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> Aktif</span>
+                    ) : (
+                      <span className="text-amber-600 flex items-center gap-1"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Bekliyor</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => toggleReveal(user.id!)}
+                        className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"
+                        title={revealedItems.has(user.id!) ? 'Gizle' : 'Göster'}
+                      >
+                        <Search className="w-4 h-4" />
+                      </button>
+                      
+                      <button
+                        onClick={() => handleToggleApproval(user)}
+                        disabled={isProcessing === user.id || (user.isSuperAdmin && user.id === currentUser.id)}
+                        className={`p-2 rounded-xl transition-all ${
+                          user.isApproved ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'
+                        }`}
+                        title={user.isApproved ? 'Durdur' : 'Onayla'}
+                      >
+                        {user.isApproved ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                      </button>
+                      
+                      {!user.isSuperAdmin && (
+                        <button
+                          onClick={() => handleToggleRole(user)}
+                          disabled={isProcessing === user.id}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                          title={user.role === 'admin' ? 'Personel Yap' : 'Admin Yap'}
+                        >
+                          <Shield className="w-5 h-5" />
+                        </button>
+                      )}
 
-            <div className="space-y-2.5 mb-6">
-              <div className="flex items-center gap-3 text-xs text-gray-600">
-                <Mail className="w-4 h-4 text-gray-400" />
-                <span className="truncate">{user.email || 'E-posta tanımlanmamış'}</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-gray-600">
-                <CreditCard className="w-4 h-4 text-gray-400" />
-                <span>{user.tcNo}</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-gray-600">
-                <Shield className="w-4 h-4 text-gray-400" />
-                <span className="capitalize">{user.role}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
-              <button
-                onClick={() => handleToggleApproval(user)}
-                disabled={isProcessing === user.id || (user.isSuperAdmin && user.id === currentUser.id)}
-                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                  user.isApproved 
-                    ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50' 
-                    : 'bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50'
-                }`}
-              >
-                {isProcessing === user.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : user.isApproved ? (
-                  <><XCircle className="w-4 h-4" /> Durdur</>
-                ) : (
-                  <><CheckCircle className="w-4 h-4" /> Onayla</>
-                )}
-              </button>
-              
-              {!user.isSuperAdmin && (
-                <button
-                  onClick={() => handleToggleRole(user)}
-                  disabled={isProcessing === user.id}
-                  className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40"
-                  title={user.role === 'admin' ? 'Personel Yap' : 'Admin Yap'}
-                >
-                  <Shield className="w-4 h-4" /> {user.role === 'admin' ? 'Personel' : 'Yönetici'}
-                </button>
-              )}
-
-              <button
-                onClick={() => handleDeleteUser(user)}
-                disabled={isProcessing === user.id || user.isSuperAdmin}
-                className={`flex items-center justify-center gap-2 bg-red-50 text-red-700 hover:bg-red-100 px-3 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40 ${user.isSuperAdmin || !user.isSuperAdmin && 'col-span-1'}`}
-              >
-                <Trash2 className="w-4 h-4" /> Sil
-              </button>
-            </div>
-          </div>
-        ))}
+                      <button
+                        onClick={() => handleDeleteUser(user)}
+                        disabled={isProcessing === user.id || user.isSuperAdmin}
+                        className="p-2 text-red-300 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all"
+                        title="Sil"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {filteredUsers.length === 0 && (

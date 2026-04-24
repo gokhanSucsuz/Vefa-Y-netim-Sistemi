@@ -175,7 +175,12 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
                     <User className="w-5 h-5 text-gray-400 group-hover:text-blue-600" />
                   </div>
                   <div className="text-left">
-                    <div className="font-bold text-gray-900">{u.name} {u.surname}</div>
+                    <div className="font-bold text-gray-900 flex items-center gap-2">
+                      {u.name} {u.surname}
+                      {u.isSuperAdmin && (
+                        <span className="bg-orange-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">S.Admin</span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500 uppercase tracking-wider">{u.role === 'admin' ? 'Yönetici' : 'Personel'}</div>
                   </div>
                 </button>
