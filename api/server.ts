@@ -71,11 +71,35 @@ app.use(cookieParser(process.env.COOKIE_SECRET || "edirne-sydv-secret"));
 // MongoDB Connection
 if (MONGODB_URI) {
   mongoose.connect(MONGODB_URI)
-    .then(() => console.log("Connected to MongoDB"))
-    .catch(err => console.error("MongoDB connection error:", err));
-} else {
-  console.warn("WARNING: MONGODB_URI is missing. Database operations will fail.");
+    .then(() => {
+      console.log("✅ MongoDB'ye başarıyla bağlandı.");
+      // Force creation of collections by listing them or check connection state
+      mongoose.connection.db.listCollections().toArray().then(cols => {
+        console.log(`📂 Mevcut koleksiyon sayısı: ${cols.length}`);
+      });
+    })
+    .catch(err => {
+      console.error("❌ MongoDB bağlantı hatası:", err.message);
+      console.error("Lütfen MONGODB_URI değişkenini kontrol edin.");
+    });
 }
+
+// Database Status
+app.get("/api/db-status", async (req, res) => {
+  const status = {
+    connected: mongoose.connection.readyState === 1,
+    dbName: mongoose.connection.name,
+    collections: [],
+    mongoUriSet: !!MONGODB_URI
+  };
+  if (status.connected) {
+    try {
+      const cols = await mongoose.connection.db.listCollections().toArray();
+      status.collections = cols.map(c => c.name) as any;
+    } catch (e) {}
+  }
+  res.json(status);
+});
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;

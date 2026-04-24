@@ -75,11 +75,11 @@ const UserSchema = new mongoose.Schema({
   createdAt: String
 });
 
-export const ApplicantModel = mongoose.model('Applicant', ApplicantSchema);
-export const StaffModel = mongoose.model('Staff', StaffSchema);
-export const WorkDayModel = mongoose.model('WorkDay', WorkDaySchema);
-export const ScheduleModel = mongoose.model('Schedule', ScheduleSchema);
-export const ProgramModel = mongoose.model('Program', ProgramSchema);
-export const AuditLogModel = mongoose.model('AuditLog', AuditLogSchema);
-export const AdminModel = mongoose.model('Admin', AdminSchema);
-export const UserModel = mongoose.model('User', UserSchema);
+export const ApplicantModel = mongoose.models.Applicant || mongoose.model('Applicant', ApplicantSchema);
+export const StaffModel = mongoose.models.Staff || mongoose.model('Staff', StaffSchema);
+export const WorkDayModel = mongoose.models.WorkDay || mongoose.model('WorkDay', WorkDaySchema);
+export const ScheduleModel = mongoose.models.Schedule || mongoose.model('Schedule', ScheduleSchema);
+export const ProgramModel = mongoose.models.Program || mongoose.model('Program', ProgramSchema);
+export const AuditLogModel = mongoose.models.AuditLog || mongoose.model('AuditLog', AuditLogSchema);
+export const AdminModel = mongoose.models.Admin || mongoose.model('Admin', AdminSchema);
+export const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);

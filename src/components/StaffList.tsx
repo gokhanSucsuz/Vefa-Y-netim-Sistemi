@@ -33,13 +33,19 @@ export default function StaffList({ staff, currentUser }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Clean undefined fields
+      const dataToSave = { ...formData };
+      if (dataToSave.partnerId === undefined) {
+        delete dataToSave.partnerId;
+      }
+
       let newId: string;
       if (editingId) {
-        await dbLocal.staff.update(editingId, formData);
+        await dbLocal.staff.update(editingId, dataToSave);
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Personel Güncelleme', `${formData.name} ${formData.surname} personeli güncellendi.`);
         newId = editingId;
       } else {
-        newId = await dbLocal.staff.add(formData);
+        newId = await dbLocal.staff.add(dataToSave);
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Personel Ekleme', `${formData.name} ${formData.surname} personeli eklendi.`);
       }
 
