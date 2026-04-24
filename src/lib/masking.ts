@@ -3,7 +3,7 @@
  * Kişisel verilerin korunması kanununa (KVKK) uyumlu arayüz görünümü sağlar.
  */
 
-export const maskTCNo = (tc: string): string => {
+export const maskTcNo = (tc: string): string => {
   if (!tc || tc.length < 11) return tc;
   return `${tc.substring(0, 3)}******${tc.substring(9)}`;
 };

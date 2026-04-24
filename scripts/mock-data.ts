@@ -102,8 +102,8 @@ async function generateMockData() {
         const createdStaff = await StaffModel.insertMany(staffList);
         
         // Designated teammates (Staff 1 and Staff 2)
-        await StaffModel.findByIdAndUpdate(createdStaff[0]._id, { partnerId: createdStaff[1]._id.toString() });
-        await StaffModel.findByIdAndUpdate(createdStaff[1]._id, { partnerId: createdStaff[0]._id.toString() });
+        await StaffModel.findByIdAndUpdate(createdStaff[0]._id, { partnerId: createdStaff[1]._id.toString() }, {} as any);
+        await StaffModel.findByIdAndUpdate(createdStaff[1]._id, { partnerId: createdStaff[0]._id.toString() }, {} as any);
         
         console.log('Mock data generation complete!');
         process.exit(0);

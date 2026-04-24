@@ -15,7 +15,10 @@ export interface SystemUser {
   tcNo: string;
   email: string;
   passwordHash: string;
-  role: 'admin' | 'staff';
+  role: 'admin' | 'staff' | 'superadmin';
+  status?: 'active' | 'inactive' | 'pending';
+  isApproved?: boolean;
+  isSuperAdmin?: boolean;
   createdAt: string;
 }
 
