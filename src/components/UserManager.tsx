@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Shield, CheckCircle, XCircle, Trash2, Loader2, Search, Mail, Phone, CreditCard, Activity } from 'lucide-react';
 import { dbService } from '../db';
 import { SystemUser } from '../types';
+import { logAction } from '../services/auditService';
 
 interface UserManagerProps {
   currentUser: SystemUser;
@@ -37,6 +38,7 @@ export default function UserManager({ currentUser }: UserManagerProps) {
         isApproved: !user.isApproved,
         status: !user.isApproved ? 'active' : 'inactive' 
       });
+      logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Kullanıcı Onay Durumu Değiştirme', `${user.name} ${user.surname} kullanıcısının onay durumu ${!user.isApproved ? 'Aktif' : 'Pasif'} olarak güncellendi.`);
       await fetchUsers();
     } catch (err) {
       console.error('Error updating user:', err);
@@ -55,6 +57,7 @@ export default function UserManager({ currentUser }: UserManagerProps) {
     setIsProcessing(user.id!);
     try {
       await dbService.users.delete(user.id!);
+      logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Kullanıcı Silme', `${user.name} ${user.surname} kullanıcısı sistemden silindi.`);
       await fetchUsers();
     } catch (err) {
       console.error('Error deleting user:', err);
@@ -70,6 +73,7 @@ export default function UserManager({ currentUser }: UserManagerProps) {
     try {
       const newRole = user.role === 'admin' ? 'staff' : 'admin';
       await dbService.users.update(user.id!, { role: newRole });
+      logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Kullanıcı Rol Değiştirme', `${user.name} ${user.surname} kullanıcısının rolü ${newRole === 'admin' ? 'Yönetici' : 'Personel'} olarak güncellendi.`);
       await fetchUsers();
     } catch (err) {
       console.error('Error updating role:', err);
