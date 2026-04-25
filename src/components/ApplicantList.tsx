@@ -40,9 +40,11 @@ function LocationPicker({ position, setPosition }: { position: [number, number],
 interface Props {
   applicants: Applicant[];
   currentUser: SystemUser;
+  isPriorityMode?: boolean;
 }
 
-export default function ApplicantList({ applicants, currentUser }: Props) {
+export default function ApplicantList({ applicants, currentUser, isPriorityMode = false }: Props) {
+  const activeApplicants = applicants.filter(a => !a.isDeleted);
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -155,7 +157,7 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
   const handleDelete = async (id: string) => {
     const applicant = applicants.find(a => a.id === id);
     if (confirm('Bu haneyi silmek istediğinize emin misiniz?')) {
-      await dbLocal.applicants.delete(id);
+      await dbLocal.applicants.update(id, { isDeleted: true });
       if (applicant) {
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Silme', `${applicant.name} ${applicant.surname} hanesi silindi.`);
       }
@@ -378,11 +380,11 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Hane Listesi</h2>
-          <p className="text-gray-500">Temizlik hizmeti alan hanelerin kayıtlarını yönetin.</p>
+          <h2 className="text-2xl font-bold text-gray-900">{isPriorityMode ? 'Hane Sıralama & Öncelik' : 'Hane Listesi'}</h2>
+          <p className="text-gray-500">{isPriorityMode ? 'Hanelerin öncelik sırasını (' : 'Temizlik hizmeti alan hanelerin kayıtlarını'} yönetin.</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          {isImporting && (
+          {isImporting && !isPriorityMode && (
             <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 animate-pulse w-full sm:w-auto">
               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
               <span className="text-sm font-medium text-blue-700">
@@ -397,7 +399,7 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
             accept=".xlsx, .xls"
             className="hidden"
           />
-          {!isAdding && !isImporting && (
+          {!isAdding && !isImporting && !isPriorityMode && (
             <button
               onClick={() => fileInputRef.current?.click()}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200 text-sm"
@@ -406,7 +408,7 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
               Excel'den Yükle
             </button>
           )}
-          {applicants.length > 0 && !isAdding && !isImporting && (
+          {activeApplicants.length > 0 && !isAdding && !isImporting && !isPriorityMode && (
             <button
               onClick={fixNeighborhoods}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all font-semibold border border-amber-200 text-sm"
@@ -416,7 +418,7 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
               Mahalleleri Düzelt
             </button>
           )}
-          {applicants.length > 0 && !isAdding && !isImporting && (
+          {activeApplicants.length > 0 && !isAdding && !isImporting && !isPriorityMode && (
             <button
               onClick={handleDeleteAll}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all font-semibold text-sm"
@@ -425,7 +427,7 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
               Tümünü Sil
             </button>
           )}
-          {!isAdding && !isImporting && (
+          {!isAdding && !isImporting && !isPriorityMode && (
             <button
               onClick={() => setIsAdding(true)}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 text-sm"
@@ -534,6 +536,28 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
                 placeholder="Otomatik atanır"
               />
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Durum</label>
+              <select
+                value={formData.status || 'active'}
+                onChange={e => setFormData({ ...formData, status: e.target.value as 'active' | 'passive' })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              >
+                <option value="active">Aktif</option>
+                <option value="passive">Pasif</option>
+              </select>
+            </div>
+            {formData.status === 'passive' && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">Pasiflik Bitiş Tarihi</label>
+                <input
+                  type="date"
+                  value={formData.passiveUntil || ''}
+                  onChange={e => setFormData({ ...formData, passiveUntil: e.target.value })}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                />
+              </div>
+            )}
             <div className="md:col-span-2 space-y-1">
               <label className="text-sm font-medium text-gray-700">Adres</label>
               <div className="flex gap-2">
@@ -667,22 +691,24 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
                         <div className="font-bold text-blue-600 bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center border border-blue-100 text-xs shadow-sm">
                           {applicant.priority}
                         </div>
-                        <div className="flex flex-col gap-0.5 opacity-100 transition-all">
-                          <button 
-                            onClick={() => movePriority(applicant, 'up')}
-                            className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
-                            title="Yukarı Taşı"
-                          >
-                            <ArrowUp className="w-3 h-3" />
-                          </button>
-                          <button 
-                            onClick={() => movePriority(applicant, 'down')}
-                            className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
-                            title="Aşağı Taşı"
-                          >
-                            <ArrowDown className="w-3 h-3" />
-                          </button>
-                        </div>
+                        {isPriorityMode && (
+                          <div className="flex flex-col gap-0.5 opacity-100 transition-all">
+                            <button 
+                              onClick={() => movePriority(applicant, 'up')}
+                              className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
+                              title="Yukarı Taşı"
+                            >
+                              <ArrowUp className="w-3 h-3" />
+                            </button>
+                            <button 
+                              onClick={() => movePriority(applicant, 'down')}
+                              className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
+                              title="Aşağı Taşı"
+                            >
+                              <ArrowDown className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 lg:px-6 py-4">
@@ -722,27 +748,33 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
                         >
                           {revealedItems.has(applicant.id!) ? <EyeOff className="w-4 h-4 lg:w-5 lg:h-5" /> : <Eye className="w-4 h-4 lg:w-5 lg:h-5" />}
                         </button>
-                        <button
-                          onClick={() => setSelectedStatsApplicant(applicant)}
-                          className="p-2 text-institution-blue hover:bg-blue-50 rounded-lg transition-all"
-                          title="İstatistik ve Rapor"
-                        >
-                          <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(applicant)}
-                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
-                          title="Düzenle"
-                        >
-                          <Edit2 className="w-4 h-4 lg:w-5 lg:h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(applicant.id!)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          title="Sil"
-                        >
-                          <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
-                        </button>
+                        {!isPriorityMode && (
+                          <button
+                            onClick={() => setSelectedStatsApplicant(applicant)}
+                            className="p-2 text-institution-blue hover:bg-blue-50 rounded-lg transition-all"
+                            title="İstatistik ve Rapor"
+                          >
+                            <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                        )}
+                        {!isPriorityMode && (
+                          <button
+                            onClick={() => handleEdit(applicant)}
+                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                            title="Düzenle"
+                          >
+                            <Edit2 className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                        )}
+                        {!isPriorityMode && (
+                          <button
+                            onClick={() => handleDelete(applicant.id!)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            title="Sil"
+                          >
+                            <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

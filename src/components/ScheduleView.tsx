@@ -4,7 +4,7 @@ import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHO
 import { logAction } from '../services/auditService';
 import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search } from 'lucide-react';
+import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
@@ -1375,9 +1375,17 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
                     <MapIcon className="w-3 h-3 text-white" />
                   </div>
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                    <div className="bg-white px-3 py-2 rounded-lg shadow-xl border border-gray-100 whitespace-nowrap">
+                    <div className="bg-white px-3 py-2 rounded-lg shadow-xl border border-gray-100 whitespace-nowrap flex flex-col gap-1 pointer-events-auto">
                       <div className="font-bold text-xs text-gray-900">{m.name}</div>
                       <div className="text-[10px] text-gray-500">{m.address}</div>
+                      <a 
+                        href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${m.pos[0]},${m.pos[1]}`}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded inline-flex items-center justify-center gap-1 mt-1 font-bold transition-colors"
+                      >
+                         <Eye className="w-3 h-3" /> Sokak Görünümü
+                      </a>
                     </div>
                   </div>
                 </div>

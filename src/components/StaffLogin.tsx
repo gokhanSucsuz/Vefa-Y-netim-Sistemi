@@ -65,7 +65,6 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
         setIsSubmitting(false);
         return;
       }
-      localStorage.setItem('currentStaffUser', JSON.stringify(selectedUser));
       onLogin(selectedUser);
     } else {
       setError('Hatalı şifre.');
@@ -114,7 +113,6 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
       
       if (isFirstUser) {
         const fullUser = { id, ...newUser };
-        localStorage.setItem('currentStaffUser', JSON.stringify(fullUser));
         onLogin(fullUser);
       } else {
         setError('Kaydınız alındı. Giriş yapabilmek için Süper Admin onayı gerekmektedir.');

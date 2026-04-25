@@ -6,11 +6,10 @@ import { dbLocal } from '../db';
 
 interface BackupManagerProps {
   user: any;
-  onAuthChange?: (authenticated: boolean, email?: string) => void;
   isInitialLoad?: boolean;
 }
 
-export default function BackupManager({ user, onAuthChange, isInitialLoad = false }: BackupManagerProps) {
+export default function BackupManager({ user, isInitialLoad = false }: BackupManagerProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [lastBackupDate, setLastBackupDate] = useState<string | null>(localStorage.getItem('lastBackupDate'));
@@ -233,83 +232,112 @@ export default function BackupManager({ user, onAuthChange, isInitialLoad = fals
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="bg-blue-100 p-2 rounded-lg">
-            <DownloadCloud className="w-5 h-5 text-blue-600" />
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-10 max-w-2xl mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center border border-blue-100 shadow-sm">
+            <DownloadCloud className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-gray-900">Veri Yedekleme</h3>
-            <p className="text-[10px] text-gray-500 font-medium">Google Drive Güvenli Yedek</p>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900">Sistem Veri Yedekleme</h2>
+            <p className="text-sm text-gray-500 font-medium">Sistem verilerini Google Drive'a güvenle yedekleyin.</p>
           </div>
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-xl border border-gray-100">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <div className="w-2 h-2 bg-green-500 rounded-full shrink-0" />
-            <span className="text-xs text-gray-600 font-medium truncate whitespace-nowrap">
-              {user ? user.email : 'Bağlı Değil'}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full shrink-0 ${user ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-sm text-gray-700 font-medium whitespace-nowrap">
+              Google Drive Bağlantısı: {user ? user.email : 'Bağlı Değil'}
             </span>
           </div>
         </div>
 
-        {user && (
-          <div className="pt-2 border-t border-gray-100 space-y-2">
-            <button
-              onClick={handleManualBackup}
-              disabled={isSyncing}
-              className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
-            >
-              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
-              Drive'a Yedekle
-            </button>
-            
-            <div className="relative">
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleRestore}
-                disabled={isSyncing}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                title="Yedekten Geri Yükle"
-              />
+        {user ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button
+                onClick={handleManualBackup}
                 disabled={isSyncing}
-                className="w-full flex items-center justify-center gap-2 bg-orange-50 hover:bg-orange-100 text-orange-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-md shadow-blue-100 disabled:opacity-50"
               >
-                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-                Dosyadan Yükle
+                {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <DownloadCloud className="w-5 h-5" />}
+                Drive'a Yedekle
               </button>
+              
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleRestore}
+                  disabled={isSyncing}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                  title="Yedekten Geri Yükle"
+                />
+                <button
+                  disabled={isSyncing}
+                  className="w-full flex items-center justify-center gap-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-4 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+                >
+                  {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
+                  Dosyadan Geri Yükle
+                </button>
+              </div>
             </div>
 
             {lastBackupDate && (
-              <div className="mt-2 text-center">
-                <p className="text-[9px] text-gray-400 font-medium">
-                  Son Yedek: {new Date(lastBackupDate).toLocaleDateString('tr-TR')}
+              <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100 text-center">
+                <p className="text-sm text-gray-500 font-medium">
+                  Son Yedekleme Tarihi: <span className="font-bold text-gray-800">{new Date(lastBackupDate).toLocaleDateString('tr-TR')}</span>
                 </p>
                 {(() => {
                   const days = Math.floor((new Date().getTime() - new Date(lastBackupDate).getTime()) / (1000 * 3600 * 24));
                   if (days >= 10) {
                     return (
-                      <p className="text-[9px] text-red-500 font-bold animate-pulse mt-0.5">
-                        DİKKAT: YEDEKLEME SÜRESİ GEÇTİ ({days} GÜN)
-                      </p>
+                      <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100 text-red-600 text-sm font-bold flex items-center justify-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        DİKKAT: YEDEKLEME SÜRESİ GEÇTİ ({days} GÜN). LÜTFEN BİR YEDEK ALIN!
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="mt-3 text-xs text-green-600 font-medium">
+                        Sistem yedeği güncel. Yeniden yedek almak için kalan süre: {10 - days} gün.
+                      </div>
                     );
                   }
-                  return null;
                 })()}
               </div>
             )}
+            
+            {!lastBackupDate && (
+              <div className="mt-6 p-4 bg-orange-50 rounded-xl border border-orange-100 text-center">
+                 <div className="mt-1 text-sm text-orange-700 font-bold flex items-center justify-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    Henüz hiç yedek alınmamış. Lütfen güvenliğiniz için yedek alın.
+                 </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center space-y-4 p-8 bg-gray-50 rounded-2xl border border-gray-100">
+            <LogIn className="w-8 h-8 text-gray-400" />
+            <p className="text-sm text-gray-500 text-center">Yedekleme yapabilmek için Google hesabınızla giriş yapmalısınız.</p>
+            <button
+               onClick={handleLogin}
+               className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50 transition-all flex items-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              Google ile Giriş Yap
+            </button>
           </div>
         )}
       </div>
 
       {message && (
-        <div className={`mt-3 flex items-center gap-2 p-2 rounded-lg text-[10px] font-bold uppercase ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          {message.type === 'success' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+        <div className={`mt-6 flex items-center gap-2 p-3 rounded-xl text-sm font-bold ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
           {message.text}
         </div>
       )}

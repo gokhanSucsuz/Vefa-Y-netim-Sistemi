@@ -6,8 +6,6 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from './hooks/useLiveQuery';
 import { dbLocal } from './db';
-import { auth } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp, Menu, X as CloseIcon, LogOut, History, Shield } from 'lucide-react';
 import ApplicantList from './components/ApplicantList';
 import StaffList from './components/StaffList';
@@ -25,47 +23,24 @@ import AuditLogView from './components/AuditLogView';
 import UserManager from './components/UserManager';
 import { SystemUser } from './types';
 import { logAction } from './services/auditService';
+import { useAuth } from './hooks/useAuth';
 
 import { APP_LOGO_URL } from './constants/logo';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'completed' | 'docs' | 'stats' | 'audit' | 'users'>('dashboard');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [user, setUser] = useState<any>(null);
-  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'priority' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'completed' | 'docs' | 'stats' | 'audit' | 'users' | 'backup'>(() => {
+    return (localStorage.getItem('vefaActiveTab') as any) || 'dashboard';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('vefaActiveTab', activeTab);
+  }, [activeTab]);
+
+  const { user: currentStaffUser, firebaseUser, isLoading, login, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentStaffUser, setCurrentStaffUser] = useState<SystemUser | null>(null);
-  const [isAdminLoading, setIsAdminLoading] = useState(true);
-
-  // Load staff user from localStorage on mount
-  useEffect(() => {
-    const savedUser = localStorage.getItem('currentStaffUser');
-    if (savedUser) {
-      try {
-        setCurrentStaffUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.removeItem('currentStaffUser');
-      }
-    }
-  }, []);
-
-  const handleAuthChange = (auth: boolean, email?: string) => {
-    setIsAuthenticated(auth);
-    setUserEmail(email);
-  };
-  
-  // Auth listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setIsAuthenticated(!!currentUser);
-      setUser(currentUser);
-      setUserEmail(currentUser?.email || undefined);
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleStaffLogin = (user: SystemUser) => {
-    setCurrentStaffUser(user);
+    login(user);
     logAction(user.id!, `${user.name} ${user.surname}`, 'Giriş', 'Sisteme giriş yapıldı.');
   };
 
@@ -73,20 +48,10 @@ export default function App() {
     if (currentStaffUser) {
       logAction(currentStaffUser.id!, `${currentStaffUser.name} ${currentStaffUser.surname}`, 'Çıkış', 'Sistemden çıkış yapıldı.');
     }
-    setCurrentStaffUser(null);
-    localStorage.removeItem('currentStaffUser');
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Çıkış yapılırken hata oluştu:', error);
-    }
+    logout();
   };
 
   const isAuthorized = !!currentStaffUser;
-
-  useEffect(() => {
-    setIsAdminLoading(false);
-  }, [isAuthenticated]);
 
   const applicants = useLiveQuery(() => isAuthorized ? dbLocal.applicants.toArray() : Promise.resolve([]), [isAuthorized]) || [];
   const staff = useLiveQuery(() => isAuthorized ? dbLocal.staff.toArray() : Promise.resolve([]), [isAuthorized]) || [];
@@ -94,7 +59,7 @@ export default function App() {
   const schedules = useLiveQuery(() => isAuthorized ? dbLocal.schedules.toArray() : Promise.resolve([]), [isAuthorized]) || [];
   const programs = useLiveQuery(() => isAuthorized ? dbLocal.programs.toArray() : Promise.resolve([]), [isAuthorized]) || [];
 
-  if (isAuthenticated === null || isAdminLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
@@ -102,7 +67,8 @@ export default function App() {
     );
   }
 
-  if (isAuthenticated === false) {
+  // First we need Google Auth
+  if (!firebaseUser) {
     return <GoogleLogin />;
   }
 
@@ -112,7 +78,8 @@ export default function App() {
 
   const menuItems = [
     { id: 'dashboard', label: 'Genel Durum', icon: LayoutDashboard },
-    { id: 'applicants', label: 'Hane Listesi', icon: Users },
+    { id: 'applicants', label: 'Hane Listesi (CRUD)', icon: Users },
+    { id: 'priority', label: 'Hane Sıralama & Öncelik', icon: ClipboardList },
     { id: 'staff', label: 'Personel Listesi', icon: Briefcase },
     { id: 'workdays', label: 'İş Günleri', icon: Calendar },
     { id: 'schedule', label: 'Program Planlama', icon: ClipboardList },
@@ -121,6 +88,7 @@ export default function App() {
     { id: 'stats', label: 'İstatistik ve Raporlar', icon: TrendingUp },
     { id: 'audit', label: 'İşlem Geçmişi', icon: History },
     ...(currentStaffUser?.isSuperAdmin ? [{ id: 'users', label: 'Yetkili Yönetimi', icon: Shield }] : []),
+    { id: 'backup', label: 'Veri Yedekleme', icon: Shield },
     { id: 'docs', label: 'Kullanım Kılavuzu', icon: BookOpen },
   ];
 
@@ -199,9 +167,6 @@ export default function App() {
             <LogOut className="w-5 h-5" />
             Oturumu Kapat
           </button>
-          <div className="mt-4">
-            <BackupManager user={user} onAuthChange={handleAuthChange} />
-          </div>
           <div className="mt-6 text-center">
             <p className="text-[10px] text-gray-400 font-medium">
               Tasarlayan ve Yöneten: <span className="text-gray-500">Gökhan SUÇSUZ</span>
@@ -215,6 +180,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto pb-12 w-full">
           {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} currentUser={currentStaffUser!} />}
           {activeTab === 'applicants' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} />}
+          {activeTab === 'priority' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} isPriorityMode={true} />}
           {activeTab === 'staff' && <StaffList staff={staff} currentUser={currentStaffUser!} />}
           {activeTab === 'workdays' && <WorkDayCalendar workDays={workDays} currentUser={currentStaffUser!} />}
           {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} currentUser={currentStaffUser!} />}
@@ -224,6 +190,7 @@ export default function App() {
           {activeTab === 'audit' && <AuditLogView />}
           {activeTab === 'users' && <UserManager currentUser={currentStaffUser!} />}
           {activeTab === 'docs' && <Documentation />}
+          {activeTab === 'backup' && <BackupManager user={firebaseUser} />}
         </div>
       </main>
     </div>

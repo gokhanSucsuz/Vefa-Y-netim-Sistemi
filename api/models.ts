@@ -15,6 +15,9 @@ const ApplicantSchema = new mongoose.Schema({
   priority: Number,
   lat: Number,
   lng: Number,
+  isDeleted: { type: Boolean, default: false },
+  status: { type: String, default: 'active' }, // 'active', 'passive'
+  passiveUntil: Date,
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

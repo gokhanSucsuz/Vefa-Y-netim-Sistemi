@@ -1,19 +1,17 @@
 import { Applicant, Staff, WorkDay, Schedule, Program, Admin } from '../types';
+import { useAuthStore } from '../store/useAuthStore';
 
 const API_BASE = '/api';
 
 async function apiFetch(path: string, options?: RequestInit) {
-  const userStr = localStorage.getItem('currentStaffUser');
+  const user = useAuthStore.getState().user;
   let headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
 
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr);
-      if (user.id) headers['x-user-id'] = user.id;
-      if (user.role) headers['x-user-role'] = user.role;
-    } catch (e) {}
+  if (user) {
+    if (user.id) headers['x-user-id'] = user.id;
+    if (user.role) headers['x-user-role'] = user.role;
   }
 
   const response = await fetch(`${API_BASE}${path}`, {

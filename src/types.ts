@@ -44,6 +44,9 @@ export interface Applicant {
   lat?: number;
   lng?: number;
   priority?: number; // Planlama öncelik sırası
+  isDeleted?: boolean;
+  status?: 'active' | 'passive';
+  passiveUntil?: string; // ISO Date String
 }
 
 export interface Staff {
