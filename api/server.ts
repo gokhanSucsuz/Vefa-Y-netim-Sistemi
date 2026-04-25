@@ -391,14 +391,14 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
 };
 
 // API Routes
-app.use("/api/applicants", createCrudRoutes(ApplicantModel, 'applicant', ['tcNo', 'phone', 'address', 'haneNo']));
-app.use("/api/staff", createCrudRoutes(StaffModel, 'staff', ['phone', 'tcNo', 'password']));
+app.use("/api/applicants", createCrudRoutes(ApplicantModel, 'applicant', ['name', 'surname', 'tcNo', 'phone', 'address', 'haneNo']));
+app.use("/api/staff", createCrudRoutes(StaffModel, 'staff', ['name', 'surname', 'phone', 'tcNo', 'password']));
 app.use("/api/workdays", createCrudRoutes(WorkDayModel, 'workday'));
 app.use("/api/schedules", createCrudRoutes(ScheduleModel, 'schedule'));
 app.use("/api/programs", createCrudRoutes(ProgramModel, 'program'));
 app.use("/api/auditlogs", createCrudRoutes(AuditLogModel, 'auditlog'));
 app.use("/api/admins", createCrudRoutes(AdminModel, 'admin'));
-app.use("/api/users", createCrudRoutes(UserModel, 'user', ['tcNo', 'phone', 'password', 'passwordHash', 'email']));
+app.use("/api/users", createCrudRoutes(UserModel, 'user', ['name', 'surname', 'tcNo', 'phone', 'password', 'passwordHash', 'email']));
 
 // Reset Mock Data Route
 app.post("/api/admin/reset-mock-data", async (req, res) => {
@@ -472,12 +472,12 @@ app.post("/api/admin/reset-mock-data", async (req, res) => {
     const createdStaff = await StaffModel.insertMany(staffList);
     
     // Partner up
-    await StaffModel.findByIdAndUpdate(createdStaff[0]._id, { partnerId: createdStaff[1]._id.toString() });
-    await StaffModel.findByIdAndUpdate(createdStaff[1]._id, { partnerId: createdStaff[0]._id.toString() });
-    await StaffModel.findByIdAndUpdate(createdStaff[2]._id, { partnerId: createdStaff[3]._id.toString() });
-    await StaffModel.findByIdAndUpdate(createdStaff[3]._id, { partnerId: createdStaff[2]._id.toString() });
-    await StaffModel.findByIdAndUpdate(createdStaff[4]._id, { partnerId: createdStaff[5]._id.toString() });
-    await StaffModel.findByIdAndUpdate(createdStaff[5]._id, { partnerId: createdStaff[4]._id.toString() });
+    await (StaffModel as any).findByIdAndUpdate(createdStaff[0]._id, { partnerId: createdStaff[1]._id.toString() });
+    await (StaffModel as any).findByIdAndUpdate(createdStaff[1]._id, { partnerId: createdStaff[0]._id.toString() });
+    await (StaffModel as any).findByIdAndUpdate(createdStaff[2]._id, { partnerId: createdStaff[3]._id.toString() });
+    await (StaffModel as any).findByIdAndUpdate(createdStaff[3]._id, { partnerId: createdStaff[2]._id.toString() });
+    await (StaffModel as any).findByIdAndUpdate(createdStaff[4]._id, { partnerId: createdStaff[5]._id.toString() });
+    await (StaffModel as any).findByIdAndUpdate(createdStaff[5]._id, { partnerId: createdStaff[4]._id.toString() });
 
     res.json({ success: true, message: "Veriler başarıyla sıfırlandı ve gerçekçi mock data ile dolduruldu." });
   } catch (err: any) {
