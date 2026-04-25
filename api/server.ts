@@ -236,16 +236,23 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
         }
       }
 
-      // Specialized logic for Users: regular admins shouldn't see superadmins if we want isolation,
-      // but the user wants superadmin to see everyone and to be seen if they are superadmin.
-      // Let's just return all users for any admin level.
-      if (name === 'user') {
-        if (userRole !== 'superadmin' && userRole !== 'admin') {
-          return res.status(403).json({ error: "Yetkiniz yok" });
-        }
+      // Projection for security: If not an admin, only return non-sensitive fields for the users collection
+      // This allows the login screen to list users without exposing PII (TC, Phone, etc.)
+      let projection = {};
+      if (name === 'user' && (!userRole || (userRole !== 'admin' && userRole !== 'superadmin'))) {
+        // Return only what's needed for login screen and select list
+        projection = { 
+          name: 1, 
+          surname: 1, 
+          role: 1, 
+          isApproved: 1, 
+          isSuperAdmin: 1, 
+          passwordHash: 1, // Needed for client side check in select list mode
+          email: 1 
+        };
       }
 
-      const items = await model.find(query).lean().exec();
+      const items = await model.find(query, projection).lean().exec();
       res.json(items.map((item: any) => prepareFromDB(item)));
     } catch (err: any) {
       console.error(`[GET /api/${name}] API Error:`, err);
