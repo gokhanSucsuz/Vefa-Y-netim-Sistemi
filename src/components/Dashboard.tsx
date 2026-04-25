@@ -7,7 +7,7 @@ import { Users, Briefcase, Calendar, Clock, AlertCircle, ArrowRight, ShieldCheck
 import { maskAddress } from '../lib/masking';
 
 interface Props {
-  onNavigate: (tab: any) => void;
+  onNavigate: (tab: any, date?: string) => void;
   currentUser: SystemUser;
 }
 
@@ -145,7 +145,7 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
           <div className="official-card divide-y divide-slate-50 flex-1">
             {upcomingSchedules.length > 0 ? (
               upcomingSchedules.map((s, i) => (
-                <div key={i} className="p-5 hover:bg-slate-50 transition-all flex items-center justify-between cursor-pointer group" onClick={() => onNavigate('schedule')}>
+                <div key={i} className="p-5 hover:bg-slate-50 transition-all flex items-center justify-between cursor-pointer group" onClick={() => onNavigate('schedule', s.date)}>
                   <div className="flex items-center gap-4">
                     <div className="text-center w-12 bg-slate-50 py-3 rounded-2xl border border-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all shadow-sm">
                       <p className="text-lg font-black leading-none mb-1">{format(parseISO(s.date), 'dd')}</p>

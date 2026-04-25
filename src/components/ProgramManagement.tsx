@@ -115,11 +115,11 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
                       {program.status === 'active' ? 'Aktif Program' : 
                        program.status === 'cancelled' ? 'İptal Edilmiş' : 'Tamamlanmış'}
                     </span>
-                    {program.createdAt && !isNaN(new Date(program.createdAt).getTime()) && (
+                    {program.createdAt && !isNaN(new Date(program.createdAt).getTime()) ? (
                       <span className="text-[10px] text-gray-400 font-bold uppercase">
                         {new Date(program.createdAt).toLocaleDateString('tr-TR')}
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 

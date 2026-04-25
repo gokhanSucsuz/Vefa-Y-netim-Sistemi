@@ -24,6 +24,7 @@ interface Props {
   schedules: Schedule[];
   programs: Program[]; // Added programs prop
   currentUser: SystemUser;
+  initialDate?: string | null;
 }
 
 function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
@@ -48,12 +49,19 @@ function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
   return null;
 }
 
-export default function ScheduleView({ applicants, staff, workDays, schedules, programs, currentUser }: Props) {
+export default function ScheduleView({ applicants, staff, workDays, schedules, programs, currentUser, initialDate }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [selectedMonth, setSelectedMonth] = useState(() => initialDate ? parseISO(initialDate) : new Date());
   const [showMap, setShowMap] = useState(true);
-  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(initialDate || null);
+
+  useEffect(() => {
+    if (initialDate) {
+      setSelectedMonth(parseISO(initialDate));
+      setExpandedDay(initialDate);
+    }
+  }, [initialDate]);
   const [isGeocodingDay, setIsGeocodingDay] = useState(false);
   const [swapSelection, setSwapSelection] = useState<{ date: string; applicantId: string } | null>(null);
   const [completionModal, setCompletionModal] = useState<{ date: string; applicantId: string; name: string } | null>(null);
@@ -1130,8 +1138,12 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     
     return day.items
       .map((item, i) => {
-        const lat = Number.isFinite(item.applicant.lat) ? Number(item.applicant.lat) : (41.675 + (i * 0.002));
-        const lng = Number.isFinite(item.applicant.lng) ? Number(item.applicant.lng) : (26.570 + (i * 0.002));
+        const lat = (item.applicant.lat !== undefined && item.applicant.lat !== null && !isNaN(Number(item.applicant.lat))) 
+          ? Number(item.applicant.lat) 
+          : (41.675 + (i * 0.002));
+        const lng = (item.applicant.lng !== undefined && item.applicant.lng !== null && !isNaN(Number(item.applicant.lng))) 
+          ? Number(item.applicant.lng) 
+          : (26.570 + (i * 0.002));
         
         return {
           pos: [lat, lng] as [number, number],

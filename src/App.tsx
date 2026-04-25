@@ -21,6 +21,7 @@ import StaffLogin from './components/StaffLogin';
 import GoogleLogin from './components/GoogleLogin';
 import AuditLogView from './components/AuditLogView';
 import UserManager from './components/UserManager';
+import StaffPanel from './components/StaffPanel';
 import { SystemUser } from './types';
 import { logAction } from './services/auditService';
 import { useAuth } from './hooks/useAuth';
@@ -31,6 +32,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'priority' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'completed' | 'docs' | 'stats' | 'audit' | 'users' | 'backup'>(() => {
     return (localStorage.getItem('vefaActiveTab') as any) || 'dashboard';
   });
+
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState<string | null>(null);
+
+  const navigateToSchedule = (date?: string) => {
+    setSelectedScheduleDate(date || null);
+    setActiveTab('schedule');
+  };
 
   useEffect(() => {
     localStorage.setItem('vefaActiveTab', activeTab);
@@ -74,6 +82,11 @@ export default function App() {
 
   if (!currentStaffUser) {
     return <StaffLogin onLogin={handleStaffLogin} />;
+  }
+
+  // If user is staff, show staff panel ONLY
+  if (currentStaffUser.role === 'staff') {
+    return <StaffPanel currentUser={currentStaffUser} onLogout={handleLogout} />;
   }
 
   const menuItems = [
@@ -178,15 +191,15 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-8 w-full">
         <div className="max-w-6xl mx-auto pb-12 w-full">
-          {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} currentUser={currentStaffUser!} />}
+          {activeTab === 'dashboard' && <Dashboard onNavigate={navigateToSchedule} currentUser={currentStaffUser!} />}
           {activeTab === 'applicants' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} />}
           {activeTab === 'priority' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} isPriorityMode={true} />}
           {activeTab === 'staff' && <StaffList staff={staff} currentUser={currentStaffUser!} />}
           {activeTab === 'workdays' && <WorkDayCalendar workDays={workDays} currentUser={currentStaffUser!} />}
-          {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} programs={programs} currentUser={currentStaffUser!} />}
+          {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} programs={programs} currentUser={currentStaffUser!} initialDate={selectedScheduleDate} />}
           {activeTab === 'programs' && <ProgramManagement programs={programs} schedules={schedules} currentUser={currentStaffUser!} />}
           {activeTab === 'completed' && <CompletedCleanings applicants={applicants} staff={staff} schedules={schedules} currentUser={currentStaffUser!} />}
-          {activeTab === 'stats' && <Statistics currentUser={currentStaffUser!} />}
+          {activeTab === 'stats' && <Statistics currentUser={currentStaffUser!} onNavigate={navigateToSchedule} />}
           {activeTab === 'audit' && <AuditLogView />}
           {activeTab === 'users' && <UserManager currentUser={currentStaffUser!} />}
           {activeTab === 'docs' && <Documentation />}

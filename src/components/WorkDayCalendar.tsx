@@ -145,16 +145,16 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
                 })()}
                 className={`
                   aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all relative group
-                  ${isActualHoliday ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-green-50 text-green-900 border border-green-100 hover:bg-green-100'}
+                  ${isActualHoliday ? 'bg-amber-100 text-amber-900 border border-amber-200 shadow-sm shadow-amber-100/50' : 'bg-white text-slate-900 border border-slate-100 hover:border-blue-200 hover:bg-blue-50'}
                   ${today ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
                   ${weekend ? 'opacity-60 cursor-default' : ''}
                   disabled:opacity-40 disabled:cursor-not-allowed
                 `}
               >
-                <span className={`text-lg font-bold ${isActualHoliday ? 'text-amber-900' : 'text-green-900'}`}>
+                <span className={`text-lg font-bold ${isActualHoliday ? 'text-amber-900' : 'text-slate-900'}`}>
                   {format(day, 'd')}
                 </span>
-                <span className="text-[8px] font-bold uppercase tracking-tighter">
+                <span className={`text-[8px] font-bold uppercase tracking-tighter ${isActualHoliday ? 'text-amber-600' : 'text-blue-600'}`}>
                   {isActualHoliday ? 'Tatil' : 'Çalışma'}
                 </span>
                 {today && (
@@ -166,10 +166,10 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
         </div>
       </div>
 
-      <div className="bg-blue-50 rounded-2xl p-4 flex items-start gap-3 border border-blue-100">
+      <div className="bg-slate-50 rounded-2xl p-4 flex items-start gap-3 border border-slate-100">
         <div className="flex gap-4">
            <div className="flex items-center gap-2">
-             <div className="w-4 h-4 rounded bg-green-100 border border-green-200" />
+             <div className="w-4 h-4 rounded bg-white border border-slate-200" />
              <span className="text-xs font-bold text-gray-700">Çalışma Günü</span>
            </div>
            <div className="flex items-center gap-2">

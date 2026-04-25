@@ -20,7 +20,7 @@ import { setupPdfMakeFonts } from '../lib/pdfFonts';
 
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'];
 
-export default function Statistics({ currentUser }: { currentUser: SystemUser }) {
+export default function Statistics({ currentUser, onNavigate }: { currentUser: SystemUser, onNavigate: (tab: any, date?: string) => void }) {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const reportRef = useRef<HTMLDivElement>(null);

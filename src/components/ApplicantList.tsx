@@ -338,6 +338,32 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
   };
 
   const [localReorderList, setLocalReorderList] = useState<Applicant[]>([]);
+  const [prioritySearch, setPrioritySearch] = useState('');
+
+  const filteredAndSortedApplicants = useMemo(() => {
+    return [...applicants]
+      .filter(a => !a.isDeleted)
+      .filter(a => {
+        const search = searchTerm.toLowerCase();
+        return (
+          a.name.toLowerCase().includes(search) ||
+          a.surname.toLowerCase().includes(search) ||
+          a.tcNo.includes(search) ||
+          (a.neighborhood || '').toLowerCase().includes(search)
+        );
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === 'priority') {
+          comparison = (a.priority || 0) - (b.priority || 0);
+        } else if (sortBy === 'name') {
+          comparison = (a.name + a.surname).localeCompare(b.name + b.surname);
+        } else if (sortBy === 'neighborhood') {
+          comparison = (a.neighborhood || '').localeCompare(b.neighborhood || '');
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+  }, [applicants, searchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     if (isPriorityMode) {
@@ -345,8 +371,33 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
     }
   }, [isPriorityMode, filteredAndSortedApplicants]);
 
-  const handlePriorityReorder = (reorderedItems: Applicant[]) => {
-    setLocalReorderList(reorderedItems);
+  const filteredLocalReorderList = useMemo(() => {
+    if (!prioritySearch) return localReorderList;
+    const searchLow = prioritySearch.toLowerCase();
+    return localReorderList.filter(a => 
+      a.name.toLowerCase().includes(searchLow) || 
+      a.surname.toLowerCase().includes(searchLow) || 
+      a.tcNo.includes(searchLow) ||
+      (a.haneNo && a.haneNo.includes(searchLow))
+    );
+  }, [localReorderList, prioritySearch]);
+
+  const handlePriorityReorder = (newOrder: Applicant[]) => {
+    if (prioritySearch) {
+      // If searching, we need to merge the reordered visible items back into the master list
+      const updatedList = [...localReorderList];
+      const visibleIds = filteredLocalReorderList.map(item => item.id);
+      
+      let visibleIdx = 0;
+      for (let i = 0; i < updatedList.length; i++) {
+        if (visibleIds.includes(updatedList[i].id)) {
+          updatedList[i] = newOrder[visibleIdx++];
+        }
+      }
+      setLocalReorderList(updatedList);
+    } else {
+      setLocalReorderList(newOrder);
+    }
   };
 
   const handleSavePriorityAndRegenerate = async () => {
@@ -387,7 +438,6 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi.');
         alert('Sıralama başarıyla kaydedildi.');
       }
-      setIsPriorityMode(false);
     } catch (e) {
       console.error("Save priority failed:", e);
       alert('Sıralama kaydedilirken bir hata oluştu.');
@@ -395,31 +445,6 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
       setIsProcessing(false);
     }
   };
-
-  const filteredAndSortedApplicants = useMemo(() => {
-    return [...applicants]
-      .filter(a => !a.isDeleted)
-      .filter(a => {
-        const search = searchTerm.toLowerCase();
-        return (
-          a.name.toLowerCase().includes(search) ||
-          a.surname.toLowerCase().includes(search) ||
-          a.tcNo.includes(search) ||
-          (a.neighborhood || '').toLowerCase().includes(search)
-        );
-      })
-      .sort((a, b) => {
-        let comparison = 0;
-        if (sortBy === 'priority') {
-          comparison = (a.priority || 0) - (b.priority || 0);
-        } else if (sortBy === 'name') {
-          comparison = (a.name + a.surname).localeCompare(b.name + b.surname);
-        } else if (sortBy === 'neighborhood') {
-          comparison = (a.neighborhood || '').localeCompare(b.neighborhood || '');
-        }
-        return sortOrder === 'asc' ? comparison : -comparison;
-      });
-  }, [applicants, searchTerm, sortBy, sortOrder]);
 
   const toggleSort = (field: 'priority' | 'name' | 'neighborhood') => {
     if (sortBy === field) {
@@ -823,29 +848,41 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
             </table>
           ) : (
             <div className="p-4">
-               <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 mb-4 flex items-center gap-3">
-                  <div className="bg-blue-600 text-white p-2 rounded-lg">
-                    <GripVertical className="w-5 h-5" />
+               <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 mb-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-600 text-white p-2 rounded-lg">
+                      <GripVertical className="w-5 h-5" />
+                    </div>
+                    <p className="text-sm font-medium text-blue-800">
+                      Öncelik sırasını sürükleyerek düzenleyebilirsiniz.
+                    </p>
                   </div>
-                  <p className="text-sm font-medium text-blue-800">
-                    Tut-sürükle özelliğini kullanarak hanelerin öncelik sırasını manuel olarak düzenleyebilirsiniz.
-                  </p>
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Hane ara (Sıralama için)..."
+                      value={prioritySearch}
+                      onChange={e => setPrioritySearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-white border border-blue-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
                </div>
                <Reorder.Group 
                  axis="y" 
-                 values={localReorderList} 
+                 values={filteredLocalReorderList} 
                  onReorder={handlePriorityReorder}
                  className="space-y-2"
                >
-                 {localReorderList.map((applicant) => (
+                 {filteredLocalReorderList.map((applicant) => (
                    <Reorder.Item 
                      key={applicant.id} 
                      value={applicant}
-                     className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 hover:border-blue-300 hover:shadow-md transition-all cursor-grab active:cursor-grabbing"
+                     className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 hover:border-blue-300 hover:shadow-md transition-all cursor-grab active:cursor-grabbing group"
                    >
-                     <GripVertical className="w-5 h-5 text-gray-400 shrink-0" />
+                     <GripVertical className="w-5 h-5 text-gray-400 shrink-0 group-hover:text-blue-500 transition-colors" />
                      <div className="bg-blue-50 text-blue-700 font-bold w-10 h-10 rounded-lg flex items-center justify-center border border-blue-100 shrink-0">
-                        {applicant.priority}
+                        {localReorderList.findIndex(a => a.id === applicant.id) + 1}
                      </div>
                      <div className="flex-1 min-w-0">
                         <div className="font-bold text-gray-900 truncate">{applicant.name} {applicant.surname}</div>
