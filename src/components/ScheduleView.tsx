@@ -51,7 +51,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [showMap, setShowMap] = useState(false);
+  const [showMap, setShowMap] = useState(true);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [isGeocodingDay, setIsGeocodingDay] = useState(false);
   const [swapSelection, setSwapSelection] = useState<{ date: string; applicantId: string } | null>(null);
@@ -1097,6 +1097,23 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
 
     pdfMake.createPdf(docDefinition).download(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
   };
+
+  // Expand the first day that has items by default when the month changes or assignments load
+  useEffect(() => {
+    if (assignments.length > 0) {
+      const isExpandedDayValid = assignments.some(a => a.date === expandedDay);
+      if (!isExpandedDayValid) {
+        const firstWithItems = assignments.find(a => a.items.length > 0);
+        if (firstWithItems) {
+          setExpandedDay(firstWithItems.date);
+        } else {
+          setExpandedDay(null);
+        }
+      }
+    } else {
+      setExpandedDay(null);
+    }
+  }, [assignments, expandedDay]);
 
   const activeMarkers = useMemo(() => {
     if (!expandedDay) return [];

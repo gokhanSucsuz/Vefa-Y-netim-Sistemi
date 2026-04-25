@@ -29,7 +29,11 @@ function LocationPicker({ position, setPosition }: { position: [number, number],
       longitude={position[1]} 
       draggable 
       onDragEnd={(e) => setPosition([e.lngLat.lat, e.lngLat.lng])}
-    />
+    >
+      <div className="w-8 h-8 -mt-4 -ml-4 bg-red-500 text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg cursor-pointer">
+        <MapPin className="w-4 h-4" />
+      </div>
+    </Marker>
   );
 }
 
@@ -333,7 +337,9 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
   };
 
   const handlePriorityChange = async (id: string, newPriority: number) => {
-    await dbLocal.applicants.update(id, { priority: newPriority });
+    // Subtract 0.5 so that if user types "2", it becomes 1.5, placing it before the current item at "2"
+    // when re-indexed, meaning it becomes the new "2".
+    await dbLocal.applicants.update(id, { priority: newPriority - 0.5 });
     await reindexPriorities();
   };
 

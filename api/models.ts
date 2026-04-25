@@ -12,6 +12,9 @@ const ApplicantSchema = new mongoose.Schema({
   gender: String,
   maritalStatus: String,
   notes: String,
+  priority: Number,
+  lat: Number,
+  lng: Number,
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
