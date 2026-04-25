@@ -22,6 +22,7 @@ interface Props {
   staff: Staff[];
   workDays: WorkDay[];
   schedules: Schedule[];
+  programs: Program[]; // Added programs prop
   currentUser: SystemUser;
 }
 
@@ -47,7 +48,7 @@ function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
   return null;
 }
 
-export default function ScheduleView({ applicants, staff, workDays, schedules, currentUser }: Props) {
+export default function ScheduleView({ applicants, staff, workDays, schedules, programs, currentUser }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -1415,7 +1416,24 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
         </div>
 
         <div className="divide-y divide-gray-50">
-          {assignments.length === 0 ? (
+          {programs.length === 0 ? (
+            <div className="px-6 py-16 text-center">
+              <div className="bg-orange-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-orange-100">
+                <CalendarIcon className="w-8 h-8 text-orange-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Mevcut Program Bulunamadı</h3>
+              <p className="text-sm text-gray-500 max-w-xs mx-auto mb-6">
+                Sistemde planlanmış aktif bir program bulunmamaktadır. Lütfen yukarıdaki "Planla" butonunu kullanarak yeni bir program oluşturun.
+              </p>
+              <button
+                onClick={generateSchedule}
+                className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all font-bold shadow-lg shadow-blue-100"
+              >
+                <Wand2 className="w-5 h-5" />
+                Hemen Planla
+              </button>
+            </div>
+          ) : assignments.length === 0 ? (
             <div className="px-6 py-12 text-center text-gray-500">Bu ay için henüz iş günü belirlenmemiş.</div>
           ) : (
             assignments.map(a => (

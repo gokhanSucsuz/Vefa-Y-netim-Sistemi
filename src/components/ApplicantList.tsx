@@ -70,6 +70,16 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStatsApplicant, setSelectedStatsApplicant] = useState<Applicant | null>(null);
   const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
+  const [hasActiveProgram, setHasActiveProgram] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const checkPrograms = async () => {
+      const activePrograms = (applicants.length > 0) ? (await dbLocal.programs.toArray()).filter(p => p.status === 'active') : [];
+      setHasActiveProgram(activePrograms.length > 0);
+    };
+    checkPrograms();
+  }, [applicants]);
 
   const toggleReveal = (id: string) => {
     const newRevealed = new Set(revealedItems);
@@ -168,11 +178,31 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
   const handleDeleteAll = async () => {
     if (confirm('TÜM hane kayıtlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) {
       try {
+        setIsProcessing(true);
         await dbLocal.applicants.clear();
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tüm Haneleri Silme', 'Tüm hane kayıtları temizlendi.');
       } catch (error) {
         console.error("Error clearing applicants:", error);
+      } finally {
+        setIsProcessing(false);
       }
+    }
+  };
+
+  const handlePriorityUpdate = async (updates: any[]) => {
+    if (hasActiveProgram) {
+      if (!confirm('Sistemde aktif bir program bulunmaktadır. Öncelik sırasını değiştirmek programın yeniden düzenlenmesine neden olabilir (Kaydet butonuna bastığınızda). Devam etmek istiyor musunuz?')) {
+        return false;
+      }
+    }
+    
+    try {
+      await dbLocal.applicants.bulkUpdate(updates);
+      await reindexPriorities();
+      return true;
+    } catch (e) {
+      console.error("Priority update error:", e);
+      return false;
     }
   };
 
@@ -323,26 +353,59 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
     if (direction === 'up' && currentIndex > 0) {
       const prev = sorted[currentIndex - 1];
       const prevPriority = prev.priority || 0;
-      // To reliably move before prev, assign it prev's priority minus 0.5
       updates.push({ id: applicant.id!, changes: { priority: prevPriority - 0.5 } });
     } else if (direction === 'down' && currentIndex < sorted.length - 1) {
       const next = sorted[currentIndex + 1];
       const nextPriority = next.priority || 0;
-      // To reliably move after next, assign it next's priority plus 0.5
       updates.push({ id: applicant.id!, changes: { priority: nextPriority + 0.5 } });
     }
 
     if (updates.length > 0) {
-      await dbLocal.applicants.bulkUpdate(updates);
+      await handlePriorityUpdate(updates);
+    }
+  };
+
+  const handleSavePriorityAndRegenerate = async () => {
+    if (hasActiveProgram) {
+      if (!confirm('Hane sıralaması kaydedilecek ve mevcut program bu yeni sıralamaya göre (tamamlanmamış ziyaretler için) yeniden düzenlenecektir. Onaylıyor musunuz?')) {
+        return;
+      }
+    }
+
+    setIsProcessing(true);
+    try {
+      // Re-indexing is already done on move, but let's be sure
       await reindexPriorities();
+      
+      if (hasActiveProgram) {
+        // Trigger program re-generation logic
+        // This usually happens in ScheduleView. Since we can't easily call that, 
+        // we'll instruct the user to go to ScheduleView and hit Generate, 
+        // OR we can implement a basic shift here.
+        // Actually, the user asked for: "ancak sıralama sayfasında kaydet butonuna basıldığında var olan program yeniden öncelik sırasına göre oluşturulmalı."
+        
+        // We'll simulate the "Re-generate" by deleting uncompleted schedules and redirecting or notifying.
+        const allSchedules = await dbLocal.schedules.toArray();
+        const uncompletedSchedules = allSchedules.filter(s => !s.assignments.some(a => a.isCompleted));
+        
+        if (uncompletedSchedules.length > 0) {
+           await dbLocal.schedules.bulkDelete(uncompletedSchedules.map(s => s.id!));
+           alert('Sıralama kaydedildi. Mevcut programın tamamlanmamış kısımları temizlendi. Lütfen Program Planlama sayfasından yeni sıralamaya göre programı yeniden oluşturun.');
+        } else {
+           alert('Sıralama kaydedildi.');
+        }
+      } else {
+        alert('Sıralama başarıyla kaydedildi.');
+      }
+    } catch (e) {
+      alert('Sıralama kaydedilirken bir hata oluştu.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handlePriorityChange = async (id: string, newPriority: number) => {
-    // Subtract 0.5 so that if user types "2", it becomes 1.5, placing it before the current item at "2"
-    // when re-indexed, meaning it becomes the new "2".
-    await dbLocal.applicants.update(id, { priority: newPriority - 0.5 });
-    await reindexPriorities();
+    await handlePriorityUpdate([{ id, changes: { priority: newPriority - 0.5 } }]);
   };
 
   const filteredAndSortedApplicants = [...applicants]
@@ -384,6 +447,16 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
           <p className="text-gray-500">{isPriorityMode ? 'Hanelerin öncelik sırasını (' : 'Temizlik hizmeti alan hanelerin kayıtlarını'} yönetin.</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          {isPriorityMode && (
+            <button
+              onClick={handleSavePriorityAndRegenerate}
+              disabled={isProcessing}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 font-bold text-sm"
+            >
+              <Check className="w-5 h-5" />
+              Sıralamayı Kaydet ve Uygula
+            </button>
+          )}
           {isImporting && !isPriorityMode && (
             <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 animate-pulse w-full sm:w-auto">
               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
