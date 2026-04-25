@@ -365,9 +365,27 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
       });
   }, [applicants, searchTerm, sortBy, sortOrder]);
 
+  const handleManualPriorityChange = (id: string, newIndex: number) => {
+    const list = [...localReorderList];
+    const currentIndex = list.findIndex(a => a.id === id);
+    if (currentIndex === -1) return;
+    
+    const targetIndex = Math.max(0, Math.min(list.length - 1, newIndex - 1));
+    const [movedItem] = list.splice(currentIndex, 1);
+    list.splice(targetIndex, 0, movedItem);
+    setLocalReorderList(list);
+  };
+
+  const [priorityInputs, setPriorityInputs] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (isPriorityMode) {
       setLocalReorderList(filteredAndSortedApplicants);
+      const inputs: Record<string, string> = {};
+      filteredAndSortedApplicants.forEach((a, i) => {
+        inputs[a.id!] = (i + 1).toString();
+      });
+      setPriorityInputs(inputs);
     }
   }, [isPriorityMode, filteredAndSortedApplicants]);
 
@@ -383,9 +401,10 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
   }, [localReorderList, prioritySearch]);
 
   const handlePriorityReorder = (newOrder: Applicant[]) => {
+    let updatedList: Applicant[];
     if (prioritySearch) {
       // If searching, we need to merge the reordered visible items back into the master list
-      const updatedList = [...localReorderList];
+      updatedList = [...localReorderList];
       const visibleIds = filteredLocalReorderList.map(item => item.id);
       
       let visibleIdx = 0;
@@ -394,10 +413,18 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
           updatedList[i] = newOrder[visibleIdx++];
         }
       }
-      setLocalReorderList(updatedList);
     } else {
-      setLocalReorderList(newOrder);
+      updatedList = newOrder;
     }
+    
+    setLocalReorderList(updatedList);
+    
+    // Update inputs to match new sequence
+    const inputs: Record<string, string> = {};
+    updatedList.forEach((a, i) => {
+      inputs[a.id!] = (i + 1).toString();
+    });
+    setPriorityInputs(inputs);
   };
 
   const handleSavePriorityAndRegenerate = async () => {
@@ -881,8 +908,21 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                      className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 hover:border-blue-300 hover:shadow-md transition-all cursor-grab active:cursor-grabbing group"
                    >
                      <GripVertical className="w-5 h-5 text-gray-400 shrink-0 group-hover:text-blue-500 transition-colors" />
-                     <div className="bg-blue-50 text-blue-700 font-bold w-10 h-10 rounded-lg flex items-center justify-center border border-blue-100 shrink-0">
-                        {localReorderList.findIndex(a => a.id === applicant.id) + 1}
+                     <div className="bg-blue-50 text-blue-700 font-bold w-12 h-10 rounded-lg flex items-center justify-center border border-blue-100 shrink-0 relative overflow-hidden">
+                       <input
+                         type="text"
+                         className="w-full h-full bg-transparent text-center focus:bg-white outline-none transition-colors"
+                         value={priorityInputs[applicant.id!] || ''}
+                         onChange={e => setPriorityInputs(prev => ({ ...prev, [applicant.id!]: e.target.value.replace(/\D/g, '') }))}
+                         onKeyDown={e => {
+                           if (e.key === 'Enter') {
+                             const val = parseInt(priorityInputs[applicant.id!]);
+                             if (!isNaN(val)) {
+                               handleManualPriorityChange(applicant.id!, val);
+                             }
+                           }
+                         }}
+                       />
                      </div>
                      <div className="flex-1 min-w-0">
                         <div className="font-bold text-gray-900 truncate">{applicant.name} {applicant.surname}</div>

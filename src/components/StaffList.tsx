@@ -23,6 +23,8 @@ export default function StaffList({ staff, currentUser }: Props) {
     surname: '',
     tcNo: '',
     phone: '',
+    googleEmail: '',
+    isApproved: false,
     partnerId: undefined,
     isActive: true,
     dutyLocation: ''
@@ -85,7 +87,7 @@ export default function StaffList({ staff, currentUser }: Props) {
 
       setEditingId(null);
       setIsAdding(false);
-      setFormData({ name: '', surname: '', tcNo: '', phone: '', partnerId: undefined });
+      setFormData({ name: '', surname: '', tcNo: '', phone: '', googleEmail: '', isApproved: false, partnerId: undefined });
     } catch (error) {
       console.error("Error saving staff:", error);
     }
@@ -313,7 +315,34 @@ export default function StaffList({ staff, currentUser }: Props) {
                   ))}
               </select>
             </div>
-            <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Google E-posta (Gmail)</label>
+              <input
+                required
+                type="email"
+                placeholder="Örn: ad.soyad@gmail.com"
+                value={formData.googleEmail || ''}
+                onChange={e => setFormData({ ...formData, googleEmail: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Panel Erişimi (Yönetici Onayı)</label>
+              <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 h-[42px]">
+                <input
+                  type="checkbox"
+                  id="isApproved"
+                  checked={formData.isApproved || false}
+                  onChange={e => setFormData({ ...formData, isApproved: e.target.checked })}
+                  className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="isApproved" className="text-sm font-semibold text-gray-900 cursor-pointer">
+                  {formData.isApproved ? 'Saha Paneline Erişebilir' : 'Erişim Yok (Onay Bekliyor)'}
+                </label>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-4">
               <button
                 type="button"
                 onClick={() => { setIsAdding(false); setEditingId(null); }}
@@ -376,6 +405,7 @@ export default function StaffList({ staff, currentUser }: Props) {
                 <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-44">T.C. Kimlik No</th>
                 <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-40">Telefon</th>
                 <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-48">Ekip Arkadaşı</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Erişim Onayı</th>
                 <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-48 text-right">İşlemler</th>
               </tr>
             </thead>
@@ -428,6 +458,17 @@ export default function StaffList({ staff, currentUser }: Props) {
                         ) : (
                           <span className="text-[10px] font-black bg-slate-100 text-slate-400 px-3 py-1.5 rounded-xl border border-slate-200 uppercase tracking-widest w-fit">
                             BİREYSEL
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {s.isApproved ? (
+                          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-widest w-fit">
+                            <Check className="w-3 h-3" /> ONAYLI
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-widest w-fit">
+                            <X className="w-3 h-3" /> ONAY BEKLİYOR
                           </span>
                         )}
                       </td>

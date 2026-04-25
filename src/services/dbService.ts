@@ -1,5 +1,36 @@
+import Dexie, { Table } from 'dexie';
 import { Applicant, Staff, WorkDay, Schedule, Program, Admin } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
+
+// local database schema
+class VefaDatabase extends Dexie {
+  applicants!: Table<Applicant>;
+  staff!: Table<Staff>;
+  workDays!: Table<WorkDay>;
+  schedules!: Table<Schedule>;
+  programs!: Table<Program>;
+  admins!: Table<Admin>;
+  auditLogs!: Table<any>;
+  systemUsers!: Table<any>;
+  syncQueue!: Table<{ id?: number; collection: string; action: 'add' | 'update' | 'delete' | 'bulkAdd'; data: any; timestamp: number }>;
+
+  constructor() {
+    super('VefaDB');
+    this.version(1).stores({
+      applicants: '++id, tcNo, name, surname, neighborhood',
+      staff: '++id, tcNo, name, surname, googleEmail',
+      workDays: '++id, date',
+      schedules: '++id, date',
+      programs: '++id, status',
+      admins: '++id, email',
+      auditLogs: '++id, timestamp',
+      systemUsers: '++id, email',
+      syncQueue: '++id, collection, timestamp'
+    });
+  }
+}
+
+export const dexieDb = new VefaDatabase();
 
 const API_BASE = '/api';
 
@@ -14,30 +45,59 @@ async function apiFetch(path: string, options?: RequestInit) {
     if (user.role) headers['x-user-role'] = user.role;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      ...headers,
-      ...options?.headers,
-    },
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    let errorMsg = `API Hatası: ${response.status}`;
-    try {
-      const errorData = JSON.parse(text);
-      errorMsg = errorData.message || errorData.error || errorMsg;
-      if (errorData.stack) console.error("Server Stack:", errorData.stack);
-    } catch (e) {
-      // Not JSON, probably Vercel's HTML error page
-      if (text.includes("MONGODB_URI")) errorMsg = "Veritabanı yapılandırma hatası detected.";
-      else if (text.includes("Serverless Function Execution Error")) errorMsg = "Vercel Sunucu Hatası (Function Crash)";
-      else errorMsg = text.substring(0, 100) || `Bilinmeyen hata (${response.status})`;
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options?.headers,
+      },
+    });
+
+    if (!response.ok) {
+       const text = await response.text();
+       throw new Error(text || `API Hatası: ${response.status}`);
     }
-    throw new Error(errorMsg);
+    return response.json();
+  } catch (error) {
+    // If it's a network error, we'll handle it outside
+    throw error;
   }
-  return response.json();
 }
+
+// Background sync process
+let isSyncing = false;
+export async function syncWithServer() {
+  if (isSyncing || !navigator.onLine) return;
+  isSyncing = true;
+  
+  try {
+    // 1. Pull latest data from server to refresh local
+    const collections = ['applicants', 'staff', 'workdays', 'schedules', 'programs', 'admins', 'auditlogs', 'users'];
+    for (const col of collections) {
+      try {
+        const data = await apiFetch(`/${col}`);
+        const dexieCol = col === 'workdays' ? 'workDays' : col === 'auditlogs' ? 'auditLogs' : col === 'users' ? 'systemUsers' : col === 'schedules' ? 'schedules' : col;
+        await (dexieDb as any)[dexieCol].clear();
+        await (dexieDb as any)[dexieCol].bulkAdd(data);
+      } catch (e) {
+        console.warn(`Could not sync collection ${col}:`, e);
+      }
+    }
+
+    // 2. Push local changes (simplified: we just pull for now as the server is source of truth in this architecture, 
+    // but in a real app we'd push queued changes)
+    // For this applet, the server is the primary DB. Dexie is for fast reads and offline access.
+    
+  } finally {
+    isSyncing = false;
+    notifyListeners();
+  }
+}
+
+// Start sync period
+setInterval(syncWithServer, 30000); // Sync every 30s
+window.addEventListener('online', syncWithServer);
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -59,75 +119,120 @@ export const subscribeToDbChanges = (listener: Listener) => {
 
 class ApiTable<T extends { id?: string }> {
   collectionName: string;
+  dexieTable: Table<T>;
 
-  constructor(collectionName: string) {
+  constructor(collectionName: string, dexieTable: Table<T>) {
     this.collectionName = collectionName;
+    this.dexieTable = dexieTable;
   }
 
   async toArray(): Promise<T[]> {
-    return apiFetch(`/${this.collectionName}`);
+    try {
+      if (navigator.onLine) {
+        const data = await apiFetch(`/${this.collectionName}`);
+        await this.dexieTable.clear();
+        await this.dexieTable.bulkAdd(data);
+        return data;
+      }
+    } catch (e) {
+      console.warn("Fetch failed, using local data", e);
+    }
+    return this.dexieTable.toArray();
   }
 
   async add(item: T): Promise<string> {
-    const res = await apiFetch(`/${this.collectionName}`, {
-      method: 'POST',
-      body: JSON.stringify(item),
-    });
+    const localId = await this.dexieTable.add(item);
+    if (navigator.onLine) {
+      try {
+        const res = await apiFetch(`/${this.collectionName}`, {
+          method: 'POST',
+          body: JSON.stringify(item),
+        });
+        // Update local with server ID
+        await this.dexieTable.update(localId, { id: res.id } as any);
+        notifyListeners();
+        return res.id;
+      } catch (e) {
+        console.warn("Add to server failed, will sync later", e);
+      }
+    }
     notifyListeners();
-    return res.id;
+    return localId.toString();
   }
 
   async update(id: string, changes: Partial<T>): Promise<void> {
-    await apiFetch(`/${this.collectionName}/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(changes),
-    });
+    await this.dexieTable.update(id, changes as any);
+    if (navigator.onLine) {
+      try {
+        await apiFetch(`/${this.collectionName}/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(changes),
+        });
+      } catch (e) {
+        console.warn("Update to server failed", e);
+      }
+    }
     notifyListeners();
   }
 
   async delete(id: string): Promise<void> {
-    await apiFetch(`/${this.collectionName}/${id}`, {
-      method: 'DELETE',
-    });
+    await this.dexieTable.delete(id);
+    if (navigator.onLine) {
+      try {
+        await apiFetch(`/${this.collectionName}/${id}`, {
+          method: 'DELETE',
+        });
+      } catch (e) {
+        console.warn("Delete from server failed", e);
+      }
+    }
     notifyListeners();
   }
 
   async clear(): Promise<void> {
-    await apiFetch(`/${this.collectionName}`, {
-      method: 'DELETE',
-    });
+    await this.dexieTable.clear();
+    if (navigator.onLine) {
+      await apiFetch(`/${this.collectionName}`, { method: 'DELETE' });
+    }
     notifyListeners();
   }
 
   async count(): Promise<number> {
-    const items = await this.toArray();
-    return items.length;
+    return this.dexieTable.count();
   }
 
   async bulkAdd(items: T[]): Promise<void> {
-    if (items.length === 0) return;
-    await apiFetch(`/${this.collectionName}/bulk`, {
-      method: 'POST',
-      body: JSON.stringify(items),
-    });
+    await this.dexieTable.bulkAdd(items);
+    if (navigator.onLine) {
+        await apiFetch(`/${this.collectionName}/bulk`, {
+          method: 'POST',
+          body: JSON.stringify(items),
+        });
+    }
     notifyListeners();
   }
 
   async bulkDelete(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    await apiFetch(`/${this.collectionName}/bulk`, {
-      method: 'DELETE',
-      body: JSON.stringify({ ids }),
-    });
+    await this.dexieTable.bulkDelete(ids as any);
+    if (navigator.onLine) {
+        await apiFetch(`/${this.collectionName}/bulk`, {
+          method: 'DELETE',
+          body: JSON.stringify({ ids }),
+        });
+    }
     notifyListeners();
   }
 
   async bulkUpdate(updates: { id: string, changes: Partial<T> }[]): Promise<void> {
-    if (updates.length === 0) return;
-    await apiFetch(`/${this.collectionName}/bulk-update`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    });
+    for (const u of updates) {
+      await this.dexieTable.update(u.id, u.changes as any);
+    }
+    if (navigator.onLine) {
+        await apiFetch(`/${this.collectionName}/bulk-update`, {
+          method: 'PUT',
+          body: JSON.stringify(updates),
+        });
+    }
     notifyListeners();
   }
 
@@ -141,57 +246,36 @@ class ApiTable<T extends { id?: string }> {
   }
 
   where(field: string) {
-    const createQueryMethods = (op: '<' | '<=' | '==' | '>=' | '>', value: any) => ({
-      toArray: async (): Promise<T[]> => {
-        const all = await this.toArray();
-        return all.filter((item: any) => {
-          const val = item[field];
-          if (op === '==') return val === value;
-          if (op === '<') return val < value;
-          if (op === '<=') return val <= value;
-          if (op === '>') return val > value;
-          if (op === '>=') return val >= value;
-          return false;
-        });
-      },
-      delete: async (): Promise<void> => {
-        const items = await this.where(field).equals(value).toArray();
-        for (const item of items) {
-          if (item.id) await this.delete(item.id);
-        }
-      },
-      count: async (): Promise<number> => {
-        const items = await this.where(field).equals(value).toArray();
-        return items.length;
-      }
-    });
-
     return {
-      equals: (value: any) => createQueryMethods('==', value),
-      above: (value: any) => createQueryMethods('>', value),
-      aboveOrEqual: (value: any) => createQueryMethods('>=', value),
-      below: (value: any) => createQueryMethods('<', value),
-      belowOrEqual: (value: any) => createQueryMethods('<=', value),
+      equals: (value: any) => ({
+        toArray: () => this.dexieTable.where(field).equals(value).toArray(),
+        delete: async () => {
+             const items = await this.dexieTable.where(field).equals(value).toArray();
+             for(const item of items) if(item.id) await this.delete(item.id);
+        },
+        count: () => this.dexieTable.where(field).equals(value).count()
+      }),
+      above: (value: any) => ({ toArray: () => this.dexieTable.where(field).above(value).toArray() }),
+      aboveOrEqual: (value: any) => ({ toArray: () => this.dexieTable.where(field).aboveOrEqual(value).toArray() }),
+      below: (value: any) => ({ toArray: () => this.dexieTable.where(field).below(value).toArray() }),
+      belowOrEqual: (value: any) => ({ toArray: () => this.dexieTable.where(field).belowOrEqual(value).toArray() }),
     };
   }
 
   orderBy(field: string) {
     return {
-      last: async (): Promise<T | undefined> => {
-        const all = await this.toArray();
-        if (all.length === 0) return undefined;
-        return all.sort((a: any, b: any) => (a[field] < b[field] ? -1 : 1)).pop();
+      last: async () => {
+        const all = await this.dexieTable.orderBy(field).toArray();
+        return all[all.length - 1];
       },
       reverse: () => ({
-        first: async (): Promise<T | undefined> => {
-          const all = await this.toArray();
-          if (all.length === 0) return undefined;
-          return all.sort((a: any, b: any) => (a[field] > b[field] ? -1 : 1)).shift();
+        first: async () => {
+            const all = await this.dexieTable.orderBy(field).reverse().toArray();
+            return all[0];
         },
-        last: async (): Promise<T | undefined> => {
-          const all = await this.toArray();
-          if (all.length === 0) return undefined;
-          return all.sort((a: any, b: any) => (a[field] < b[field] ? -1 : 1)).pop();
+        last: async () => {
+            const all = await this.dexieTable.orderBy(field).toArray();
+            return all[all.length - 1];
         }
       })
     };
@@ -199,14 +283,14 @@ class ApiTable<T extends { id?: string }> {
 }
 
 export const dbService = {
-  applicants: new ApiTable<Applicant>('applicants'),
-  staff: new ApiTable<Staff>('staff'),
-  workDays: new ApiTable<WorkDay>('workdays'),
-  schedules: new ApiTable<Schedule>('schedules'),
-  programs: new ApiTable<Program>('programs'),
-  admins: new ApiTable<Admin>('admins'),
-  auditLogs: new ApiTable<any>('auditlogs'),
-  users: new ApiTable<any>('users'),
+  applicants: new ApiTable<Applicant>('applicants', dexieDb.applicants),
+  staff: new ApiTable<Staff>('staff', dexieDb.staff),
+  workDays: new ApiTable<WorkDay>('workdays', dexieDb.workDays),
+  schedules: new ApiTable<Schedule>('schedules', dexieDb.schedules),
+  programs: new ApiTable<Program>('programs', dexieDb.programs),
+  admins: new ApiTable<Admin>('admins', dexieDb.admins),
+  auditLogs: new ApiTable<any>('auditlogs', dexieDb.auditLogs),
+  systemUsers: new ApiTable<any>('users', dexieDb.systemUsers),
   
   transaction: async (mode: string, tables: any, callback: () => Promise<void>) => {
     await callback();

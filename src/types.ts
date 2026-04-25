@@ -55,6 +55,8 @@ export interface Staff {
   surname: string;
   tcNo: string;
   phone: string;
+  googleEmail?: string; // Google account email
+  isApproved?: boolean; // Management approval for staff access
   partnerId?: string; // ID of the other staff member in the team
   isActive?: boolean;
   dutyLocation?: string; // Görev yeri
@@ -77,6 +79,15 @@ export interface Schedule {
     isCompleted?: boolean;
     completionDate?: string;
     completionNote?: string;
+    approvals?: { 
+      staffId: string; 
+      date: string; 
+      note?: string; 
+      lat?: number; 
+      lng?: number;
+      startTime?: string;
+      endTime?: string;
+    }[];
   }[];
 }
 
