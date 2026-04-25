@@ -337,93 +337,68 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
     reader.readAsBinaryString(file);
   };
 
-  const movePriority = async (applicant: Applicant, direction: 'up' | 'down') => {
-    // Force re-indexing first to assure 1..N order
-    // But since it's already rendered, let's trust the current index in the sorted UI
-    const sorted = [...applicants].sort((a, b) => {
-      if ((a.priority || 0) !== (b.priority || 0)) {
-        return (a.priority || 0) - (b.priority || 0);
-      }
-      return String(a.id || '').localeCompare(String(b.id || ''));
-    });
-    
-    const currentIndex = sorted.findIndex(a => a.id === applicant.id);
-    
-    let updates = [];
-    if (direction === 'up' && currentIndex > 0) {
-      const prev = sorted[currentIndex - 1];
-      const prevPriority = prev.priority || 0;
-      updates.push({ id: applicant.id!, changes: { priority: prevPriority - 0.5 } });
-    } else if (direction === 'down' && currentIndex < sorted.length - 1) {
-      const next = sorted[currentIndex + 1];
-      const nextPriority = next.priority || 0;
-      updates.push({ id: applicant.id!, changes: { priority: nextPriority + 0.5 } });
-    }
+  const [localReorderList, setLocalReorderList] = useState<Applicant[]>([]);
 
-    if (updates.length > 0) {
-      await handlePriorityUpdate(updates);
+  useEffect(() => {
+    if (isPriorityMode) {
+      setLocalReorderList(filteredAndSortedApplicants);
     }
+  }, [isPriorityMode, filteredAndSortedApplicants]);
+
+  const handlePriorityReorder = (reorderedItems: Applicant[]) => {
+    setLocalReorderList(reorderedItems);
   };
 
   const handleSavePriorityAndRegenerate = async () => {
+    const listToSave = localReorderList.length > 0 ? localReorderList : filteredAndSortedApplicants;
+    
     if (hasActiveProgram) {
-      if (!confirm('Hane sıralaması kaydedilecek ve mevcut program bu yeni sıralamaya göre (tamamlanmamış ziyaretler için) yeniden düzenlenecektir. Onaylıyor musunuz?')) {
+      if (!confirm('Hane sıralaması kaydedilecek ve mevcut programın GERÇEKLEŞMEMİŞ TÜM ZİYARETLERİ silinip yeni sıralamaya göre yeniden planlanacaktır. Devam etmek istiyor musunuz?')) {
         return;
       }
     }
 
     setIsProcessing(true);
     try {
-      // Re-indexing is already done on move, but let's be sure
-      await reindexPriorities();
-      
+      // 1. Save new priorities
+      const updates = listToSave.map((item, index) => ({
+        id: item.id!,
+        changes: { priority: index + 1 }
+      }));
+      await dbLocal.applicants.bulkUpdate(updates);
+
+      // 2. If there's an active program, delete uncompleted schedules
       if (hasActiveProgram) {
-        // Trigger program re-generation logic
-        // This usually happens in ScheduleView. Since we can't easily call that, 
-        // we'll instruct the user to go to ScheduleView and hit Generate, 
-        // OR we can implement a basic shift here.
-        // Actually, the user asked for: "ancak sıralama sayfasında kaydet butonuna basıldığında var olan program yeniden öncelik sırasına göre oluşturulmalı."
-        
-        // We'll simulate the "Re-generate" by deleting uncompleted schedules and redirecting or notifying.
         const allSchedules = await dbLocal.schedules.toArray();
-        const uncompletedSchedules = allSchedules.filter(s => !s.assignments.some(a => a.isCompleted));
-        
-        if (uncompletedSchedules.length > 0) {
-           await dbLocal.schedules.bulkDelete(uncompletedSchedules.map(s => s.id!));
-           alert('Sıralama kaydedildi. Mevcut programın tamamlanmamış kısımları temizlendi. Lütfen Program Planlama sayfasından yeni sıralamaya göre programı yeniden oluşturun.');
-        } else {
-           alert('Sıralama kaydedildi.');
+        for (const schedule of allSchedules) {
+          const completed = schedule.assignments.filter(a => a.isCompleted);
+          if (completed.length === schedule.assignments.length) continue; 
+          
+          if (completed.length === 0) {
+            await dbLocal.schedules.delete(schedule.id!);
+          } else {
+            await dbLocal.schedules.update(schedule.id!, { assignments: completed });
+          }
         }
+        
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi ve gelecek program temizlendi.');
+        alert('Sıralama başarıyla kaydedildi. Gelecek program temizlendi. Lütfen "Program Planlama" sayfasından yeni sıralamaya göre programı yeniden oluşturun.');
       } else {
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi.');
         alert('Sıralama başarıyla kaydedildi.');
       }
+      setIsPriorityMode(false);
     } catch (e) {
+      console.error("Save priority failed:", e);
       alert('Sıralama kaydedilirken bir hata oluştu.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handlePriorityReorder = async (reorderedItems: Applicant[]) => {
-    // Prevent reordering while processing
-    if (isProcessing) return;
-    
-    // Create updates based on new indexes
-    const updates = reorderedItems.map((item, index) => ({
-      id: item.id!,
-      changes: { priority: index + 1 }
-    }));
-
-    try {
-      await dbLocal.applicants.bulkUpdate(updates);
-      // We don't need to call reindexPriorities here as we just set it exactly
-    } catch (e) {
-      console.error("Reorder failed:", e);
-    }
-  };
-
   const filteredAndSortedApplicants = useMemo(() => {
     return [...applicants]
+      .filter(a => !a.isDeleted)
       .filter(a => {
         const search = searchTerm.toLowerCase();
         return (
@@ -687,7 +662,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                 >
                   <NavigationControl position="top-right" />
                   <LocationPicker 
-                    position={[formData.lat || 41.675, formData.lng || 26.570]} 
+                    position={[(formData.lat || 41.675) as number, (formData.lng || 26.570) as number]} 
                     setPosition={(pos) => setFormData(prev => ({ ...prev, lat: pos[0], lng: pos[1] }))} 
                   />
                 </Map>
@@ -858,11 +833,11 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                </div>
                <Reorder.Group 
                  axis="y" 
-                 values={filteredAndSortedApplicants} 
+                 values={localReorderList} 
                  onReorder={handlePriorityReorder}
                  className="space-y-2"
                >
-                 {filteredAndSortedApplicants.map((applicant) => (
+                 {localReorderList.map((applicant) => (
                    <Reorder.Item 
                      key={applicant.id} 
                      value={applicant}

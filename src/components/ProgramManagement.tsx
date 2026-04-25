@@ -12,7 +12,11 @@ interface ProgramManagementProps {
 
 export default function ProgramManagement({ programs, schedules, currentUser }: ProgramManagementProps) {
   const sortedPrograms = useMemo(() => 
-    [...programs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [...programs].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    }),
   [programs]);
 
   const handleDelete = async (id: string) => {

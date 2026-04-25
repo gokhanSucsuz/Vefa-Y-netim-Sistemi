@@ -1130,8 +1130,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     
     return day.items
       .map((item, i) => {
-        const lat = typeof item.applicant.lat === 'number' ? item.applicant.lat : (41.675 + (i * 0.002));
-        const lng = typeof item.applicant.lng === 'number' ? item.applicant.lng : (26.570 + (i * 0.002));
+        const lat = Number.isFinite(item.applicant.lat) ? Number(item.applicant.lat) : (41.675 + (i * 0.002));
+        const lng = Number.isFinite(item.applicant.lng) ? Number(item.applicant.lng) : (26.570 + (i * 0.002));
         
         return {
           pos: [lat, lng] as [number, number],
@@ -1501,6 +1501,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                         const isSelectedForSwap = swapSelection?.date === a.date && swapSelection?.applicantId === item.applicant.id;
                         const isRevealed = revealedItems.has(item.applicant.id!);
 
+                        const todayStr = format(new Date(), 'yyyy-MM-dd');
+                        const isFuture = a.date > todayStr;
+                        const isPast = a.date < todayStr;
+
                         return (
                           <div key={idx} className={`official-card p-4 flex flex-col gap-3 relative transition-all ${
                             isCompleted ? 'bg-emerald-50 border-emerald-100 shadow-none' : 
@@ -1541,12 +1545,12 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleSwap(a.date, item.applicant.id!)}
-                                disabled={isCompleted}
+                                disabled={isCompleted || isPast}
                                 className={`flex-1 py-2 text-[10px] font-bold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
                                   isSelectedForSwap 
                                     ? 'bg-amber-500 text-white border-amber-500 shadow-sm' 
                                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                }`}
+                                } disabled:opacity-30 disabled:cursor-not-allowed`}
                               >
                                 <RefreshCw className={`w-3.5 h-3.5 ${isSelectedForSwap ? 'animate-spin' : ''}`} />
                                 {isSelectedForSwap ? 'Hedef Seçin' : 'Yer Değiştir'}
@@ -1555,7 +1559,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                               {!isCompleted && (
                                 <button
                                   onClick={() => handleCancelAssignment(a.date, item.applicant.id!)}
-                                  className="p-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl hover:bg-rose-100 transition-all"
+                                  disabled={isPast}
+                                  className="p-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl hover:bg-rose-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                                   title="İptal Et ve Kaydır"
                                 >
                                   <Clock className="w-4 h-4" />
@@ -1564,6 +1569,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                             </div>
 
                             <button
+                              disabled={isFuture && !isCompleted}
                               onClick={() => {
                                 if (!isCompleted) {
                                   setCompletionModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
@@ -1575,10 +1581,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                                 isCompleted 
                                   ? 'bg-slate-100 text-slate-400 hover:bg-slate-200' 
                                   : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm shadow-emerald-100'
-                              }`}
+                              } disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed`}
                             >
                               {isCompleted ? <RefreshCw className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                              {isCompleted ? 'Geri Al' : 'Ziyareti Tamamla'}
+                              {isCompleted ? 'Geri Al' : (isFuture ? 'Zamanı Bekleniyor' : 'Ziyareti Tamamla')}
                             </button>
 
                             <div className="space-y-4 pt-2 border-t border-slate-50">
