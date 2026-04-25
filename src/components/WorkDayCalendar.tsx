@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { dbLocal } from '../db';
 import { WorkDay, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
+import { reAlignActiveProgramSchedules } from '../services/scheduleService';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, isWeekend } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, CheckCircle2, Circle } from 'lucide-react';
@@ -13,12 +14,16 @@ interface Props {
 
 export default function WorkDayCalendar({ workDays, currentUser }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [processingDates, setProcessingDates] = useState<Set<string>>(new Set());
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const toggleHoliday = async (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    if (processingDates.has(dateStr)) return;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -31,22 +36,35 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
       return;
     }
 
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const existing = workDays.find(wd => wd.date === dateStr);
+    setProcessingDates(prev => new Set(prev).add(dateStr));
 
     try {
+      // Re-fetch existing to be sure
+      const latestWorkDays = await dbLocal.workDays.toArray();
+      const existing = latestWorkDays.find(wd => wd.date === dateStr);
+
       if (existing) {
         await dbLocal.workDays.delete(existing.id!);
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tatil Kaldırma', `${dateStr} tarihindeki tatil işareti kaldırıldı.`);
       } else {
         await dbLocal.workDays.add({
           date: dateStr,
-          isWorkDay: false // In holiday model, we store dates that are NOT work days
+          isWorkDay: false
         });
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tatil Ekleme', `${dateStr} tarihi tatil olarak işaretlendi.`);
       }
+      
+      // Ripple Effect: Shift schedules
+      await reAlignActiveProgramSchedules();
+      
     } catch (error) {
       console.error("Error toggling holiday:", error);
+    } finally {
+      setProcessingDates(prev => {
+        const next = new Set(prev);
+        next.delete(dateStr);
+        return next;
+      });
     }
   };
 
@@ -62,6 +80,7 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
       }
       if (monthDays.length > 0) {
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tatil Temizleme', `${format(currentMonth, 'MMMM yyyy', { locale: tr })} ayına ait tüm tatil işaretleri temizlendi.`);
+        await reAlignActiveProgramSchedules();
       }
     } catch (error) {
       console.error("Error clearing holidays:", error);

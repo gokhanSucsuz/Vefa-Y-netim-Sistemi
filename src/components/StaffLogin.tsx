@@ -30,14 +30,56 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
   });
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    fetchUsersAndCheckGoogle();
+  }, [firebaseUser]);
 
-  const fetchUsers = async () => {
+  const fetchUsersAndCheckGoogle = async () => {
     setLoading(true);
     try {
       const usersList = await dbService.users.toArray();
       setUsers(usersList as any);
+
+      if (firebaseUser?.email) {
+        // 1. Check if user is already a SystemUser with this email
+        const existingSystemUser = usersList.find(u => u.email.toLowerCase() === firebaseUser.email.toLowerCase());
+        
+        if (existingSystemUser) {
+          if (existingSystemUser.isApproved) {
+            onLogin(existingSystemUser);
+            return;
+          } else {
+            setError('Hesabınız onay bekliyor. Lütfen yöneticinizle iletişime geçin.');
+            setMode('select');
+          }
+        } else {
+          // 2. Check if user is a Staff member with this googleEmail
+          const staffList = await dbService.staff.toArray();
+          const staffMember = staffList.find(s => s.googleEmail?.toLowerCase() === firebaseUser.email.toLowerCase());
+
+          if (staffMember) {
+            if (staffMember.isApproved) {
+              // Create a temporary system user for this session or add to users table
+              const staffUser: SystemUser = {
+                id: staffMember.id,
+                name: staffMember.name,
+                surname: staffMember.surname,
+                tcNo: staffMember.tcNo,
+                email: firebaseUser.email,
+                passwordHash: '', // Not needed for Google login
+                role: 'staff',
+                isApproved: true,
+                createdAt: new Date().toISOString()
+              };
+              onLogin(staffUser);
+              return;
+            } else {
+              setError('Personel kaydınız onay bekliyor.');
+              setMode('select');
+            }
+          }
+        }
+      }
+
       if (usersList.length === 0) {
         setMode('register');
       } else {
@@ -118,7 +160,7 @@ export default function StaffLogin({ onLogin }: StaffLoginProps) {
         setError('Kaydınız alındı. Giriş yapabilmek için Süper Admin onayı gerekmektedir.');
         setIsSubmitting(false);
         setMode('select');
-        fetchUsers();
+        fetchUsersAndCheckGoogle();
       }
     } catch (err) {
       console.error('Registration error:', err);

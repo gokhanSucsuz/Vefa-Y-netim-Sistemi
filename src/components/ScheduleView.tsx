@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays, isWeekend } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -10,6 +10,7 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
 import { maskTcNo, maskPhone, maskAddress } from '../lib/masking';
+import { formatPhone, formatTC } from '../lib/format';
 import { Map as MapGL, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { geocodeAddress } from '../services/geocoding';
@@ -538,37 +539,36 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     const todayStr = format(now, 'yyyy-MM-dd');
     const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');
     const planningStartDate = isAfter830 ? tomorrowStr : todayStr;
+    const activeProgram = programs.find(p => p.status === 'active');
 
-    // 2. Check for existing schedules from planningStartDate onwards
-    const existingSchedules = await dbLocal.schedules.where('date').aboveOrEqual(planningStartDate).toArray();
     let actualPlanningStartDate = planningStartDate;
-    let isContinuing = false;
-
-    if (existingSchedules.length > 0) {
-      const lastScheduleDate = existingSchedules.sort((a, b) => b.date.localeCompare(a.date))[0].date;
-      const choice = confirm(`Bu tarihler için zaten planlama mevcut.\n\n- Mevcut planlamanın bittiği günden (${format(parseISO(lastScheduleDate), 'dd.MM.yyyy')}) sonra devam etmek için TAMAM'a basın.\n- Mevcut planlamaları silip (tamamlananlar hariç) yeniden planlamak için İPTAL'e basın.`);
+    
+    if (activeProgram) {
+      const choice = confirm(`Sistemde zaten aktif bir program (${activeProgram.name}) mevcut.\n\n- Mevcut programın bittiği günden (${format(parseISO(activeProgram.endDate), 'dd.MM.yyyy')}) sonra yeni bir program eklemek için TAMAM'a basın.\n- Mevcut aktif programı iptal edip (tamamlananlar hariç) bugün/yarından itibaren yeniden planlamak için İPTAL'e basın.`);
       
       if (choice) {
-        // Continue from the end
-        actualPlanningStartDate = format(addDays(parseISO(lastScheduleDate), 1), 'yyyy-MM-dd');
-        isContinuing = true;
+        actualPlanningStartDate = format(addDays(parseISO(activeProgram.endDate), 1), 'yyyy-MM-dd');
       } else {
-        // Overwrite: Delete non-completed schedules
-        const schedulesToDelete = existingSchedules.filter(s => !s.assignments.some(a => a.isCompleted));
-        if (schedulesToDelete.length > 0) {
-          const programIdsToCheck = new Set(schedulesToDelete.map(s => s.programId).filter(Boolean) as string[]);
-          await dbLocal.schedules.bulkDelete(schedulesToDelete.map(s => s.id!));
-          
-          // Clean up programs that no longer have any schedules
-          for (const pid of programIdsToCheck) {
-            const count = await dbLocal.schedules.where('programId').equals(pid).count();
-            if (count === 0) {
-              await dbLocal.programs.delete(pid);
-            }
+        // Cancel current active program and its future schedules
+        const futureSchedules = schedules.filter(s => s.programId === activeProgram.id && s.date >= planningStartDate && !s.assignments.some(a => a.isCompleted));
+        await dbLocal.transaction('rw', [dbLocal.programs, dbLocal.schedules], async () => {
+          await dbLocal.programs.update(activeProgram.id!, { status: 'cancelled' });
+          if (futureSchedules.length > 0) {
+            await dbLocal.schedules.bulkDelete(futureSchedules.map(s => s.id!));
           }
-        }
+        });
         actualPlanningStartDate = planningStartDate;
-        isContinuing = false;
+      }
+    } else {
+      // No active program, but maybe some orphaned future schedules?
+      const orphanedSchedules = schedules.filter(s => s.date >= planningStartDate && !s.assignments.some(a => a.isCompleted));
+      if (orphanedSchedules.length > 0) {
+         if (confirm('Gelecek tarihlerde programı olmayan ziyaret planları bulundu. Bunları temizleyip yeniden planlamak ister misiniz?')) {
+            await dbLocal.schedules.bulkDelete(orphanedSchedules.map(s => s.id!));
+         } else {
+            const lastDate = [...orphanedSchedules].sort((a,b) => b.date.localeCompare(a.date))[0].date;
+            actualPlanningStartDate = format(addDays(parseISO(lastDate), 1), 'yyyy-MM-dd');
+         }
       }
     }
 
@@ -591,21 +591,35 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
       // We will loop through sortedApplicants indefinitely when planning a day.
       // 4. Find available work days starting from actualPlanningStartDate
-      let availableWorkDays: WorkDay[] = [];
-      const allFutureWorkDays = (await dbLocal.workDays.where("date").aboveOrEqual(actualPlanningStartDate).toArray()).filter(wd => wd.isWorkDay);
-      const existingScheduleDates = new Set((await dbLocal.schedules.toArray()).map(s => s.date));
+      const explicitWorkSettings = await dbLocal.workDays.where("date").aboveOrEqual(actualPlanningStartDate).toArray();
+      const settingsMap = new Map(explicitWorkSettings.map(s => [s.date, s.isWorkDay]));
+      const existingScheduleDates = new Set(schedules.map(s => s.date));
       
-      // We will use all available future workdays or at least enough to cover 2 cycles.
-      // But let's just plan for the current month or whatever is available in the days list.
-      const daysNeeded = Math.ceil((sortedApplicants.length * 2) / dailyLimit);
+      let availableWorkDays: any[] = [];
+      let checkDate = parseISO(actualPlanningStartDate);
+      let daysChecked = 0;
       
-      availableWorkDays = allFutureWorkDays
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .filter(wd => !existingScheduleDates.has(wd.date))
-        .slice(0, Math.max(daysNeeded, allFutureWorkDays.length));
+      // Look ahead up to 90 days to find enough work days
+      while (availableWorkDays.length < Math.max(60, Math.ceil(applicantPool.length / 3)) && daysChecked < 90) {
+        const dateStr = format(checkDate, 'yyyy-MM-dd');
+        const explicit = settingsMap.get(dateStr);
+        
+        let isUsable = false;
+        if (explicit === true) isUsable = true;
+        else if (explicit === false) isUsable = false;
+        else if (!isWeekend(checkDate)) isUsable = true;
+        
+        if (isUsable && !existingScheduleDates.has(dateStr)) {
+          availableWorkDays.push({ date: dateStr, isWorkDay: true });
+        }
+        checkDate = addDays(checkDate, 1);
+        daysChecked++;
+      }
+
+      availableWorkDays.sort((a, b) => a.date.localeCompare(b.date));
 
       if (availableWorkDays.length === 0) {
-        alert('Planlanacak uygun iş günü bulunamadı. Lütfen "İş Günleri" takviminden gelecek günler için iş günü tanımlayın.');
+        alert('Planlanacak uygun iş günü bulunamadı. Lütfen "İş Günleri" takviminden gelecek günler için iş günü tanımlayın veya tatilleri kontrol edin.');
         return;
       }
 
@@ -1537,19 +1551,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                                 </div>
                                 <div className="text-[9px] text-slate-500 font-medium mt-1 flex items-center gap-1">
                                   <MapPin className="w-3 h-3 text-slate-300" />
-                                  <span className="truncate">{isRevealed ? item.applicant.address : maskAddress(item.applicant.address)}</span>
+                                  <span className="truncate">{item.applicant.address}</span>
                                 </div>
                               </div>
 
                               <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); toggleReveal(item.applicant.id!); }}
-                                  className={`p-1.5 rounded-lg transition-all ${isRevealed ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:bg-slate-100'}`}
-                                >
-                                  <Search className="w-3.5 h-3.5" />
-                                </button>
                                 <div className="text-[10px] font-mono font-bold text-slate-400">
-                                  {isRevealed ? item.applicant.tcNo : maskTcNo(item.applicant.tcNo)}
+                                  {item.applicant.tcNo}
                                 </div>
                               </div>
                             </div>

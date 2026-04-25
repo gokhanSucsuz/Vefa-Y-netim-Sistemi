@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, CheckCircle, XCircle, Trash2, Loader2, Search, Mail, Phone, CreditCard, Activity, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { User, Shield, CheckCircle, XCircle, Trash2, Loader2, Search, Mail, Phone, CreditCard, Activity, RefreshCw } from 'lucide-react';
 import { dbService } from '../db';
 import { SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { maskTcNo } from '../lib/masking';
+import { formatPhone } from '../lib/format';
 
 interface UserManagerProps {
   currentUser: SystemUser;
@@ -14,17 +14,6 @@ export default function UserManager({ currentUser }: UserManagerProps) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
-  const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
-
-  const toggleReveal = (id: string) => {
-    const newRevealed = new Set(revealedItems);
-    if (newRevealed.has(id)) {
-      newRevealed.delete(id);
-    } else {
-      newRevealed.add(id);
-    }
-    setRevealedItems(newRevealed);
-  };
 
   useEffect(() => {
     fetchUsers();
@@ -182,9 +171,10 @@ export default function UserManager({ currentUser }: UserManagerProps) {
                 <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Kullanıcı Bilgileri</th>
                 <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-48">E-Posta</th>
                 <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-44">T.C. No</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Telefon</th>
                 <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-32">Rol</th>
                 <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-32">Durum</th>
-                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-64 text-right">İşlemler</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-48 text-right">İşlemler</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -207,13 +197,18 @@ export default function UserManager({ currentUser }: UserManagerProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-xs text-slate-600 font-medium">
-                      {revealedItems.has(user.id!) ? user.email : '*******@****.***'}
+                    <div className="text-xs text-slate-600 font-medium whitespace-nowrap">
+                      {user.email}
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-xs text-slate-700 font-mono font-bold bg-white border border-slate-100 px-2 py-0.5 rounded w-fit">
-                      {revealedItems.has(user.id!) ? user.tcNo : maskTcNo(user.tcNo)}
+                      {user.tcNo}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-xs text-slate-600 font-bold">
+                      {formatPhone(user.phone)}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-xs font-bold capitalize text-slate-600">
@@ -228,14 +223,6 @@ export default function UserManager({ currentUser }: UserManagerProps) {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <button 
-                        onClick={() => toggleReveal(user.id!)}
-                        className={`p-2 rounded-xl transition-all ${revealedItems.has(user.id!) ? 'text-amber-600 bg-amber-50 shadow-sm border border-amber-100' : 'text-slate-400 hover:bg-slate-100'}`}
-                        title={revealedItems.has(user.id!) ? 'Gizle' : 'Göster'}
-                      >
-                        {revealedItems.has(user.id!) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                      
                       <button
                         onClick={() => handleToggleApproval(user)}
                         disabled={isProcessing === user.id || (user.isSuperAdmin && user.id === currentUser.id)}

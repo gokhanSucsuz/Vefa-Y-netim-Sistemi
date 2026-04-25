@@ -5,7 +5,7 @@ import { logAction } from '../services/auditService';
 import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Eye, EyeOff, CalendarRange } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AnimatePresence } from 'motion/react';
-import { maskTcNo, maskPhone } from '../lib/masking';
+import { formatPhone } from '../lib/format';
 import StaffStatsModal from './StaffStatsModal';
 import StaffLeavesModal from './StaffLeavesModal';
 
@@ -35,17 +35,6 @@ export default function StaffList({ staff, currentUser }: Props) {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStatsStaff, setSelectedStatsStaff] = useState<Staff | null>(null);
   const [selectedLeavesStaff, setSelectedLeavesStaff] = useState<Staff | null>(null);
-  const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
-
-  const toggleReveal = (id: string) => {
-    const newRevealed = new Set(revealedItems);
-    if (newRevealed.has(id)) {
-      newRevealed.delete(id);
-    } else {
-      newRevealed.add(id);
-    }
-    setRevealedItems(newRevealed);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -443,11 +432,11 @@ export default function StaffList({ staff, currentUser }: Props) {
                       </td>
                       <td className="px-6 py-4 text-slate-700 font-mono text-xs font-bold bg-white/50">
                         <span className="bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                          {revealedItems.has(s.id!) ? s.tcNo : maskTcNo(s.tcNo)}
+                          {s.tcNo}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-slate-600 text-[10px] font-bold uppercase tracking-tighter">
-                        {revealedItems.has(s.id!) ? s.phone : maskPhone(s.phone)}
+                        {formatPhone(s.phone)}
                       </td>
                       <td className="px-6 py-4">
                         {partner ? (
@@ -474,13 +463,6 @@ export default function StaffList({ staff, currentUser }: Props) {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-1.5">
-                          <button
-                            onClick={() => toggleReveal(s.id!)}
-                            className={`p-2 rounded-xl transition-all ${revealedItems.has(s.id!) ? 'text-amber-600 bg-amber-50 shadow-sm border border-amber-100' : 'text-slate-300 hover:bg-slate-100'}`}
-                            title={revealedItems.has(s.id!) ? 'Gizle' : 'Göster'}
-                          >
-                            {revealedItems.has(s.id!) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
                           <button
                             onClick={() => setSelectedStatsStaff(s)}
                             className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"

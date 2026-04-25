@@ -291,6 +291,7 @@ export const dbService = {
   admins: new ApiTable<Admin>('admins', dexieDb.admins),
   auditLogs: new ApiTable<any>('auditlogs', dexieDb.auditLogs),
   systemUsers: new ApiTable<any>('users', dexieDb.systemUsers),
+  users: new ApiTable<any>('users', dexieDb.systemUsers),
   
   transaction: async (mode: string, tables: any, callback: () => Promise<void>) => {
     await callback();

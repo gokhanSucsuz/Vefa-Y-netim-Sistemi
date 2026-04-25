@@ -8,7 +8,7 @@ import { motion } from 'motion/react';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
-import { maskTcNo, maskPhone } from '../lib/masking';
+import { formatPhone, formatTC } from '../lib/format';
 
 interface Props {
   staff: Staff;
@@ -98,8 +98,8 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
             body: [
               [{ text: 'Personel Bilgileri', style: 'tableHeader' }, { text: 'Detay', style: 'tableHeader' }],
               ['Ad Soyad', `${staff.name} ${staff.surname}`],
-              ['TC No', maskTcNo(staff.tcNo)],
-              ['Telefon', maskPhone(staff.phone)],
+              ['TC No', formatTC(staff.tcNo)],
+              ['Telefon', formatPhone(staff.phone)],
               ['Toplam Görev', schedules.length.toString()]
             ]
           }
@@ -188,12 +188,12 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px', border: '1px solid #e5e7eb', padding: '15px', borderRadius: '8px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
               <p><strong>Personel Adı Soyadı:</strong> {staff.name} {staff.surname}</p>
-              <p><strong>T.C. Kimlik No:</strong> {maskTcNo(staff.tcNo)}</p>
+              <p><strong>T.C. Kimlik No:</strong> {formatTC(staff.tcNo)}</p>
               <p><strong>Unvanı:</strong> Vefa Personeli</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'right' }}>
               <p><strong>Rapor Tarihi:</strong> {format(new Date(), 'dd.MM.yyyy HH:mm')}</p>
-              <p><strong>İletişim:</strong> {maskPhone(staff.phone)}</p>
+              <p><strong>İletişim:</strong> {formatPhone(staff.phone)}</p>
             </div>
           </div>
 

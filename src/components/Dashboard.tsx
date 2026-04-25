@@ -100,7 +100,7 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
                           {applicant && (
                             <div className="flex items-center gap-1.5 text-[10px] lg:text-xs text-slate-500 font-medium">
                               <MapPin className="w-3 h-3 text-slate-300" />
-                              <span className="line-clamp-1">{maskAddress(applicant.address)}</span>
+                              <span className="line-clamp-1">{applicant.address}</span>
                             </div>
                           )}
                         </div>

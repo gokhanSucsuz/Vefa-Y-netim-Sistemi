@@ -11,8 +11,10 @@ import {
 } from 'lucide-react';
 import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { AnimatePresence } from 'motion/react';
 import { maskAddress } from '../lib/masking';
 import { logAction } from '../services/auditService';
+import { formatPhone } from '../lib/format';
 
 interface Props {
   currentUser: SystemUser;
@@ -262,7 +264,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
             </div>
             <div>
               <p className="font-bold text-sm tracking-tight">{partner ? `${partner.name} ${partner.surname}` : 'Partner Tanımlanmamış'}</p>
-              <p className="text-[10px] text-blue-100 font-medium uppercase tracking-widest">{partner?.phone || '-'}</p>
+              <p className="text-[10px] text-blue-100 font-medium uppercase tracking-widest">{partner ? formatPhone(partner.phone) : '-'}</p>
             </div>
             {partner && (
                <a href={`tel:${partner.phone}`} className="ml-auto w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-all">
@@ -340,11 +342,8 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                     <div className="flex items-start gap-2 text-xs text-slate-500">
                       <MapPin className="w-4 h-4 text-slate-300 shrink-0 mt-0.5" />
                       <span className="flex-1 leading-relaxed">
-                        {revealedItems.has(applicant.id!) ? applicant.address : maskAddress(applicant.address)}
+                        {applicant.address}
                       </span>
-                      <button onClick={() => toggleReveal(applicant.id!)} className="text-blue-500 font-bold px-2 py-0.5 bg-blue-50 rounded text-[10px]">
-                        {revealedItems.has(applicant.id!) ? 'GİZLE' : 'GÖSTER'}
-                      </button>
                     </div>
                   </div>
 

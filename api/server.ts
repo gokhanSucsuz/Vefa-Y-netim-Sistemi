@@ -98,8 +98,14 @@ async function connectDB() {
 
   console.log("Connecting to MongoDB Atlas... URI length:", MONGODB_URI.length);
   mongoose.set('bufferCommands', false);
+  
+  // Explicitly connect to 'test' first if needed, or just connect to the target 'vefaDB'
+  // and provide a migration route/logic.
+  // The user wants to MOVE the data from 'test' to 'vefaDB'.
+  
   mongoPromise = mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000,
+    dbName: "vefaDB",
+    serverSelectionTimeoutMS: 10000,
     connectTimeoutMS: 10000,
     maxPoolSize: 50,
   });
@@ -108,8 +114,12 @@ async function connectDB() {
     const conn = await mongoPromise;
     console.log("✅ MongoDB Connection Established:", conn.connection.name);
     
-    // Ensure all models are initialized and indexes are created
-    // This is important for unique constraints
+    // Check if we need to migrate from 'test'
+    // We can check if 'vefaDB' is totally empty and 'test' has data.
+    // However, the cleanest way to satisfy "copy all created tables to vefaDB" once
+    // is to provide a trigger or detect it.
+
+    // Initialize models
     await Promise.all(Object.values(mongoose.models).map(m => m.init().catch(e => console.warn(`Model ${m.modelName} init error:`, e))));
     
     return conn;
