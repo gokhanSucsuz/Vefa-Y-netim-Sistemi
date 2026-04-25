@@ -594,24 +594,36 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
         return;
       }
 
-      // 6. Group staff into teams
-      const activeStaff = staff.filter(s => s.isActive !== false);
-      const teams: string[][] = [];
-      const processedStaff = new Set<string>();
-      activeStaff.forEach(s => {
-        if (processedStaff.has(s.id!)) return;
-        if (s.partnerId) {
-          teams.push([s.id!, s.partnerId]);
-          processedStaff.add(s.id!);
-          processedStaff.add(s.partnerId);
+      // 6. Function to get teams for a specific date (ignoring staff on leave)
+      const getTeamsForDate = (dateStr: string) => {
+        const activeStaff = staff.filter(s => {
+          if (s.isActive === false) return false;
+          // Check if on leave
+          if (s.leaves && s.leaves.length > 0) {
+            const onLeave = s.leaves.some(leave => dateStr >= leave.startDate && dateStr <= leave.endDate);
+            if (onLeave) return false;
+          }
+          return true;
+        });
+        
+        const dailyTeams: string[][] = [];
+        const processedStaff = new Set<string>();
+        activeStaff.forEach(s => {
+          if (processedStaff.has(s.id!)) return;
+          if (s.partnerId && activeStaff.find(as => as.id === s.partnerId)) {
+            dailyTeams.push([s.id!, s.partnerId]);
+            processedStaff.add(s.id!);
+            processedStaff.add(s.partnerId);
+          }
+        });
+        const individuals = activeStaff.filter(s => !processedStaff.has(s.id!));
+        for (let i = 0; i < individuals.length; i += 2) {
+          const pair = [individuals[i].id!];
+          if (individuals[i+1]) pair.push(individuals[i+1].id!);
+          dailyTeams.push(pair);
         }
-      });
-      const individuals = activeStaff.filter(s => !processedStaff.has(s.id!));
-      for (let i = 0; i < individuals.length; i += 2) {
-        const pair = [individuals[i].id!];
-        if (individuals[i+1]) pair.push(individuals[i+1].id!);
-        teams.push(pair);
-      }
+        return dailyTeams;
+      };
 
       // 7. Distribute into days respecting 14-day rule
       let lastAssignedId: string | undefined;
@@ -641,6 +653,9 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
         const wd = availableWorkDays[d];
         const dailyAssignments: any[] = [];
         const targetDate = parseISO(wd.date);
+        const dailyTeams = getTeamsForDate(wd.date);
+        // If there are no teams available for this day (everyone is on leave etc.), skip scheduling for this day
+        if (dailyTeams.length === 0) continue;
         
         // Try to fill the day up to dailyLimit
         for (let i = 0; i < dailyLimit; i++) {
@@ -689,8 +704,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
             const chosenVirtualIndex = (currentGlobalIndex + foundOffset) % VIRTUAL_LIST_SIZE;
             const chosenApplicant = sortedApplicants[chosenVirtualIndex % sortedApplicants.length];
             
-            const teamIndex = Math.floor(i / 2) % teams.length;
-            const team = teams[teamIndex];
+            const teamIndex = Math.floor(i / 2) % dailyTeams.length;
+            const team = dailyTeams[teamIndex];
 
             dailyAssignments.push({ 
               applicantId: chosenApplicant.id!,

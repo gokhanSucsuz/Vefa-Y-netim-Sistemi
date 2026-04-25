@@ -367,6 +367,35 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
                 </div>
               </div>
 
+              {/* İzin Geçmişi */}
+              <div className="space-y-4 pt-4 border-t border-gray-100">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-orange-500" />
+                  İzin Geçmişi
+                </h4>
+                
+                <div className="space-y-3">
+                  {!staff.leaves || staff.leaves.length === 0 ? (
+                    <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                      Kayıtlı izin bulunmuyor.
+                    </div>
+                  ) : (
+                    staff.leaves.map((leave, idx) => (
+                      <div key={idx} className="flex flex-col justify-center p-4 bg-orange-50/50 rounded-xl border border-orange-100">
+                        <div className="font-medium text-gray-900">
+                          {format(parseISO(leave.startDate), 'd MMMM yyyy', { locale: tr })} - {format(parseISO(leave.endDate), 'd MMMM yyyy', { locale: tr })}
+                        </div>
+                        {leave.reason && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            Sebep: {leave.reason}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
               {/* Additional Stats */}
               <div className="bg-gray-900 text-white p-6 rounded-3xl">
                 <div className="grid grid-cols-2 gap-8">

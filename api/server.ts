@@ -101,6 +101,7 @@ async function connectDB() {
   mongoPromise = mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 10000,
+    maxPoolSize: 50,
   });
 
   try {
@@ -356,14 +357,14 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
 };
 
 // API Routes
-app.use("/api/applicants", createCrudRoutes(ApplicantModel, 'applicant', ['name', 'surname', 'fullName', 'tcNo', 'phone', 'address', 'haneNo']));
-app.use("/api/staff", createCrudRoutes(StaffModel, 'staff', ['name', 'surname', 'fullName', 'phone', 'tcNo', 'password']));
+app.use("/api/applicants", createCrudRoutes(ApplicantModel, 'applicant', ['tcNo', 'phone', 'address', 'haneNo']));
+app.use("/api/staff", createCrudRoutes(StaffModel, 'staff', ['phone', 'tcNo', 'password']));
 app.use("/api/workdays", createCrudRoutes(WorkDayModel, 'workday'));
 app.use("/api/schedules", createCrudRoutes(ScheduleModel, 'schedule'));
 app.use("/api/programs", createCrudRoutes(ProgramModel, 'program'));
 app.use("/api/auditlogs", createCrudRoutes(AuditLogModel, 'auditlog'));
 app.use("/api/admins", createCrudRoutes(AdminModel, 'admin'));
-app.use("/api/users", createCrudRoutes(UserModel, 'user', ['name', 'surname', 'fullName', 'tcNo', 'phone', 'password', 'passwordHash', 'email']));
+app.use("/api/users", createCrudRoutes(UserModel, 'user', ['tcNo', 'phone', 'password', 'passwordHash', 'email']));
 
 // Reset Mock Data Route
 app.post("/api/admin/reset-mock-data", async (req, res) => {

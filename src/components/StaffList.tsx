@@ -2,11 +2,12 @@ import React, { useState, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Staff, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet, Search, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Eye, EyeOff, CalendarRange } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AnimatePresence } from 'motion/react';
 import { maskTcNo, maskPhone } from '../lib/masking';
 import StaffStatsModal from './StaffStatsModal';
+import StaffLeavesModal from './StaffLeavesModal';
 
 interface Props {
   staff: Staff[];
@@ -31,6 +32,7 @@ export default function StaffList({ staff, currentUser }: Props) {
   const [sortBy, setSortBy] = useState<'name' | 'tcNo'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStatsStaff, setSelectedStatsStaff] = useState<Staff | null>(null);
+  const [selectedLeavesStaff, setSelectedLeavesStaff] = useState<Staff | null>(null);
   const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
 
   const toggleReveal = (id: string) => {
@@ -446,6 +448,13 @@ export default function StaffList({ staff, currentUser }: Props) {
                             <BarChart3 className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => setSelectedLeavesStaff(s)}
+                            className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"
+                            title="İzin Yönetimi"
+                          >
+                            <CalendarRange className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleEdit(s)}
                             className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"
                             title="Düzenle"
@@ -476,6 +485,20 @@ export default function StaffList({ staff, currentUser }: Props) {
             staff={selectedStatsStaff} 
             currentUser={currentUser}
             onClose={() => setSelectedStatsStaff(null)} 
+          />
+        )}
+        {selectedLeavesStaff && (
+          <StaffLeavesModal
+            staff={selectedLeavesStaff}
+            currentUser={currentUser}
+            onClose={() => setSelectedLeavesStaff(null)}
+            onUpdated={() => {
+              // Trigger a re-render or data re-fetch if necessary by updating local state
+              // We can just rely on the parent's subscription to db changes if it has one,
+              // or we can close the modal, wait, let the parent re-fetch.
+              // Since dbService is used with `apiFetch`, we don't have reactive list automatically unless we reload data.
+              window.location.reload(); // Simple solution for forcing update in this custom SPA without much state management
+            }}
           />
         )}
       </AnimatePresence>
