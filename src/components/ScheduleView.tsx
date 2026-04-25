@@ -294,7 +294,26 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
 
         // 7. Handle leftovers
         if (tempPool.length > 0) {
-          // ... (existing leftover logic)
+          const allWorkDays = await dbLocal.workDays.toArray();
+          let currentDateStr = futureSchedules.length > 0 ? futureSchedules[futureSchedules.length - 1].date : date;
+          
+          while(tempPool.length > 0) {
+            // Find next work day
+            const nextWd = allWorkDays.find(wd => wd.date > currentDateStr && wd.isWorkDay);
+            if (!nextWd) {
+              alert('Kalan ziyaretleri planlamak için yeterli iş günü bulunamadı. Lütfen takvimden yeni iş günleri ekleyin.');
+              break;
+            }
+            currentDateStr = nextWd.date;
+            
+            const newUncompleted: any[] = [];
+            for (let j = 0; j < dailyLimit && tempPool.length > 0; j++) {
+              newUncompleted.push(tempPool.shift());
+            }
+            
+            // Add schedule for this day
+            await dbLocal.schedules.add({ date: currentDateStr, programId: currentDaySchedule.programId, assignments: newUncompleted });
+          }
         }
       });
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ziyaret Kaydırma', `${date} tarihindeki ${applicants.find(a => a.id === applicantId)?.name} ziyareti kaydırıldı.`);
@@ -433,7 +452,26 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
         
         // Handle leftovers
         if (tempPool.length > 0) {
-          // ... (existing leftover logic)
+          const allWorkDays = await dbLocal.workDays.toArray();
+          let currentDateStr = planningDates.length > 0 ? planningDates[planningDates.length - 1] : date;
+          
+          while(tempPool.length > 0) {
+            // Find next work day
+            const nextWd = allWorkDays.find(wd => wd.date > currentDateStr && wd.isWorkDay);
+            if (!nextWd) {
+              alert('Kalan ziyaretleri planlamak için yeterli iş günü bulunamadı. Kalanlar silinmemesi için lütfen takvimden yeni iş günleri ekleyin.');
+              break;
+            }
+            currentDateStr = nextWd.date;
+            
+            const newUncompleted: any[] = [];
+            for (let j = 0; j < dailyLimit && tempPool.length > 0; j++) {
+              newUncompleted.push(tempPool.shift());
+            }
+            
+            // Add schedule for this day
+            await dbLocal.schedules.add({ date: currentDateStr, programId: schedule.programId, assignments: newUncompleted });
+          }
         }
       });
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Gün İptali ve Kaydırma', `${date} tarihindeki tüm ziyaretler kaydırıldı.`);
@@ -536,46 +574,31 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
         }
       }
 
-      // 4. Create the full 2N visit list
-      const fullVisitList = [...sortedApplicants, ...sortedApplicants];
-      
-      // Calculate how many visits are left in the current 2N cycle
-      const visitsToPlanCount = (sortedApplicants.length * 2) - globalStartIndex;
-      const visitList = fullVisitList.slice(globalStartIndex);
-
-      // 5. Find available work days starting from actualPlanningStartDate
-      // We look for work days until we have enough to cover all visits
+      // We will loop through sortedApplicants indefinitely when planning a day.
+      // 4. Find available work days starting from actualPlanningStartDate
       let availableWorkDays: WorkDay[] = [];
-      let searchDate = actualPlanningStartDate;
-      let visitsCovered = 0;
-
-      // We need enough days to cover visitsToPlanCount (dailyLimit visits per day)
-      const daysNeeded = Math.ceil(visitsToPlanCount / dailyLimit);
-      
-      // Search for work days in the database
       const allFutureWorkDays = (await dbLocal.workDays.where("date").aboveOrEqual(actualPlanningStartDate).toArray()).filter(wd => wd.isWorkDay);
-      
-      // Also filter out days that ALREADY have a schedule (which we didn't delete because they had completed assignments)
       const existingScheduleDates = new Set((await dbLocal.schedules.toArray()).map(s => s.date));
+      
+      // We will use all available future workdays or at least enough to cover 2 cycles.
+      // But let's just plan for the current month or whatever is available in the days list.
+      const daysNeeded = Math.ceil((sortedApplicants.length * 2) / dailyLimit);
       
       availableWorkDays = allFutureWorkDays
         .sort((a, b) => a.date.localeCompare(b.date))
         .filter(wd => !existingScheduleDates.has(wd.date))
-        .slice(0, daysNeeded);
+        .slice(0, Math.max(daysNeeded, allFutureWorkDays.length));
 
       if (availableWorkDays.length === 0) {
         alert('Planlanacak uygun iş günü bulunamadı. Lütfen "İş Günleri" takviminden gelecek günler için iş günü tanımlayın.');
         return;
       }
 
-      if (availableWorkDays.length < daysNeeded) {
-        alert(`Uyarı: Tüm hanelere ayda 2 kez hizmet verebilmek için ${daysNeeded} iş günü gerekiyor, ancak sistemde sadece ${availableWorkDays.length} iş günü tanımlı. Planlama mevcut günlerle sınırlı kalacaktır.`);
-      }
-
       // 6. Group staff into teams
+      const activeStaff = staff.filter(s => s.isActive !== false);
       const teams: string[][] = [];
       const processedStaff = new Set<string>();
-      staff.forEach(s => {
+      activeStaff.forEach(s => {
         if (processedStaff.has(s.id!)) return;
         if (s.partnerId) {
           teams.push([s.id!, s.partnerId]);
@@ -583,7 +606,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
           processedStaff.add(s.partnerId);
         }
       });
-      const individuals = staff.filter(s => !processedStaff.has(s.id!));
+      const individuals = activeStaff.filter(s => !processedStaff.has(s.id!));
       for (let i = 0; i < individuals.length; i += 2) {
         const pair = [individuals[i].id!];
         if (individuals[i+1]) pair.push(individuals[i+1].id!);
@@ -595,7 +618,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
       let lastAssignedGlobalIndex: number | undefined;
 
       const scheduleEntries: any[] = [];
-      const currentVisitList = [...visitList];
+      let currentGlobalIndex = globalStartIndex;
       
       // Keep track of last visit date for each applicant to enforce 14-day rule
       const lastVisitMap = new Map<string, string>();
@@ -610,6 +633,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
         });
       });
 
+      // Instead of an array that shrinks, we use an index that wraps around N*2.
+      // We will look forward up to N items to find a valid applicant
+      const VIRTUAL_LIST_SIZE = sortedApplicants.length * 2;
+
       for (let d = 0; d < availableWorkDays.length; d++) {
         const wd = availableWorkDays[d];
         const dailyAssignments: any[] = [];
@@ -617,10 +644,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
         
         // Try to fill the day up to dailyLimit
         for (let i = 0; i < dailyLimit; i++) {
-          // 1. First pass: Find the first applicant that satisfies the 14-day rule
-          let foundIdx = -1;
-          for (let vIdx = 0; vIdx < currentVisitList.length; vIdx++) {
-            const applicant = currentVisitList[vIdx];
+          
+          let foundOffset = -1;
+          for (let offset = 0; offset < sortedApplicants.length; offset++) {
+            const virtualIndex = (currentGlobalIndex + offset) % VIRTUAL_LIST_SIZE;
+            const applicantIndex = virtualIndex % sortedApplicants.length;
+            const applicant = sortedApplicants[applicantIndex];
+            
             const lastDateStr = lastVisitMap.get(applicant.id!);
             
             let isGapOk = true;
@@ -633,37 +663,50 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
 
             const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === applicant.id);
 
+            // If we are checking the "immediate next" person and they fail the gap rule, 
+            // the original logic allowed skipping them. The offset loop achieves this.
             if (isGapOk && !isAlreadyInDay) {
-              foundIdx = vIdx;
+              foundOffset = offset;
               break;
             }
           }
 
-          // 2. Second pass: If no one satisfies the rule, take the first available person not in the day
-          if (foundIdx === -1) {
-            for (let vIdx = 0; vIdx < currentVisitList.length; vIdx++) {
-              const applicant = currentVisitList[vIdx];
+          // If nobody satisfies 14-day rule, pick the first one not already in the day to prevent freezing
+          if (foundOffset === -1) {
+            for (let offset = 0; offset < sortedApplicants.length; offset++) {
+              const virtualIndex = (currentGlobalIndex + offset) % VIRTUAL_LIST_SIZE;
+              const applicantIndex = virtualIndex % sortedApplicants.length;
+              const applicant = sortedApplicants[applicantIndex];
               const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === applicant.id);
               if (!isAlreadyInDay) {
-                foundIdx = vIdx;
+                foundOffset = offset;
                 break;
               }
             }
           }
 
-          if (foundIdx !== -1) {
-            const applicant = currentVisitList.splice(foundIdx, 1)[0];
+          if (foundOffset !== -1) {
+            const chosenVirtualIndex = (currentGlobalIndex + foundOffset) % VIRTUAL_LIST_SIZE;
+            const chosenApplicant = sortedApplicants[chosenVirtualIndex % sortedApplicants.length];
+            
             const teamIndex = Math.floor(i / 2) % teams.length;
             const team = teams[teamIndex];
 
             dailyAssignments.push({ 
-              applicantId: applicant.id!,
+              applicantId: chosenApplicant.id!,
               staffIds: team || [],
               isCompleted: false
             });
             
-            lastAssignedId = applicant.id;
-            lastVisitMap.set(applicant.id!, wd.date);
+            lastAssignedId = chosenApplicant.id;
+            lastVisitMap.set(chosenApplicant.id!, wd.date);
+            
+            // Advance the global index past the chosen one.
+            // If we skipped someone, they will be considered tomorrow.
+            // But we actually only advance by 1 from where we PREVIOUSLY were, 
+            // OR we advance the global pointer to exactly the chosen one + 1.
+            // Let's advance it to exactly chosen + 1.
+            currentGlobalIndex = (chosenVirtualIndex + 1) % VIRTUAL_LIST_SIZE;
           }
         }
         

@@ -20,6 +20,7 @@ import ProgramManagement from './components/ProgramManagement';
 import CompletedCleanings from './components/CompletedCleanings';
 import Statistics from './components/Statistics';
 import StaffLogin from './components/StaffLogin';
+import GoogleLogin from './components/GoogleLogin';
 import AuditLogView from './components/AuditLogView';
 import UserManager from './components/UserManager';
 import { SystemUser } from './types';
@@ -99,6 +100,10 @@ export default function App() {
         <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
       </div>
     );
+  }
+
+  if (isAuthenticated === false) {
+    return <GoogleLogin />;
   }
 
   if (!currentStaffUser) {

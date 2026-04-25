@@ -22,7 +22,9 @@ export default function StaffList({ staff, currentUser }: Props) {
     surname: '',
     tcNo: '',
     phone: '',
-    partnerId: undefined
+    partnerId: undefined,
+    isActive: true,
+    dutyLocation: ''
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -269,6 +271,30 @@ export default function StaffList({ staff, currentUser }: Props) {
               />
             </div>
             <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Durum</label>
+              <select
+                value={formData.isActive !== false ? 'active' : 'passive'}
+                onChange={e => setFormData({ ...formData, isActive: e.target.value === 'active' })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              >
+                <option value="active">Aktif (Sahada)</option>
+                <option value="passive">Pasif (Farklı Görevde)</option>
+              </select>
+            </div>
+            {formData.isActive === false && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">Görev Yeri</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Şu an bulunduğu görev"
+                  value={formData.dutyLocation || ''}
+                  onChange={e => setFormData({ ...formData, dutyLocation: e.target.value })}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                />
+              </div>
+            )}
+            <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">Ekip Arkadaşı (Opsiyonel)</label>
               <select
                 value={formData.partnerId || ''}
@@ -370,7 +396,16 @@ export default function StaffList({ staff, currentUser }: Props) {
                           </div>
                           <div>
                             <div className="font-bold text-slate-900 text-sm">{s.name} {s.surname}</div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Vefa Saha Personeli</div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                                Vefa Saha Personeli
+                              </span>
+                              {s.isActive === false && (
+                                <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-amber-100">
+                                  Pasif - {s.dutyLocation}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>

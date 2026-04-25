@@ -53,6 +53,9 @@ export interface Staff {
   tcNo: string;
   phone: string;
   partnerId?: string; // ID of the other staff member in the team
+  isActive?: boolean;
+  dutyLocation?: string; // Görev yeri
+  leaves?: { startDate: string; endDate: string; reason?: string }[];
 }
 
 export interface WorkDay {
