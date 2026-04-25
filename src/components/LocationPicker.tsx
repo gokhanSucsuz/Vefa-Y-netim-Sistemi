@@ -4,8 +4,11 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // Fix Leaflet's default icon issue with webpack/vite
+// @ts-ignore
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
+// @ts-ignore
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+// @ts-ignore
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 const DefaultIcon = L.icon({

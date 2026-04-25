@@ -316,6 +316,47 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     }
   });
 
+  router.put("/bulk-update", async (req, res) => {
+    try {
+      await connectDB();
+      const updates = req.body;
+      const results = [];
+      for (const update of updates) {
+        const data = prepareForDB(update.changes);
+        const item = await model.findByIdAndUpdate(update.id, data, { new: true });
+        if (item) results.push(prepareFromDB(item));
+      }
+      res.json(results);
+    } catch (err: any) {
+      console.error(`[PUT /api/${name}/bulk-update] Error:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post("/bulk", async (req, res) => {
+    try {
+      await connectDB();
+      const items = req.body.map((i: any) => prepareForDB(i));
+      const savedItems = await model.insertMany(items);
+      res.json(savedItems.map((i: any) => prepareFromDB(i)));
+    } catch (err: any) {
+      console.error(`[POST /api/${name}/bulk] Error:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.delete("/bulk", async (req, res) => {
+    try {
+      await connectDB();
+      const { ids } = req.body;
+      await model.deleteMany({ _id: { $in: ids } });
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error(`[DELETE /api/${name}/bulk] Error:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.get("/:id", async (req, res) => {
     try {
       await connectDB();
@@ -411,7 +452,7 @@ app.use("/api/schedules", createCrudRoutes(ScheduleModel, 'schedule'));
 app.use("/api/programs", createCrudRoutes(ProgramModel, 'program'));
 app.use("/api/auditlogs", createCrudRoutes(AuditLogModel, 'auditlog'));
 app.use("/api/admins", createCrudRoutes(AdminModel, 'admin'));
-app.use("/api/users", createCrudRoutes(UserModel, 'user', ['tcNo', 'phone', 'password', 'passwordHash', 'email']));
+app.use("/api/users", createCrudRoutes(UserModel, 'user', ['name', 'surname', 'tcNo', 'phone', 'password', 'passwordHash', 'email']));
 
 // Reset Mock Data Route
 app.post("/api/admin/reset-mock-data", async (req, res) => {

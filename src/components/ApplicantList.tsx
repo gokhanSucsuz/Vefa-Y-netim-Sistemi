@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, EDIRNE_NEIGHBORHOODS, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3, Eye, EyeOff, GripVertical } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence, motion, Reorder } from 'motion/react';
 
 import { geocodeAddress } from '../services/geocoding';
 import { maskTcNo, maskPhone, maskAddress } from '../lib/masking';
@@ -404,31 +404,47 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
     }
   };
 
-  const handlePriorityChange = async (id: string, newPriority: number) => {
-    await handlePriorityUpdate([{ id, changes: { priority: newPriority - 0.5 } }]);
+  const handlePriorityReorder = async (reorderedItems: Applicant[]) => {
+    // Prevent reordering while processing
+    if (isProcessing) return;
+    
+    // Create updates based on new indexes
+    const updates = reorderedItems.map((item, index) => ({
+      id: item.id!,
+      changes: { priority: index + 1 }
+    }));
+
+    try {
+      await dbLocal.applicants.bulkUpdate(updates);
+      // We don't need to call reindexPriorities here as we just set it exactly
+    } catch (e) {
+      console.error("Reorder failed:", e);
+    }
   };
 
-  const filteredAndSortedApplicants = [...applicants]
-    .filter(a => {
-      const search = searchTerm.toLowerCase();
-      return (
-        a.name.toLowerCase().includes(search) ||
-        a.surname.toLowerCase().includes(search) ||
-        a.tcNo.includes(search) ||
-        (a.neighborhood || '').toLowerCase().includes(search)
-      );
-    })
-    .sort((a, b) => {
-      let comparison = 0;
-      if (sortBy === 'priority') {
-        comparison = (a.priority || 0) - (b.priority || 0);
-      } else if (sortBy === 'name') {
-        comparison = (a.name + a.surname).localeCompare(b.name + b.surname);
-      } else if (sortBy === 'neighborhood') {
-        comparison = (a.neighborhood || '').localeCompare(b.neighborhood || '');
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
+  const filteredAndSortedApplicants = useMemo(() => {
+    return [...applicants]
+      .filter(a => {
+        const search = searchTerm.toLowerCase();
+        return (
+          a.name.toLowerCase().includes(search) ||
+          a.surname.toLowerCase().includes(search) ||
+          a.tcNo.includes(search) ||
+          (a.neighborhood || '').toLowerCase().includes(search)
+        );
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === 'priority') {
+          comparison = (a.priority || 0) - (b.priority || 0);
+        } else if (sortBy === 'name') {
+          comparison = (a.name + a.surname).localeCompare(b.name + b.surname);
+        } else if (sortBy === 'neighborhood') {
+          comparison = (a.neighborhood || '').localeCompare(b.neighborhood || '');
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+  }, [applicants, searchTerm, sortBy, sortOrder]);
 
   const toggleSort = (field: 'priority' | 'name' | 'neighborhood') => {
     if (sortBy === field) {
@@ -737,91 +753,71 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
         <div className="overflow-x-auto scrollbar-hide w-full">
-          <table className="w-full text-left border-collapse min-w-[900px] lg:min-w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 w-20 lg:w-24 uppercase tracking-wider">Sıra</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ad Soyad</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Mahalle/Köy</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Adres Bilgisi</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">TC Kimlik / Hane No</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Kişi Sayısı</th>
-                <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 text-right uppercase tracking-wider">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {applicants.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 font-medium">
-                    Henüz kayıtlı hane bulunmuyor.
-                  </td>
+          {!isPriorityMode ? (
+            <table className="w-full text-left border-collapse min-w-[900px] lg:min-w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 w-20 lg:w-24 uppercase tracking-wider">Sıra</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ad Soyad</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Mahalle/Köy</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Adres Bilgisi</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">TC Kimlik / Hane No</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Kişi Sayısı</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 text-right uppercase tracking-wider">İşlemler</th>
                 </tr>
-              ) : (
-                filteredAndSortedApplicants.map(applicant => (
-                  <tr key={applicant.id} className="hover:bg-gray-50/50 transition-all group">
-                    <td className="px-4 lg:px-6 py-4">
-                      <div className="flex items-center gap-2">
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {applicants.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 font-medium">
+                      Henüz kayıtlı hane bulunmuyor.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAndSortedApplicants.map(applicant => (
+                    <tr key={applicant.id} className="hover:bg-gray-50/50 transition-all group">
+                      <td className="px-4 lg:px-6 py-4">
                         <div className="font-bold text-blue-600 bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center border border-blue-100 text-xs shadow-sm">
                           {applicant.priority}
                         </div>
-                        {isPriorityMode && (
-                          <div className="flex flex-col gap-0.5 opacity-100 transition-all">
-                            <button 
-                              onClick={() => movePriority(applicant, 'up')}
-                              className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
-                              title="Yukarı Taşı"
-                            >
-                              <ArrowUp className="w-3 h-3" />
-                            </button>
-                            <button 
-                              onClick={() => movePriority(applicant, 'down')}
-                              className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
-                              title="Aşağı Taşı"
-                            >
-                              <ArrowDown className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 lg:px-6 py-4">
-                      <div className="font-bold text-gray-900 text-sm">{applicant.name} {applicant.surname}</div>
-                      <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
-                        {revealedItems.has(applicant.id!) ? applicant.phone : maskPhone(applicant.phone)}
-                      </div>
-                    </td>
-                    <td className="px-4 lg:px-6 py-4">
-                      <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded-lg border border-slate-200 uppercase tracking-wider">
-                        {applicant.neighborhood}
-                      </span>
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 max-w-xs">
-                      <div className="flex items-start gap-1.5 text-xs text-gray-600">
-                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-institution-blue/60" />
-                        <span className="line-clamp-2 leading-relaxed">
-                          {revealedItems.has(applicant.id!) ? applicant.address : maskAddress(applicant.address)}
+                      </td>
+                      <td className="px-4 lg:px-6 py-4">
+                        <div className="font-bold text-gray-900 text-sm">{applicant.name} {applicant.surname}</div>
+                        <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
+                          {revealedItems.has(applicant.id!) ? applicant.phone : maskPhone(applicant.phone)}
+                        </div>
+                      </td>
+                      <td className="px-4 lg:px-6 py-4">
+                        <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded-lg border border-slate-200 uppercase tracking-wider">
+                          {applicant.neighborhood}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-4 lg:px-6 py-4">
-                      <div className="text-gray-600 font-mono text-xs font-bold">
-                        {revealedItems.has(applicant.id!) ? applicant.tcNo : maskTcNo(applicant.tcNo)}
-                      </div>
-                      {applicant.haneNo && (
-                        <div className="text-[10px] text-gray-500 font-medium mt-0.5">Hane: {applicant.haneNo}</div>
-                      )}
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{applicant.householdSize || 1} Kişi</td>
-                    <td className="px-4 lg:px-6 py-4 text-right">
-                      <div className="flex justify-end gap-1 lg:gap-2">
-                        <button
-                          onClick={() => toggleReveal(applicant.id!)}
-                          className={`p-2 rounded-lg transition-all ${revealedItems.has(applicant.id!) ? 'text-amber-600 bg-amber-50 shadow-sm border border-amber-100' : 'text-slate-400 hover:bg-slate-100'}`}
-                          title={revealedItems.has(applicant.id!) ? 'Gizle' : 'Göster'}
-                        >
-                          {revealedItems.has(applicant.id!) ? <EyeOff className="w-4 h-4 lg:w-5 lg:h-5" /> : <Eye className="w-4 h-4 lg:w-5 lg:h-5" />}
-                        </button>
-                        {!isPriorityMode && (
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 max-w-xs">
+                        <div className="flex items-start gap-1.5 text-xs text-gray-600">
+                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-institution-blue/60" />
+                          <span className="line-clamp-2 leading-relaxed">
+                            {revealedItems.has(applicant.id!) ? applicant.address : maskAddress(applicant.address)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 lg:px-6 py-4">
+                        <div className="text-gray-600 font-mono text-xs font-bold">
+                          {revealedItems.has(applicant.id!) ? applicant.tcNo : maskTcNo(applicant.tcNo)}
+                        </div>
+                        {applicant.haneNo && (
+                          <div className="text-[10px] text-gray-500 font-medium mt-0.5">Hane: {applicant.haneNo}</div>
+                        )}
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{applicant.householdSize || 1} Kişi</td>
+                      <td className="px-4 lg:px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1 lg:gap-2">
+                          <button
+                            onClick={() => toggleReveal(applicant.id!)}
+                            className={`p-2 rounded-lg transition-all ${revealedItems.has(applicant.id!) ? 'text-amber-600 bg-amber-50 shadow-sm border border-amber-100' : 'text-slate-400 hover:bg-slate-100'}`}
+                            title={revealedItems.has(applicant.id!) ? 'Gizle' : 'Göster'}
+                          >
+                            {revealedItems.has(applicant.id!) ? <EyeOff className="w-4 h-4 lg:w-5 lg:h-5" /> : <Eye className="w-4 h-4 lg:w-5 lg:h-5" />}
+                          </button>
                           <button
                             onClick={() => setSelectedStatsApplicant(applicant)}
                             className="p-2 text-institution-blue hover:bg-blue-50 rounded-lg transition-all"
@@ -829,8 +825,6 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                           >
                             <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5" />
                           </button>
-                        )}
-                        {!isPriorityMode && (
                           <button
                             onClick={() => handleEdit(applicant)}
                             className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
@@ -838,8 +832,6 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                           >
                             <Edit2 className="w-4 h-4 lg:w-5 lg:h-5" />
                           </button>
-                        )}
-                        {!isPriorityMode && (
                           <button
                             onClick={() => handleDelete(applicant.id!)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
@@ -847,14 +839,52 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                           >
                             <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <div className="p-4">
+               <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 mb-4 flex items-center gap-3">
+                  <div className="bg-blue-600 text-white p-2 rounded-lg">
+                    <GripVertical className="w-5 h-5" />
+                  </div>
+                  <p className="text-sm font-medium text-blue-800">
+                    Tut-sürükle özelliğini kullanarak hanelerin öncelik sırasını manuel olarak düzenleyebilirsiniz.
+                  </p>
+               </div>
+               <Reorder.Group 
+                 axis="y" 
+                 values={filteredAndSortedApplicants} 
+                 onReorder={handlePriorityReorder}
+                 className="space-y-2"
+               >
+                 {filteredAndSortedApplicants.map((applicant) => (
+                   <Reorder.Item 
+                     key={applicant.id} 
+                     value={applicant}
+                     className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 hover:border-blue-300 hover:shadow-md transition-all cursor-grab active:cursor-grabbing"
+                   >
+                     <GripVertical className="w-5 h-5 text-gray-400 shrink-0" />
+                     <div className="bg-blue-50 text-blue-700 font-bold w-10 h-10 rounded-lg flex items-center justify-center border border-blue-100 shrink-0">
+                        {applicant.priority}
+                     </div>
+                     <div className="flex-1 min-w-0">
+                        <div className="font-bold text-gray-900 truncate">{applicant.name} {applicant.surname}</div>
+                        <div className="text-xs text-gray-500 truncate">{applicant.neighborhood} - {applicant.address}</div>
+                     </div>
+                     <div className="hidden sm:block text-right">
+                        <div className="text-xs font-bold text-gray-700 font-mono">{maskTcNo(applicant.tcNo)}</div>
+                        <div className="text-[10px] text-gray-400 font-bold uppercase">{applicant.haneNo || '-'}</div>
+                     </div>
+                   </Reorder.Item>
+                 ))}
+               </Reorder.Group>
+            </div>
+          )}
         </div>
       </div>
 

@@ -105,24 +105,32 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
                   <h3 className="font-bold text-gray-900 leading-tight">{program.name}</h3>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
-                      program.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      program.status === 'active' ? 'bg-green-100 text-green-700' : 
+                      program.status === 'cancelled' ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-700'
                     }`}>
-                      {program.status === 'active' ? 'Aktif Program' : 'İptal Edilmiş'}
+                      {program.status === 'active' ? 'Aktif Program' : 
+                       program.status === 'cancelled' ? 'İptal Edilmiş' : 'Tamamlanmış'}
                     </span>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase">
-                      {new Date(program.createdAt).toLocaleDateString('tr-TR')}
-                    </span>
+                    {program.createdAt && !isNaN(new Date(program.createdAt).getTime()) && (
+                      <span className="text-[10px] text-gray-400 font-bold uppercase">
+                        {new Date(program.createdAt).toLocaleDateString('tr-TR')}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-50">
                   <div className="flex flex-col">
                     <span className="text-[10px] text-gray-400 font-bold uppercase">Başlangıç</span>
-                    <span className="text-xs font-bold text-gray-700">{new Date(program.startDate).toLocaleDateString('tr-TR')}</span>
+                    <span className="text-xs font-bold text-gray-700">
+                      {program.startDate && !isNaN(new Date(program.startDate).getTime()) ? new Date(program.startDate).toLocaleDateString('tr-TR') : '-'}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="text-[10px] text-gray-400 font-bold uppercase">Bitiş</span>
-                    <span className="text-xs font-bold text-gray-700">{new Date(program.endDate).toLocaleDateString('tr-TR')}</span>
+                    <span className="text-xs font-bold text-gray-700">
+                      {program.endDate && !isNaN(new Date(program.endDate).getTime()) ? new Date(program.endDate).toLocaleDateString('tr-TR') : '-'}
+                    </span>
                   </div>
                 </div>
 

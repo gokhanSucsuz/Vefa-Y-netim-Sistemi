@@ -18,12 +18,7 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  const toggleWorkDay = async (date: Date) => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const isAfter830 = currentHour > 8 || (currentHour === 8 && currentMinute >= 30);
-    
+  const toggleHoliday = async (date: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -32,13 +27,7 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
 
     // Past days check
     if (selectedDate < today) {
-      alert('Geçmiş günleri iş günü olarak seçemezsiniz.');
-      return;
-    }
-
-    // 08:30 rule for today
-    if (isSameDay(selectedDate, today) && isAfter830) {
-      alert('Saat 08:30\'u geçtiği için bugünü iş günü olarak seçemezsiniz. Lütfen yarına veya sonraki günlere planlama yapın.');
+      alert('Geçmiş günleri tatil olarak işaretleyemezsiniz.');
       return;
     }
 
@@ -48,59 +37,21 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
     try {
       if (existing) {
         await dbLocal.workDays.delete(existing.id!);
-        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'İş Günü Kaldırma', `${dateStr} tarihi iş günü listesinden kaldırıldı.`);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tatil Kaldırma', `${dateStr} tarihindeki tatil işareti kaldırıldı.`);
       } else {
         await dbLocal.workDays.add({
           date: dateStr,
-          isWorkDay: true
+          isWorkDay: false // In holiday model, we store dates that are NOT work days
         });
-        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'İş Günü Ekleme', `${dateStr} tarihi iş günü olarak eklendi.`);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tatil Ekleme', `${dateStr} tarihi tatil olarak işaretlendi.`);
       }
     } catch (error) {
-      console.error("Error toggling work day:", error);
+      console.error("Error toggling holiday:", error);
     }
   };
 
-  const selectAllWeekdays = async () => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const isAfter830 = currentHour > 8 || (currentHour === 8 && currentMinute >= 30);
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    try {
-      let addedCount = 0;
-      for (const day of days) {
-        const dayDate = new Date(day);
-        dayDate.setHours(0, 0, 0, 0);
-
-        // Skip past days
-        if (dayDate < today) continue;
-        
-        // Skip today if after 08:30
-        if (isSameDay(dayDate, today) && isAfter830) continue;
-
-        if (!isWeekend(day)) {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          const existing = workDays.find(wd => wd.date === dateStr);
-          if (!existing) {
-            await dbLocal.workDays.add({ date: dateStr, isWorkDay: true });
-            addedCount++;
-          }
-        }
-      }
-      if (addedCount > 0) {
-        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Toplu İş Günü Ekleme', `${format(currentMonth, 'MMMM yyyy', { locale: tr })} ayı için ${addedCount} iş günü eklendi.`);
-      }
-    } catch (error) {
-      console.error("Error selecting weekdays:", error);
-    }
-  };
-
-  const clearMonth = async () => {
-    if (!confirm('Bu ayın tüm iş günlerini temizlemek istediğinize emin misiniz?')) return;
+  const clearHolidays = async () => {
+    if (!confirm('Bu ayın tüm tatil işaretlerini temizlemek istediğinize emin misiniz? Hafta içi tüm günler çalışma günü sayılacaktır.')) return;
     try {
       const monthDays = workDays.filter(wd => {
         const d = new Date(wd.date);
@@ -110,10 +61,10 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
         await dbLocal.workDays.delete(wd.id!);
       }
       if (monthDays.length > 0) {
-        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ay Temizleme', `${format(currentMonth, 'MMMM yyyy', { locale: tr })} ayına ait tüm iş günleri temizlendi.`);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tatil Temizleme', `${format(currentMonth, 'MMMM yyyy', { locale: tr })} ayına ait tüm tatil işaretleri temizlendi.`);
       }
     } catch (error) {
-      console.error("Error clearing month:", error);
+      console.error("Error clearing holidays:", error);
     }
   };
 
@@ -121,21 +72,15 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">İş Günleri Belirleme</h2>
-          <p className="text-gray-500">Takvim üzerinden ilgili ayın iş günlerini seçin.</p>
+          <h2 className="text-2xl font-bold text-gray-900">Tatil Günleri Belirleme</h2>
+          <p className="text-gray-500">Hafta içi olup çalışılmayacak (tatil/izin) günleri seçin. Haftasonları otomatik tatil sayılır.</p>
         </div>
         <div className="flex gap-2">
           <button
-            onClick={selectAllWeekdays}
-            className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-all"
-          >
-            Hafta İçi Günleri Seç
-          </button>
-          <button
-            onClick={clearMonth}
+            onClick={clearHolidays}
             className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-all"
           >
-            Tümünü Temizle
+            Tatilleri Temizle
           </button>
         </div>
       </div>
@@ -176,46 +121,44 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
         </div>
 
         <div className="grid grid-cols-7 gap-2">
-          {/* Empty cells for padding */}
           {Array.from({ length: (monthStart.getDay() + 6) % 7 }).map((_, i) => (
             <div key={`pad-${i}`} className="aspect-square" />
           ))}
 
           {days.map(day => {
             const dateStr = format(day, 'yyyy-MM-dd');
-            const isWorkDay = workDays.some(wd => wd.date === dateStr);
+            const isMarkedHoliday = workDays.some(wd => wd.date === dateStr);
+            const weekend = isWeekend(day);
+            const isActualHoliday = isMarkedHoliday || weekend;
             const today = isToday(day);
 
             return (
               <button
                 key={dateStr}
-                onClick={() => toggleWorkDay(day)}
-                disabled={(() => {
-                  const now = new Date();
+                onClick={() => !weekend && toggleHoliday(day)}
+                disabled={weekend || (() => {
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
                   const d = new Date(day);
                   d.setHours(0, 0, 0, 0);
-                  const isAfter830 = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() >= 30);
-                  return d < today || (isSameDay(d, today) && isAfter830);
+                  return d < today;
                 })()}
                 className={`
                   aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all relative group
-                  ${isWorkDay ? 'bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105 z-10' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}
-                  ${today && !isWorkDay ? 'ring-2 ring-blue-200' : ''}
-                  disabled:opacity-30 disabled:cursor-not-allowed disabled:scale-100
+                  ${isActualHoliday ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-green-50 text-green-900 border border-green-100 hover:bg-green-100'}
+                  ${today ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
+                  ${weekend ? 'opacity-60 cursor-default' : ''}
+                  disabled:opacity-40 disabled:cursor-not-allowed
                 `}
               >
-                <span className={`text-lg font-bold ${isWorkDay ? 'text-white' : 'text-gray-900'}`}>
+                <span className={`text-lg font-bold ${isActualHoliday ? 'text-amber-900' : 'text-green-900'}`}>
                   {format(day, 'd')}
                 </span>
-                {isWorkDay ? (
-                  <CheckCircle2 className="w-4 h-4 text-blue-200" />
-                ) : (
-                  <Circle className="w-4 h-4 text-gray-300 group-hover:text-gray-400" />
-                )}
+                <span className="text-[8px] font-bold uppercase tracking-tighter">
+                  {isActualHoliday ? 'Tatil' : 'Çalışma'}
+                </span>
                 {today && (
-                  <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${isWorkDay ? 'bg-white' : 'bg-blue-500'}`} />
+                  <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500" />
                 )}
               </button>
             );
@@ -224,10 +167,15 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
       </div>
 
       <div className="bg-blue-50 rounded-2xl p-4 flex items-start gap-3 border border-blue-100">
-        <CalendarIcon className="w-5 h-5 text-blue-600 mt-0.5" />
-        <div className="text-sm text-blue-800">
-          <p className="font-semibold">İpucu:</p>
-          <p>Mavi renkli günler iş günü olarak işaretlenmiştir. Günlerin üzerine tıklayarak seçim yapabilir veya kaldırabilirsiniz.</p>
+        <div className="flex gap-4">
+           <div className="flex items-center gap-2">
+             <div className="w-4 h-4 rounded bg-green-100 border border-green-200" />
+             <span className="text-xs font-bold text-gray-700">Çalışma Günü</span>
+           </div>
+           <div className="flex items-center gap-2">
+             <div className="w-4 h-4 rounded bg-amber-100 border border-amber-200" />
+             <span className="text-xs font-bold text-gray-700">Tatil Günü</span>
+           </div>
         </div>
       </div>
     </div>
