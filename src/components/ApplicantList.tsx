@@ -85,8 +85,14 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
       return String(a.id || '').localeCompare(String(b.id || ''));
     });
 
+    const updates = [];
     for (let i = 0; i < sorted.length; i++) {
-      await dbLocal.applicants.update(sorted[i].id!, { priority: i + 1 });
+       if (sorted[i].priority !== i + 1) {
+         updates.push({ id: sorted[i].id!, changes: { priority: i + 1 } });
+       }
+    }
+    if (updates.length > 0) {
+      await dbLocal.applicants.bulkUpdate(updates);
     }
   };
 
@@ -296,25 +302,34 @@ export default function ApplicantList({ applicants, currentUser }: Props) {
   };
 
   const movePriority = async (applicant: Applicant, direction: 'up' | 'down') => {
-    const sorted = [...applicants].sort((a, b) => (a.priority || 0) - (b.priority || 0));
+    // Force re-indexing first to assure 1..N order
+    // But since it's already rendered, let's trust the current index in the sorted UI
+    const sorted = [...applicants].sort((a, b) => {
+      if ((a.priority || 0) !== (b.priority || 0)) {
+        return (a.priority || 0) - (b.priority || 0);
+      }
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+    
     const currentIndex = sorted.findIndex(a => a.id === applicant.id);
     
+    let updates = [];
     if (direction === 'up' && currentIndex > 0) {
       const prev = sorted[currentIndex - 1];
-      const currentPriority = applicant.priority || 0;
       const prevPriority = prev.priority || 0;
-      
-      await dbLocal.applicants.update(applicant.id!, { priority: prevPriority });
-      await dbLocal.applicants.update(prev.id!, { priority: currentPriority });
+      // To reliably move before prev, assign it prev's priority minus 0.5
+      updates.push({ id: applicant.id!, changes: { priority: prevPriority - 0.5 } });
     } else if (direction === 'down' && currentIndex < sorted.length - 1) {
       const next = sorted[currentIndex + 1];
-      const currentPriority = applicant.priority || 0;
       const nextPriority = next.priority || 0;
-      
-      await dbLocal.applicants.update(applicant.id!, { priority: nextPriority });
-      await dbLocal.applicants.update(next.id!, { priority: currentPriority });
+      // To reliably move after next, assign it next's priority plus 0.5
+      updates.push({ id: applicant.id!, changes: { priority: nextPriority + 0.5 } });
     }
-    await reindexPriorities();
+
+    if (updates.length > 0) {
+      await dbLocal.applicants.bulkUpdate(updates);
+      await reindexPriorities();
+    }
   };
 
   const handlePriorityChange = async (id: string, newPriority: number) => {

@@ -1,5 +1,7 @@
 {
-  "name": "Edirne Merkez Vefa Modülü",
+  "name": "Edirne SYDV VEFA Yönetim Sistemi",
   "description": "Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }

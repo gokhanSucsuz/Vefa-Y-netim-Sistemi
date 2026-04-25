@@ -297,6 +297,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
           const allWorkDays = await dbLocal.workDays.toArray();
           let currentDateStr = futureSchedules.length > 0 ? futureSchedules[futureSchedules.length - 1].date : date;
           
+          const leftoverSchedules = [];
           while(tempPool.length > 0) {
             // Find next work day
             const nextWd = allWorkDays.find(wd => wd.date > currentDateStr && wd.isWorkDay);
@@ -311,8 +312,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
               newUncompleted.push(tempPool.shift());
             }
             
-            // Add schedule for this day
-            await dbLocal.schedules.add({ date: currentDateStr, programId: currentDaySchedule.programId, assignments: newUncompleted });
+            leftoverSchedules.push({ date: currentDateStr, programId: currentDaySchedule.programId, assignments: newUncompleted });
+          }
+          if (leftoverSchedules.length > 0) {
+            await dbLocal.schedules.bulkAdd(leftoverSchedules);
           }
         }
       });
@@ -455,6 +458,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
           const allWorkDays = await dbLocal.workDays.toArray();
           let currentDateStr = planningDates.length > 0 ? planningDates[planningDates.length - 1] : date;
           
+          const leftoverSchedules = [];
           while(tempPool.length > 0) {
             // Find next work day
             const nextWd = allWorkDays.find(wd => wd.date > currentDateStr && wd.isWorkDay);
@@ -469,8 +473,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
               newUncompleted.push(tempPool.shift());
             }
             
-            // Add schedule for this day
-            await dbLocal.schedules.add({ date: currentDateStr, programId: schedule.programId, assignments: newUncompleted });
+            leftoverSchedules.push({ date: currentDateStr, programId: schedule.programId, assignments: newUncompleted });
+          }
+          if (leftoverSchedules.length > 0) {
+            await dbLocal.schedules.bulkAdd(leftoverSchedules);
           }
         }
       });
@@ -750,12 +756,11 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, c
       });
 
       // 9. Save schedules
-      for (const entry of scheduleEntries) {
-        await dbLocal.schedules.add({
-          ...entry,
-          programId: programId as string
-        });
-      }
+      const payloadSchedules = scheduleEntries.map(entry => ({
+        ...entry,
+        programId: programId as string
+      }));
+      await dbLocal.schedules.bulkAdd(payloadSchedules);
 
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Program Oluşturma', `${scheduleEntries.length} günlük yeni program oluşturuldu.`);
       alert('Planlama başarıyla tamamlandı.');

@@ -342,6 +342,40 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     }
   });
 
+  router.put("/bulk-update", async (req, res) => {
+    try {
+      await connectDB();
+      const updates = req.body;
+      if (Array.isArray(updates)) {
+        // Run updates in parallel
+        await Promise.all(
+          updates.map((update: any) => {
+            const data = prepareForDB(update.changes);
+            return model.findByIdAndUpdate(update.id, data);
+          })
+        );
+      }
+      res.json({ success: true, count: updates?.length || 0 });
+    } catch (err: any) {
+      console.error(`[PUT /api/${name}/bulk-update] Error:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.delete("/bulk", async (req, res) => {
+    try {
+      await connectDB();
+      const { ids } = req.body;
+      if (Array.isArray(ids) && ids.length > 0) {
+        await model.deleteMany({ _id: { $in: ids } });
+      }
+      res.json({ success: true, count: ids?.length || 0 });
+    } catch (err: any) {
+      console.error(`[DELETE /api/${name}/bulk] Error:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.delete("/", async (req, res) => {
     try {
       await connectDB();

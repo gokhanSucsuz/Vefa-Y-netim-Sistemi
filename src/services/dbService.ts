@@ -44,8 +44,12 @@ async function apiFetch(path: string, options?: RequestInit) {
 type Listener = () => void;
 const listeners = new Set<Listener>();
 
+let notifyTimeout: NodeJS.Timeout | null = null;
 export const notifyListeners = () => {
-  listeners.forEach(listener => listener());
+  if (notifyTimeout) clearTimeout(notifyTimeout);
+  notifyTimeout = setTimeout(() => {
+    listeners.forEach(listener => listener());
+  }, 100);
 };
 
 export const subscribeToDbChanges = (listener: Listener) => {
@@ -113,9 +117,20 @@ class ApiTable<T extends { id?: string }> {
 
   async bulkDelete(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    for (const id of ids) {
-      await this.delete(id);
-    }
+    await apiFetch(`/${this.collectionName}/bulk`, {
+      method: 'DELETE',
+      body: JSON.stringify({ ids }),
+    });
+    notifyListeners();
+  }
+
+  async bulkUpdate(updates: { id: string, changes: Partial<T> }[]): Promise<void> {
+    if (updates.length === 0) return;
+    await apiFetch(`/${this.collectionName}/bulk-update`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+    notifyListeners();
   }
 
   async put(item: T): Promise<string> {
