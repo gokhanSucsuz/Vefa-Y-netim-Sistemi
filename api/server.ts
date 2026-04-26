@@ -703,11 +703,22 @@ async function setupVite() {
   } else {
     // In production (Vercel), we serve static files from dist
     const distPath = path.join(process.cwd(), 'dist');
+    console.log("Serving static files from:", distPath);
+    
     if (fs.existsSync(distPath)) {
-      app.use(express.static(distPath));
+      app.use(express.static(distPath, {
+        index: false // we handle index specifically with sendFile
+      }));
+      
       app.get('*', (req, res) => {
+        // If it's an API route that somehow leaked here, 404 it
+        if (req.path.startsWith('/api')) {
+          return res.status(404).json({ error: 'Not Found' });
+        }
         res.sendFile(path.join(distPath, 'index.html'));
       });
+    } else {
+      console.warn("Dist folder NOT found at:", distPath);
     }
   }
 }

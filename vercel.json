@@ -2,6 +2,9 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/server" },
     { "source": "/auth/(.*)", "destination": "/api/server" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/manifest.json", "destination": "/manifest.json" },
+    { "source": "/sw.js", "destination": "/sw.js" },
+    { "source": "/favicon.ico", "destination": "/favicon.ico" },
+    { "source": "/(.*)", "destination": "/api/server" }
   ]
 }
