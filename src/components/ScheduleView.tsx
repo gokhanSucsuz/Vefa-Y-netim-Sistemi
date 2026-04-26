@@ -655,6 +655,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
       // 7. Distribute into days respecting 14-day rule and 2 visits per month
       let lastAssignedId: string | undefined;
+      let isLastDayOfProgram = false;
 
       const scheduleEntries: any[] = [];
       
@@ -701,9 +702,12 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
         
         for (let i = 0; i < dailyLimit; i++) {
           if (applicantPool.length === 0) {
-            // Son iş gününde günlük limit dolmadıysa ve listeden atama yapılabilir durumda ise baştan al
-            if (d === availableWorkDays.length - 1 && sortedApplicants.length > 0) {
+            // Liste bittiğinde (havuz boşaldığında), eğer günlük limit dolmadıysa 
+            // listenin başından günlük limiti tamamlayacak kadar kayıt ekle
+            if (sortedApplicants.length > 0) {
                applicantPool.push(...sortedApplicants);
+               // Havuz bittiği için bu gün programın son günü olacak
+               isLastDayOfProgram = true;
             } else {
                break;
             }
@@ -767,6 +771,11 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
             date: wd.date,
             assignments: dailyAssignments
           });
+        }
+
+        // Eğer havuz bittiyse ve son günü doldurduysak döngüden çık
+        if (isLastDayOfProgram || applicantPool.length === 0) {
+          break;
         }
       }
 

@@ -407,8 +407,21 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
     );
   }, [localReorderList, prioritySearch]);
 
+  const paginatedPriorityList = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredLocalReorderList.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredLocalReorderList, currentPage]);
+
   const handlePriorityReorder = (newOrder: Applicant[]) => {
     let updatedList: Applicant[];
+    
+    // When paginated, we are reordering a slice of the visible filtered list
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const itemsInOtherPagesBefore = filteredLocalReorderList.slice(0, startIndex);
+    const itemsInOtherPagesAfter = filteredLocalReorderList.slice(startIndex + itemsPerPage);
+    
+    const newFilteredList = [...itemsInOtherPagesBefore, ...newOrder, ...itemsInOtherPagesAfter];
+
     if (prioritySearch) {
       // If searching, we need to merge the reordered visible items back into the master list
       updatedList = [...localReorderList];
@@ -417,11 +430,11 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
       let visibleIdx = 0;
       for (let i = 0; i < updatedList.length; i++) {
         if (visibleIds.includes(updatedList[i].id)) {
-          updatedList[i] = newOrder[visibleIdx++];
+          updatedList[i] = newFilteredList[visibleIdx++];
         }
       }
     } else {
-      updatedList = newOrder;
+      updatedList = newFilteredList;
     }
     
     setLocalReorderList(updatedList);
@@ -886,11 +899,11 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                </div>
                <Reorder.Group 
                  axis="y" 
-                 values={filteredLocalReorderList} 
+                 values={paginatedPriorityList} 
                  onReorder={handlePriorityReorder}
                  className="space-y-2"
                >
-                 {filteredLocalReorderList.map((applicant) => (
+                 {paginatedPriorityList.map((applicant) => (
                    <Reorder.Item 
                      key={applicant.id} 
                      value={applicant}
