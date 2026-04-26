@@ -1,7 +1,7 @@
 {
-  "name": "Edirne SYDV Vefa Yönetim Sistemi",
-  "short_name": "Vefa Yönetim",
-  "description": "Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı Vefa Yönetim Sistemi",
+  "name": "Vefa SYDV",
+  "short_name": "Vefa SYDV",
+  "description": "Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı Vefa SYDV Sistemi",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

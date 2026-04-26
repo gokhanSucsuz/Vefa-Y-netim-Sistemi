@@ -120,7 +120,7 @@ export default function App() {
             referrerPolicy="no-referrer"
           />
           <div className="flex flex-col">
-            <span className="font-extrabold text-sm text-gray-900 leading-none">VEFA SİSTEMİ</span>
+            <span className="font-extrabold text-sm text-gray-900 leading-none">VEFA SYDV</span>
             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Edirne SYDV</span>
           </div>
         </div>
@@ -165,7 +165,7 @@ export default function App() {
               referrerPolicy="no-referrer"
             />
             <div>
-              <span className="font-black text-lg text-gray-900 block leading-tight tracking-tight uppercase">Vefa</span>
+              <span className="font-black text-lg text-gray-900 block leading-tight tracking-tight uppercase">Vefa SYDV</span>
               <span className="text-[10px] text-blue-600 font-black uppercase tracking-[0.2em]">YÖNETİM PANELİ</span>
             </div>
           </div>
