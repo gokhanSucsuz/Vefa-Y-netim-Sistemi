@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Applicant, Staff, Schedule, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
 import { Search, FileText, CheckCircle2, Calendar, User, MapPin } from 'lucide-react';
 import { generateCleaningReport } from '../lib/pdfUtils';
+import Pagination from './Pagination';
 
 interface CompletedCleaningsProps {
   applicants: Applicant[];
@@ -13,6 +14,12 @@ interface CompletedCleaningsProps {
 
 export default function CompletedCleanings({ applicants, staff, schedules, currentUser }: CompletedCleaningsProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 30;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const completedItems = useMemo(() => {
     const items: any[] = [];
@@ -62,11 +69,16 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
     return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [applicants, staff, schedules]);
 
-  const filteredItems = completedItems.filter(item => 
+  const filteredItems = useMemo(() => completedItems.filter(item => 
     `${item.applicant.name} ${item.applicant.surname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.applicant.tcNo.includes(searchTerm) ||
     item.applicant.neighborhood?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [completedItems, searchTerm]);
+
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredItems.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredItems, currentPage]);
 
   return (
     <div className="space-y-6">
@@ -89,7 +101,7 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredItems.map((item) => (
+        {paginatedItems.map((item) => (
           <div key={item.id} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group flex flex-col">
             <div className="flex items-start justify-between mb-4">
               <div className={`p-2 rounded-lg ${item.isCompleted ? 'bg-green-50' : 'bg-orange-50'}`}>
@@ -162,6 +174,13 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
           </div>
         )}
       </div>
+
+      <Pagination 
+        currentPage={currentPage}
+        totalItems={filteredItems.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

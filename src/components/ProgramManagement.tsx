@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Program, Schedule, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
 import { dbLocal } from '../db';
 import { Calendar, Trash2, XCircle, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import Pagination from './Pagination';
 
 interface ProgramManagementProps {
   programs: Program[];
@@ -11,6 +12,9 @@ interface ProgramManagementProps {
 }
 
 export default function ProgramManagement({ programs, schedules, currentUser }: ProgramManagementProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 30;
+
   const sortedPrograms = useMemo(() => 
     [...programs].sort((a, b) => {
       const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -18,6 +22,11 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
       return timeB - timeA;
     }),
   [programs]);
+
+  const paginatedPrograms = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedPrograms.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedPrograms, currentPage]);
 
   const handleDelete = async (id: string) => {
     const program = programs.find(p => p.id === id);
@@ -63,7 +72,7 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sortedPrograms.map((program) => {
+        {paginatedPrograms.map((program) => {
           const programSchedules = schedules.filter(s => s.programId === program.id);
           const totalAssignments = programSchedules.reduce((acc, s) => acc + s.assignments.length, 0);
           const completedAssignments = programSchedules.reduce((acc, s) => 
@@ -171,6 +180,13 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
           </div>
         )}
       </div>
+
+      <Pagination 
+        currentPage={currentPage}
+        totalItems={sortedPrograms.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

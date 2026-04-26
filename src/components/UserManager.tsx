@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Shield, CheckCircle, XCircle, Trash2, Loader2, Search, Mail, Phone, CreditCard, Activity, RefreshCw } from 'lucide-react';
 import { dbService } from '../db';
 import { SystemUser } from '../types';
 import { logAction } from '../services/auditService';
 import { formatPhone } from '../lib/format';
+import Pagination from './Pagination';
 
 interface UserManagerProps {
   currentUser: SystemUser;
@@ -13,7 +14,13 @@ export default function UserManager({ currentUser }: UserManagerProps) {
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 30;
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchUsers();
@@ -83,20 +90,27 @@ export default function UserManager({ currentUser }: UserManagerProps) {
     }
   };
 
-  const filteredUsers = users.filter(u => {
-    const name = (u.name || '').toLowerCase();
-    const surname = (u.surname || '').toLowerCase();
-    const tcNo = (u.tcNo || '');
-    const email = (u.email || '').toLowerCase();
-    const search = searchTerm.toLowerCase();
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      const name = (u.name || '').toLowerCase();
+      const surname = (u.surname || '').toLowerCase();
+      const tcNo = (u.tcNo || '');
+      const email = (u.email || '').toLowerCase();
+      const search = searchTerm.toLowerCase();
 
-    return (
-      `${name} ${surname}`.includes(search) ||
-      tcNo.includes(search) ||
-      email.includes(search) ||
-      (u.role || '').toLowerCase().includes(search)
-    );
-  });
+      return (
+        `${name} ${surname}`.includes(search) ||
+        tcNo.includes(search) ||
+        email.includes(search) ||
+        (u.role || '').toLowerCase().includes(search)
+      );
+    });
+  }, [users, searchTerm]);
+
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredUsers.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredUsers, currentPage]);
 
   if (loading) {
     return (
@@ -178,7 +192,7 @@ export default function UserManager({ currentUser }: UserManagerProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredUsers.map((user) => (
+              {paginatedUsers.map((user) => (
                 <tr key={user.id} className={`hover:bg-slate-50/50 transition-all group ${user.isSuperAdmin ? 'bg-orange-50/20' : ''}`}>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -261,6 +275,13 @@ export default function UserManager({ currentUser }: UserManagerProps) {
           </table>
         </div>
       </div>
+
+      <Pagination 
+        currentPage={currentPage}
+        totalItems={filteredUsers.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
 
       {filteredUsers.length === 0 && (
         <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">

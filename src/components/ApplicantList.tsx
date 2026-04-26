@@ -12,6 +12,7 @@ import { formatPhone, formatTC } from '../lib/format';
 import { geocodeAddress } from '../services/geocoding';
 import ApplicantStatsModal from './ApplicantStatsModal';
 import { reAlignActiveProgramSchedules } from '../services/scheduleService';
+import Pagination from './Pagination';
 
 // Leaflet icon fix removed as it's not needed for MapLibre
 
@@ -69,6 +70,12 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'priority' | 'name' | 'neighborhood'>('priority');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 30;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortBy, sortOrder]);
   const [selectedStatsApplicant, setSelectedStatsApplicant] = useState<Applicant | null>(null);
   const [hasActiveProgram, setHasActiveProgram] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -342,7 +349,9 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
           a.name.toLowerCase().includes(search) ||
           a.surname.toLowerCase().includes(search) ||
           a.tcNo.includes(search) ||
-          (a.neighborhood || '').toLowerCase().includes(search)
+          (a.neighborhood || '').toLowerCase().includes(search) ||
+          (a.address || '').toLowerCase().includes(search) ||
+          (a.haneNo || '').toLowerCase().includes(search)
         );
       })
       .sort((a, b) => {
@@ -357,6 +366,11 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
         return sortOrder === 'asc' ? comparison : -comparison;
       });
   }, [applicants, searchTerm, sortBy, sortOrder]);
+
+  const paginatedApplicants = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedApplicants.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedApplicants, currentPage]);
 
   const handleManualPriorityChange = (id: string, newIndex: number) => {
     const list = [...localReorderList];
@@ -776,15 +790,15 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {applicants.length === 0 ? (
+                {filteredAndSortedApplicants.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-gray-500 font-medium">
                       Henüz kayıtlı hane bulunmuyor.
                     </td>
                   </tr>
                 ) : (
-                  filteredAndSortedApplicants.map(applicant => (
-                    <tr key={applicant.id} className="hover:bg-gray-50/50 transition-all group">
+                  paginatedApplicants.map(applicant => (
+                    <tr key={applicant.id} className="hover:bg-blue-50/30 transition-all group">
                       <td className="px-4 lg:px-6 py-4">
                         <div className="font-bold text-blue-600 bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center border border-blue-100 text-xs shadow-sm">
                           {applicant.priority}
@@ -914,6 +928,13 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
           )}
         </div>
       </div>
+
+      <Pagination 
+        currentPage={currentPage}
+        totalItems={filteredAndSortedApplicants.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
 
       <AnimatePresence>
         {selectedStatsApplicant && (

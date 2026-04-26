@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { dbLocal } from '../db';
 import { Staff, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
@@ -8,6 +8,7 @@ import { AnimatePresence } from 'motion/react';
 import { formatPhone } from '../lib/format';
 import StaffStatsModal from './StaffStatsModal';
 import StaffLeavesModal from './StaffLeavesModal';
+import Pagination from './Pagination';
 
 interface Props {
   staff: Staff[];
@@ -33,6 +34,8 @@ export default function StaffList({ staff, currentUser }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'tcNo'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 30;
   const [selectedStatsStaff, setSelectedStatsStaff] = useState<Staff | null>(null);
   const [selectedLeavesStaff, setSelectedLeavesStaff] = useState<Staff | null>(null);
 
@@ -156,25 +159,32 @@ export default function StaffList({ staff, currentUser }: Props) {
     }
   };
 
-  const filteredAndSortedStaff = [...staff]
-    .filter(s => {
-      const search = searchTerm.toLowerCase();
-      return (
-        s.name.toLowerCase().includes(search) ||
-        s.surname.toLowerCase().includes(search) ||
-        s.tcNo.includes(search) ||
-        (s.phone || '').includes(search)
-      );
-    })
-    .sort((a, b) => {
-      let comparison = 0;
-      if (sortBy === 'name') {
-        comparison = (a.name + a.surname).localeCompare(b.name + b.surname);
-      } else if (sortBy === 'tcNo') {
-        comparison = a.tcNo.localeCompare(b.tcNo);
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
+  const filteredAndSortedStaff = useMemo(() => {
+    return [...staff]
+      .filter(s => {
+        const search = searchTerm.toLowerCase();
+        return (
+          s.name.toLowerCase().includes(search) ||
+          s.surname.toLowerCase().includes(search) ||
+          s.tcNo.includes(search) ||
+          (s.phone || '').includes(search)
+        );
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === 'name') {
+          comparison = (a.name + a.surname).localeCompare(b.name + b.surname);
+        } else if (sortBy === 'tcNo') {
+          comparison = a.tcNo.localeCompare(b.tcNo);
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+  }, [staff, searchTerm, sortBy, sortOrder]);
+
+  const paginatedStaff = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedStaff.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedStaff, currentPage]);
 
   return (
     <div className="space-y-6">
@@ -401,12 +411,12 @@ export default function StaffList({ staff, currentUser }: Props) {
             <tbody className="divide-y divide-slate-50">
               {filteredAndSortedStaff.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
                     Kayıt bulunamadı.
                   </td>
                 </tr>
               ) : (
-                filteredAndSortedStaff.map(s => {
+                paginatedStaff.map(s => {
                   const partner = staff.find(p => p.id === s.partnerId);
                   return (
                     <tr key={s.id} className="hover:bg-slate-50/50 transition-all group">
@@ -501,6 +511,13 @@ export default function StaffList({ staff, currentUser }: Props) {
           </table>
         </div>
       </div>
+
+      <Pagination 
+        currentPage={currentPage}
+        totalItems={filteredAndSortedStaff.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
 
       <AnimatePresence>
         {selectedStatsStaff && (
