@@ -513,7 +513,9 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   }, [workDays, monthStart, monthEnd]);
 
   const assignments: DailyAssignment[] = useMemo(() => {
-    return currentMonthWorkDays.map(wd => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const result: DailyAssignment[] = [];
+    currentMonthWorkDays.forEach(wd => {
       const schedule = schedules.find(s => s.date === wd.date);
       const items = (schedule && schedule.assignments)
         ? schedule.assignments.map(a => ({
@@ -521,8 +523,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
             staffMembers: (a.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[]
           })).filter(i => i.applicant)
         : [];
-      return { date: wd.date, items };
+      
+      // Geçmiş günler geride kaldığı için, eğer herhangi bir atama yoksa listeye dahil etme
+      if (wd.date <= todayStr && items.length === 0) {
+        return;
+      }
+      
+      result.push({ date: wd.date, items });
     });
+    return result;
   }, [currentMonthWorkDays, schedules, applicants, staff]);
 
   const generateSchedule = async () => {
@@ -533,33 +542,16 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
     // 1. Determine base planning start date (08:30 rule)
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const isAfter830 = currentHour > 8 || (currentHour === 8 && currentMinute >= 30);
-    
-    const todayStr = format(now, 'yyyy-MM-dd');
     const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');
-    const planningStartDate = isAfter830 ? tomorrowStr : todayStr;
+    const planningStartDate = tomorrowStr; // bugünden sonraki gün başla (her zaman)
+    
     const activeProgram = programs.find(p => p.status === 'active');
 
     let actualPlanningStartDate = planningStartDate;
     
     if (activeProgram) {
-      const choice = confirm(`Sistemde zaten aktif bir program (${activeProgram.name}) mevcut.\n\n- Mevcut programın bittiği günden (${format(parseISO(activeProgram.endDate), 'dd.MM.yyyy')}) sonra yeni bir program eklemek için TAMAM'a basın.\n- Mevcut aktif programı iptal edip (tamamlananlar hariç) bugün/yarından itibaren yeniden planlamak için İPTAL'e basın.`);
-      
-      if (choice) {
-        actualPlanningStartDate = format(addDays(parseISO(activeProgram.endDate), 1), 'yyyy-MM-dd');
-      } else {
-        // Cancel current active program and its future schedules
-        const futureSchedules = schedules.filter(s => s.programId === activeProgram.id && s.date >= planningStartDate && !s.assignments.some(a => a.isCompleted));
-        await dbLocal.transaction('rw', [dbLocal.programs, dbLocal.schedules], async () => {
-          await dbLocal.programs.update(activeProgram.id!, { status: 'cancelled' });
-          if (futureSchedules.length > 0) {
-            await dbLocal.schedules.bulkDelete(futureSchedules.map(s => s.id!));
-          }
-        });
-        actualPlanningStartDate = planningStartDate;
-      }
+      actualPlanningStartDate = format(addDays(parseISO(activeProgram.endDate), 1), 'yyyy-MM-dd');
+      // Otomatik yeni program olarak devam et
     } else {
       // No active program, but maybe some orphaned future schedules?
       const orphanedSchedules = schedules.filter(s => s.date >= planningStartDate && !s.assignments.some(a => a.isCompleted));
@@ -708,6 +700,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
         if (dailyTeams.length === 0) continue;
         
         for (let i = 0; i < dailyLimit; i++) {
+          if (applicantPool.length === 0) {
+            // Son iş gününde günlük limit dolmadıysa ve listeden atama yapılabilir durumda ise baştan al
+            if (d === availableWorkDays.length - 1 && sortedApplicants.length > 0) {
+               applicantPool.push(...sortedApplicants);
+            } else {
+               break;
+            }
+          }
+
           let foundIdx = -1;
           
           // Try to find an applicant in the pool that satisfies the 14-day rule

@@ -11,6 +11,7 @@ import { AnimatePresence, motion, Reorder } from 'motion/react';
 import { formatPhone, formatTC } from '../lib/format';
 import { geocodeAddress } from '../services/geocoding';
 import ApplicantStatsModal from './ApplicantStatsModal';
+import { reAlignActiveProgramSchedules } from '../services/scheduleService';
 
 // Leaflet icon fix removed as it's not needed for MapLibre
 
@@ -142,6 +143,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
       }
       setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '', lat: 41.675, lng: 26.570, priority: 0 });
       await reindexPriorities();
+      await reAlignActiveProgramSchedules();
     } catch (error) {
       console.error("Error saving applicant:", error);
     }
@@ -161,6 +163,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Silme', `${applicant.name} ${applicant.surname} hanesi silindi.`);
       }
       await reindexPriorities();
+      await reAlignActiveProgramSchedules();
     }
   };
 
@@ -312,6 +315,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
           await dbLocal.applicants.bulkAdd(newApplicants);
           logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Excel İçe Aktarma', `${newApplicants.length} hane Excel'den yüklendi.`);
           await reindexPriorities();
+          await reAlignActiveProgramSchedules();
           alert(`${newApplicants.length} hane başarıyla yüklendi.`);
         }
       } catch (error) {
@@ -420,7 +424,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
     const listToSave = localReorderList.length > 0 ? localReorderList : filteredAndSortedApplicants;
     
     if (hasActiveProgram) {
-      if (!confirm('Hane sıralaması kaydedilecek ve mevcut programın GERÇEKLEŞMEMİŞ TÜM ZİYARETLERİ silinip yeni sıralamaya göre yeniden planlanacaktır. Devam etmek istiyor musunuz?')) {
+      if (!confirm('Hane sıralaması kaydedilecek ve mevcut programın gerçekleşmemiş tüm ziyaretleri araya yeni haneler eklenecek/çıkarılacak şekilde kaydırılarak güncellenecektir. Devam etmek istiyor musunuz?')) {
         return;
       }
     }
@@ -436,20 +440,9 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
 
       // 2. If there's an active program, delete uncompleted schedules
       if (hasActiveProgram) {
-        const allSchedules = await dbLocal.schedules.toArray();
-        for (const schedule of allSchedules) {
-          const completed = schedule.assignments.filter(a => a.isCompleted);
-          if (completed.length === schedule.assignments.length) continue; 
-          
-          if (completed.length === 0) {
-            await dbLocal.schedules.delete(schedule.id!);
-          } else {
-            await dbLocal.schedules.update(schedule.id!, { assignments: completed });
-          }
-        }
-        
-        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi ve gelecek program temizlendi.');
-        alert('Sıralama başarıyla kaydedildi. Gelecek program temizlendi. Lütfen "Program Planlama" sayfasından yeni sıralamaya göre programı yeniden oluşturun.');
+        await reAlignActiveProgramSchedules();
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi ve program kaydırılarak yeniden düzenlendi.');
+        alert('Sıralama başarıyla kaydedildi ve aktif program yeni sıralamaya göre güncellendi.');
       } else {
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi.');
         alert('Sıralama başarıyla kaydedildi.');

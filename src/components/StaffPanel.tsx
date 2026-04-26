@@ -281,7 +281,9 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
           </h3>
           
           {currentAssignments.length > 0 ? currentAssignments.map((a, idx) => {
-            const applicant = a.applicant as Applicant;
+            const applicant = a.applicant as Applicant | undefined;
+            if (!applicant) return null;
+            
             const isSelected = activeVisitId === applicant.id;
             const isPast = selectedDate < format(new Date(), 'yyyy-MM-dd');
             const isFutureDate = selectedDate > format(new Date(), 'yyyy-MM-dd');

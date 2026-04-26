@@ -22,10 +22,56 @@ export async function reAlignActiveProgramSchedules() {
     s.assignments.filter(a => a.isCompleted || s.date < today)
   );
 
-  const uncompletedQueue = allSchedules
+  const uncompletedQueueRaw = allSchedules
     .filter(s => s.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date))
     .flatMap(s => s.assignments.filter(a => !a.isCompleted));
+
+  // 2.5 Identify missing applicants and inject them into uncompletedQueue
+  const allApplicantsRaw = await dbLocal.applicants.toArray();
+  const allApplicants = allApplicantsRaw.filter(a => !a.isDeleted);
+  const priorityMap = new Map(allApplicants.map(a => [a.id, a.priority || 0]));
+  
+  const assignmentEncounter = new Map<string, number>();
+  
+  completedAssignments.forEach(a => {
+     assignmentEncounter.set(a.applicantId, (assignmentEncounter.get(a.applicantId) || 0) + 1);
+  });
+
+  const enrichedUncompleted = uncompletedQueueRaw.map(a => {
+     const count = (assignmentEncounter.get(a.applicantId) || 0) + 1;
+     assignmentEncounter.set(a.applicantId, count);
+     return {
+        ...a,
+        _cycle: count,
+        _priority: priorityMap.get(a.applicantId) || 0
+     };
+  });
+
+  allApplicants.forEach(app => {
+     let count = assignmentEncounter.get(app.id!) || 0;
+     while (count < 2) {
+        count++;
+        enrichedUncompleted.push({
+           applicantId: app.id!,
+           staffIds: [], 
+           isCompleted: false,
+           _cycle: count,
+           _priority: app.priority || 0
+        });
+        assignmentEncounter.set(app.id!, count);
+     }
+  });
+
+  enrichedUncompleted.sort((a, b) => {
+     if (a._cycle !== b._cycle) return a._cycle - b._cycle;
+     return a._priority - b._priority;
+  });
+
+  const uncompletedQueue = enrichedUncompleted.map(a => {
+     const { _cycle, _priority, ...rest } = a;
+     return rest;
+  });
 
   if (uncompletedQueue.length === 0) return;
 
