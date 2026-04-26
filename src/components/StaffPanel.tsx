@@ -6,11 +6,9 @@ import { format, parseISO, isToday, isSameDay } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { 
   MapPin, Clock, CheckCircle2, Play, Square, 
-  User, Users, Calendar, AlertCircle, Map as MapIcon,
+  User, Users, Calendar, AlertCircle, Route,
   ChevronRight, LogOut, Navigation, Info, Search
 } from 'lucide-react';
-import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import { logAction } from '../services/auditService';
 import { formatPhone } from '../lib/format';
 
@@ -412,29 +410,20 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
         {markers.length > 0 && (
           <div className="bg-white p-2 rounded-3xl border border-slate-100 shadow-sm">
             <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-50 mb-2">
-              <MapIcon className="w-4 h-4 text-slate-400" />
+              <Route className="w-4 h-4 text-slate-400" />
               <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest">Günün Rotası</h3>
             </div>
-            <div className="h-[250px] rounded-2xl overflow-hidden relative z-0">
-               <Map
-                  initialViewState={{
-                    latitude: markers[0].pos[0],
-                    longitude: markers[0].pos[1],
-                    zoom: 12
-                  }}
-                  mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
-                  style={{ width: '100%', height: '100%' }}
-                >
-                  <NavigationControl position="top-right" />
-                  <MapUpdater markers={markers} />
-                  {markers.map((m, i) => (
-                    <Marker key={i} latitude={m.pos[0]} longitude={m.pos[1]}>
-                      <div className="bg-slate-900 text-white w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black border-2 border-white shadow-lg">
-                        {i + 1}
-                      </div>
-                    </Marker>
-                  ))}
-                </Map>
+            <div className="p-4 grid gap-2">
+               <a 
+                 href={`https://www.google.com/maps/dir/${markers.map(m => `${m.pos[0]},${m.pos[1]}`).join('/')}`}
+                 target="_blank"
+                 rel="noreferrer"
+                 className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-sm py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors border border-blue-100"
+               >
+                 <Route className="w-6 h-6" />
+                 Tüm Rota İçin Yol Tarifi Al
+               </a>
+               <p className="text-center text-[10px] text-slate-400">Rotadaki {markers.length} noktayı Google Haritalar üzerinde görüntüleyebilirsiniz.</p>
             </div>
           </div>
         )}
@@ -479,24 +468,4 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
   );
 }
 
-function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
-  const { current: map } = useMap();
-  
-  useEffect(() => {
-    if (map && markers.length > 0) {
-      const lats = markers.map(m => m.pos[0]);
-      const lngs = markers.map(m => m.pos[1]);
-      const minLat = Math.min(...lats);
-      const maxLat = Math.max(...lats);
-      const minLng = Math.min(...lngs);
-      const maxLng = Math.max(...lngs);
-      
-      map.fitBounds(
-        [[minLng, minLat], [maxLng, maxLat]],
-        { padding: 30, maxZoom: 14, duration: 1000 }
-      );
-    }
-  }, [markers, map]);
 
-  return null;
-}
