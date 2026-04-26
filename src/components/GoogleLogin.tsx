@@ -17,6 +17,10 @@ export default function GoogleLogin() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
+      
+      const setFirebaseUser = useAuthStore.getState().setFirebaseUser;
+      setFirebaseUser(result.user);
+
       const email = result.user.email;
 
       if (!email) {

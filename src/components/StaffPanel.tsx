@@ -7,10 +7,25 @@ import { tr } from 'date-fns/locale';
 import { 
   MapPin, Clock, CheckCircle2, Play, Square, 
   User, Users, Calendar, AlertCircle, Route,
-  ChevronRight, LogOut, Navigation, Info, Search
+  ChevronRight, LogOut, Navigation, Info, Search, Map as MapIcon
 } from 'lucide-react';
 import { logAction } from '../services/auditService';
 import { formatPhone } from '../lib/format';
+import { Map, Marker, NavigationControl, Popup, useMap } from 'react-map-gl/maplibre';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
+  const { current: map } = useMap();
+  useEffect(() => {
+    if (map && markers.length > 0) {
+      const bounds = new maplibregl.LngLatBounds();
+      markers.forEach(m => bounds.extend([m.pos[1], m.pos[0]]));
+      map.fitBounds(bounds, { padding: 50, duration: 1000 });
+    }
+  }, [map, markers]);
+  return null;
+}
 
 interface Props {
   currentUser: SystemUser;
@@ -24,6 +39,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
   const [showLocationMap, setShowLocationMap] = useState<{ lat: number, lng: number, name: string } | null>(null);
+  const [showRouteMap, setShowRouteMap] = useState(false);
 
   // Get staff record matching this system user
   const staff = useLiveQuery(() => dbLocal.staff.toArray()) || [];
@@ -178,23 +194,28 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
     }
   };
 
-  const markers = useMemo(() => {
-    return currentAssignments
+  const { markers, noLocationApplicants } = useMemo(() => {
+    const validMarkers: { pos: [number, number], name: string }[] = [];
+    const missing: string[] = [];
+
+    currentAssignments
       .map(a => a.applicant)
       .filter((app): app is Applicant => app !== undefined && app !== null)
-      .map((app, i) => {
-        const lat = (app.lat !== undefined && app.lat !== null && !isNaN(Number(app.lat))) 
-          ? Number(app.lat) 
-          : (41.675 + (i * 0.002));
-        const lng = (app.lng !== undefined && app.lng !== null && !isNaN(Number(app.lng))) 
-          ? Number(app.lng) 
-          : (26.570 + (i * 0.002));
+      .forEach((app) => {
+        const hasLat = app.lat !== undefined && app.lat !== null && !isNaN(Number(app.lat));
+        const hasLng = app.lng !== undefined && app.lng !== null && !isNaN(Number(app.lng));
 
-        return {
-          pos: [lat, lng] as [number, number],
-          name: `${app.name} ${app.surname}`
-        };
+        if (hasLat && hasLng) {
+          validMarkers.push({
+            pos: [Number(app.lat), Number(app.lng)],
+            name: `${app.name} ${app.surname}`
+          });
+        } else {
+          missing.push(`${app.name} ${app.surname}`);
+        }
       });
+
+    return { markers: validMarkers, noLocationApplicants: missing };
   }, [currentAssignments]);
 
   if (!myStaffRecord) {
@@ -409,27 +430,94 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
         </div>
 
         {/* Map View */}
-        {markers.length > 0 && (
+        {currentAssignments.length > 0 && (
           <div className="bg-white p-2 rounded-3xl border border-slate-100 shadow-sm">
             <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-50 mb-2">
-              <Route className="w-4 h-4 text-slate-400" />
+              <MapIcon className="w-4 h-4 text-slate-400" />
               <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest">Günün Rotası</h3>
             </div>
             <div className="p-4 grid gap-2">
-               <a 
-                 href={`https://www.google.com/maps/dir/${markers.map(m => `${m.pos[0]},${m.pos[1]}`).join('/')}`}
-                 target="_blank"
-                 rel="noreferrer"
+               <button 
+                 onClick={() => {
+                   if (markers.length === 0) {
+                     alert('Konum adresleri kayıtlı değil');
+                   } else {
+                     setShowRouteMap(true);
+                   }
+                 }}
                  className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-sm py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors border border-blue-100"
                >
-                 <Route className="w-6 h-6" />
-                 Tüm Rota İçin Yol Tarifi Al
-               </a>
-               <p className="text-center text-[10px] text-slate-400">Rotadaki {markers.length} noktayı Google Haritalar üzerinde görüntüleyebilirsiniz.</p>
+                 <MapIcon className="w-6 h-6" />
+                 O Günkü Temizlik Yapılacak Haneleri Haritada Gör
+               </button>
+               {markers.length > 0 && (
+                 <p className="text-center text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">{markers.length} hane haritada görüntülenebilir.</p>
+               )}
             </div>
           </div>
         )}
       </main>
+
+      {showRouteMap && (
+          <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowRouteMap(false)}>
+            <div className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl relative flex flex-col h-[80vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                 <div>
+                    <h3 className="font-bold text-slate-800 text-sm">Günün Rotası</h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase">Tüm Haneler</p>
+                 </div>
+                 <button onClick={() => setShowRouteMap(false)} className="p-2 bg-white rounded-xl shadow-sm text-slate-400 hover:text-slate-600 transition-all border border-slate-100">
+                    <AlertCircle className="w-5 h-5 text-slate-300" />
+                 </button>
+              </div>
+
+              {noLocationApplicants.length > 0 && (
+                <div className="p-3 bg-amber-50 border-b border-amber-100 text-amber-700 text-xs shrink-0 max-h-32 overflow-y-auto">
+                  <div className="font-bold mb-1 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5"/> Konum Bilgisi Eksik Haneler:</div>
+                  <ul className="list-disc pl-5 opacity-90 font-medium">
+                    {noLocationApplicants.map((name, idx) => (
+                      <li key={idx}>{name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex-1 bg-slate-100 relative min-h-0">
+                  <Map
+                    initialViewState={{
+                      longitude: markers[0]?.pos[1] || 26.570,
+                      latitude: markers[0]?.pos[0] || 41.675,
+                      zoom: 12
+                    }}
+                    mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+                  >
+                    <NavigationControl position="top-right" />
+                    <MapUpdater markers={markers} />
+                    
+                    {markers.map((marker, i) => (
+                      <div key={i}>
+                        <Marker 
+                          longitude={marker.pos[1]} 
+                          latitude={marker.pos[0]}
+                          anchor="bottom"
+                        >
+                          <div className="relative group cursor-pointer">
+                            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-blue-900/20 border-2 border-white ring-2 ring-blue-100">
+                              <MapPin className="w-4 h-4" />
+                            </div>
+                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl whitespace-nowrap opacity-100 shadow-xl z-50">
+                              {marker.name}
+                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45"></div>
+                            </div>
+                          </div>
+                        </Marker>
+                      </div>
+                    ))}
+                  </Map>
+              </div>
+            </div>
+          </div>
+      )}
 
       {showLocationMap && (
           <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowLocationMap(null)}>
