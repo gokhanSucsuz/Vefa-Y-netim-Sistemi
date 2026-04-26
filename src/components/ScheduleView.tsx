@@ -52,14 +52,24 @@ function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
 export default function ScheduleView({ applicants, staff, workDays, schedules, programs, currentUser, initialDate }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(() => initialDate ? parseISO(initialDate) : new Date());
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    if (initialDate) {
+      const d = parseISO(initialDate);
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
+    return new Date();
+  });
   const [showMap, setShowMap] = useState(true);
   const [expandedDay, setExpandedDay] = useState<string | null>(initialDate || null);
+  const [hoveredMarker, setHoveredMarker] = useState<number | null>(null);
 
   useEffect(() => {
     if (initialDate) {
-      setSelectedMonth(parseISO(initialDate));
-      setExpandedDay(initialDate);
+      const d = parseISO(initialDate);
+      if (!isNaN(d.getTime())) {
+        setSelectedMonth(d);
+        setExpandedDay(initialDate);
+      }
     }
   }, [initialDate]);
   const [isGeocodingDay, setIsGeocodingDay] = useState(false);
@@ -73,6 +83,17 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     const saved = localStorage.getItem('dailyLimit');
     return saved ? parseInt(saved) : 6;
   });
+
+  const formatSafe = (dateStr: string, formatStr: string, options?: any) => {
+    if (!dateStr) return '-';
+    try {
+      const d = parseISO(dateStr);
+      if (isNaN(d.getTime())) return '-';
+      return format(d, formatStr, options);
+    } catch {
+      return '-';
+    }
+  };
 
   const validateAssignment = (applicantId: string, date: string, currentSchedules: Schedule[], excludeScheduleId?: string) => {
     // 1. Single visit per day check
@@ -337,7 +358,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     }
 
     const confirmMsg = targetDateStr 
-      ? `Bu gündeki tüm tamamlanmamış (${uncompletedAssignments.length}) ziyaretleri iptal edip ${format(parseISO(targetDateStr), 'dd.MM.yyyy')} tarihine ve sonrasına kaydırmak istediğinize emin misiniz?`
+      ? `Bu gündeki tüm tamamlanmamış (${uncompletedAssignments.length}) ziyaretleri iptal edip ${formatSafe(targetDateStr, 'dd.MM.yyyy')} tarihine ve sonrasına kaydırmak istediğinize emin misiniz?`
       : `Bu gündeki tüm tamamlanmamış (${uncompletedAssignments.length}) ziyaretleri iptal edip sonraki günlere kaydırmak istediğinize emin misiniz?`;
 
     const confirmCancel = confirm(confirmMsg);
@@ -491,6 +512,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
   const currentMonthWorkDays = useMemo(() => {
     const daysInMonth = [];
+    if (isNaN(monthStart.getTime())) return [];
+    
     let d = parseISO(format(monthStart, 'yyyy-MM-dd'));
     while (d <= monthEnd) {
       const dateStr = format(d, 'yyyy-MM-dd');
@@ -786,7 +809,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       const finalCycle = (lastApplicantVisits % 2 === 0) ? 2 : 1;
 
       const programId = await dbLocal.programs.add({
-        name: `${format(parseISO(availableWorkDays[0].date), 'dd MMMM yyyy', { locale: tr })} - ${format(parseISO(availableWorkDays[availableWorkDays.length - 1].date), 'dd MMMM yyyy', { locale: tr })} Vefa Programı`,
+        name: `${formatSafe(availableWorkDays[0].date, 'dd MMMM yyyy', { locale: tr })} - ${formatSafe(availableWorkDays[availableWorkDays.length - 1].date, 'dd MMMM yyyy', { locale: tr })} Vefa Programı`,
         startDate: availableWorkDays[0].date,
         endDate: availableWorkDays[availableWorkDays.length - 1].date,
         createdAt: new Date().toISOString(),
@@ -1026,7 +1049,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
   const exportToExcel = () => {
     const data = assignments.flatMap(a => a.items.map(item => ({
-      'Tarih': format(parseISO(a.date), 'dd MMMM yyyy', { locale: tr }),
+      'Tarih': formatSafe(a.date, 'dd MMMM yyyy', { locale: tr }),
       'Mahalle': item.applicant.neighborhood,
       'Hane': `${item.applicant.name} ${item.applicant.surname}`,
       'TC No': item.applicant.tcNo,
@@ -1071,7 +1094,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     }
 
     const tableData = assignments.flatMap(a => a.items.map(item => [
-      format(parseISO(a.date), 'dd.MM.yyyy'),
+      formatSafe(a.date, 'dd.MM.yyyy'),
       item.applicant.neighborhood || '-',
       `${item.applicant.name} ${item.applicant.surname}`,
       item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'
@@ -1226,7 +1249,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
             <tbody>
               {assignments.flatMap(a => a.items.map((item, idx) => (
                 <tr key={`${a.date}-${idx}`}>
-                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{format(parseISO(a.date), 'dd.MM.yyyy')}</td>
+                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{formatSafe(a.date, 'dd.MM.yyyy')}</td>
                   <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.neighborhood}</td>
                   <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.name} {item.applicant.surname}</td>
                   <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'}</td>
@@ -1255,7 +1278,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
           <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in duration-300">
             <h3 className="text-xl font-bold text-gray-900 mb-2">Günü İptal Et ve Kaydır</h3>
             <p className="text-sm text-gray-500 mb-6">
-              {format(parseISO(rescheduleModal.date), 'dd MMMM yyyy', { locale: tr })} tarihindeki tüm tamamlanmamış ziyaretleri nereye kaydırmak istersiniz?
+              {formatSafe(rescheduleModal.date, 'dd MMMM yyyy', { locale: tr })} tarihindeki tüm tamamlanmamış ziyaretleri nereye kaydırmak istersiniz?
             </p>
             
             <div className="space-y-3 mb-6">
@@ -1420,28 +1443,49 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
           >
             <NavigationControl position="top-right" />
             {activeMarkers.map((m, i) => (
-              <Marker key={`${expandedDay}-${i}`} latitude={m.pos[0]} longitude={m.pos[1]}>
+              <Marker 
+                key={`${expandedDay}-${i}`} 
+                latitude={m.pos[0]} 
+                longitude={m.pos[1]}
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  setHoveredMarker(i);
+                }}
+              >
                 <div className="group relative">
-                  <div className="w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
+                  <div 
+                    className="w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
+                    onMouseEnter={() => setHoveredMarker(i)}
+                  >
                     <MapIcon className="w-3 h-3 text-white" />
-                  </div>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                    <div className="bg-white px-3 py-2 rounded-lg shadow-xl border border-gray-100 whitespace-nowrap flex flex-col gap-1 pointer-events-auto">
-                      <div className="font-bold text-xs text-gray-900">{m.name}</div>
-                      <div className="text-[10px] text-gray-500">{m.address}</div>
-                      <a 
-                        href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${m.pos[0]},${m.pos[1]}`}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded inline-flex items-center justify-center gap-1 mt-1 font-bold transition-colors"
-                      >
-                         <Eye className="w-3 h-3" /> Sokak Görünümü
-                      </a>
-                    </div>
                   </div>
                 </div>
               </Marker>
             ))}
+
+            {hoveredMarker !== null && activeMarkers[hoveredMarker] && (
+              <Popup
+                latitude={activeMarkers[hoveredMarker].pos[0]}
+                longitude={activeMarkers[hoveredMarker].pos[1]}
+                anchor="bottom"
+                onClose={() => setHoveredMarker(null)}
+                closeButton={false}
+                maxWidth="300px"
+              >
+                <div className="bg-white px-1 py-1 whitespace-nowrap flex flex-col gap-1">
+                  <div className="font-bold text-xs text-gray-900">{activeMarkers[hoveredMarker].name}</div>
+                  <div className="text-[10px] text-gray-500">{activeMarkers[hoveredMarker].address}</div>
+                  <a 
+                    href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${activeMarkers[hoveredMarker].pos[0]},${activeMarkers[hoveredMarker].pos[1]}`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1.5 rounded inline-flex items-center justify-center gap-1 mt-1 font-bold transition-colors"
+                  >
+                    <Eye className="w-3 h-3" /> Sokak Görünümü
+                  </a>
+                </div>
+              </Popup>
+            )}
             {expandedDay && activeMarkers.length > 0 && <MapUpdater markers={activeMarkers} />}
           </MapGL>
           {!expandedDay && (
@@ -1457,7 +1501,12 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
           <input 
             type="month" 
             value={format(selectedMonth, 'yyyy-MM')}
-            onChange={(e) => setSelectedMonth(new Date(e.target.value))}
+            onChange={(e) => {
+              const d = parseISO(`${e.target.value}-01`);
+              if (!isNaN(d.getTime())) {
+                setSelectedMonth(d);
+              }
+            }}
             className="w-full sm:w-auto px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold"
           />
           <div className="text-xs lg:text-sm font-bold text-gray-500 bg-white px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm">
@@ -1494,8 +1543,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                 >
                   <div className="flex items-center gap-3 lg:gap-4">
                     <div className="w-10 lg:w-12 text-center">
-                      <div className="text-base lg:text-lg font-bold text-gray-900 leading-none">{format(parseISO(a.date), 'dd')}</div>
-                      <div className="text-[10px] text-gray-500 uppercase font-bold mt-1">{format(parseISO(a.date), 'EEE', { locale: tr })}</div>
+                      <div className="text-base lg:text-lg font-bold text-gray-900 leading-none">{formatSafe(a.date, 'dd')}</div>
+                      <div className="text-[10px] text-gray-500 uppercase font-bold mt-1">{formatSafe(a.date, 'EEE', { locale: tr })}</div>
                     </div>
                     <div className="h-8 w-px bg-gray-200" />
                     <div className="min-w-0">

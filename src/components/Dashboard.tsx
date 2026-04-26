@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
 import { Staff, SystemUser } from '../types';
@@ -17,11 +18,18 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
   const staff = useLiveQuery(() => dbLocal.staff.toArray()) || [];
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
 
-  const todaySchedule = schedules.find(s => isToday(parseISO(s.date)));
-  const upcomingSchedules = schedules
-    .filter(s => isFuture(parseISO(s.date)))
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 5);
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todaySchedule = schedules.find(s => s.date === todayStr);
+
+  const upcomingSchedules = useMemo(() => {
+    return schedules
+      .filter(s => {
+        const d = parseISO(s.date);
+        return !isNaN(d.getTime()) && isFuture(d);
+      })
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 5);
+  }, [schedules]);
 
   const totalPeopleCount = applicants.reduce((sum, app) => sum + (app.householdSize || 1), 0);
 

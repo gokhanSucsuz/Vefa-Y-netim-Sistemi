@@ -944,7 +944,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
 
       <Pagination 
         currentPage={currentPage}
-        totalItems={filteredAndSortedApplicants.length}
+        totalItems={isPriorityMode ? filteredLocalReorderList.length : filteredAndSortedApplicants.length}
         itemsPerPage={itemsPerPage}
         onPageChange={setCurrentPage}
       />

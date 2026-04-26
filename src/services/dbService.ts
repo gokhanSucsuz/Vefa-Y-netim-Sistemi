@@ -79,7 +79,7 @@ export async function syncWithServer() {
         const data = await apiFetch(`/${col}`);
         const dexieCol = col === 'workdays' ? 'workDays' : col === 'auditlogs' ? 'auditLogs' : col === 'users' ? 'systemUsers' : col === 'schedules' ? 'schedules' : col;
         await (dexieDb as any)[dexieCol].clear();
-        await (dexieDb as any)[dexieCol].bulkAdd(data);
+        await (dexieDb as any)[dexieCol].bulkPut(data);
       } catch (e) {
         console.warn(`Could not sync collection ${col}:`, e);
       }
@@ -131,7 +131,7 @@ class ApiTable<T extends { id?: string }> {
       if (navigator.onLine) {
         const data = await apiFetch(`/${this.collectionName}`);
         await this.dexieTable.clear();
-        await this.dexieTable.bulkAdd(data);
+        await this.dexieTable.bulkPut(data);
         return data;
       }
     } catch (e) {
