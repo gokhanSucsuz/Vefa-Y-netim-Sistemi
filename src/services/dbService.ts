@@ -16,11 +16,11 @@ class VefaDatabase extends Dexie {
 
   constructor() {
     super('VefaDB');
-    this.version(1).stores({
+    this.version(2).stores({
       applicants: '++id, tcNo, name, surname, neighborhood',
       staff: '++id, tcNo, name, surname, googleEmail',
       workDays: '++id, date',
-      schedules: '++id, date',
+      schedules: '++id, date, programId',
       programs: '++id, status',
       admins: '++id, email',
       auditLogs: '++id, timestamp',

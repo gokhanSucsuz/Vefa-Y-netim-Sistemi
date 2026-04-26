@@ -12,8 +12,9 @@ export async function reAlignActiveProgramSchedules() {
 
   const today = format(new Date(), 'yyyy-MM-dd');
   
-  // 1. Get all schedules belonging to this program
-  const allSchedules = await dbLocal.schedules.where('programId').equals(activeProgram.id!).toArray();
+  // 1. Get all schedules belonging to this program (using standard filter to avoid index requirements)
+  const tempSchedules = await dbLocal.schedules.toArray();
+  const allSchedules = tempSchedules.filter(s => s.programId === activeProgram.id!);
   
   // 2. Separate completed and uncompleted assignments
   // We only touch uncompleted assignments from today onwards.
@@ -42,7 +43,7 @@ export async function reAlignActiveProgramSchedules() {
 
   // 4. Get all explicit work day settings from today onwards
   const explicitWorkSettings = await dbLocal.workDays.where('date').aboveOrEqual(today).toArray();
-  const settingsMap = new Map(explicitWorkSettings.map(s => [s.date, s.isWorkDay]));
+  const settingsMap = new Map(explicitWorkSettings.map(s => [s.date, s.isWorkDay !== undefined ? s.isWorkDay : false]));
 
   // We'll look ahead up to 120 days to find enough work days
   const availableDates: string[] = [];

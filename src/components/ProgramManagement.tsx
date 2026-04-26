@@ -26,7 +26,8 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
     try {
       await dbLocal.transaction("rw", [dbLocal.programs, dbLocal.schedules], async () => {
         await dbLocal.programs.delete(id);
-        const programSchedules = await dbLocal.schedules.where('programId').equals(id).toArray();
+        const tempScheds = await dbLocal.schedules.toArray();
+        const programSchedules = tempScheds.filter(s => s.programId === id);
         for (const s of programSchedules) {
           await dbLocal.schedules.delete(s.id!);
         }

@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { AnimatePresence } from 'motion/react';
 import { logAction } from '../services/auditService';
 import { formatPhone } from '../lib/format';
 
@@ -262,7 +261,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
           </div>
           <div className="flex items-center gap-3 bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/10">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white font-black">
-              {partner ? partner.name[0] : '?'}
+              {partner?.name ? partner.name[0] : '?'}
             </div>
             <div>
               <p className="font-bold text-sm tracking-tight">{partner ? `${partner.name} ${partner.surname}` : 'Partner Tanımlanmamış'}</p>
@@ -441,8 +440,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
         )}
       </main>
 
-      <AnimatePresence>
-        {showLocationMap && (
+      {showLocationMap && (
           <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowLocationMap(null)}>
             <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
               <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -477,7 +475,6 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
             </div>
           </div>
         )}
-      </AnimatePresence>
     </div>
   );
 }

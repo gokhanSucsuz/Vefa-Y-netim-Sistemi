@@ -490,12 +490,26 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   };
 
   const currentMonthWorkDays = useMemo(() => {
-    return workDays
-      .filter(wd => {
-        const d = parseISO(wd.date);
-        return d >= monthStart && d <= monthEnd;
-      })
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const daysInMonth = [];
+    let d = parseISO(format(monthStart, 'yyyy-MM-dd'));
+    while (d <= monthEnd) {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const explicit = workDays.find(wd => wd.date === dateStr);
+      let isUsable = false;
+      if (explicit) {
+        let val = explicit.isWorkDay;
+        if (val === undefined) val = false; // Legacy fallback
+        if (val) isUsable = true;
+      } else {
+        if (!isWeekend(d)) isUsable = true;
+      }
+      
+      if (isUsable) {
+        daysInMonth.push({ date: dateStr, isWorkDay: true });
+      }
+      d = addDays(d, 1);
+    }
+    return daysInMonth;
   }, [workDays, monthStart, monthEnd]);
 
   const assignments: DailyAssignment[] = useMemo(() => {
@@ -585,7 +599,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
       // 5. Find available work days starting from actualPlanningStartDate
       const explicitWorkSettings = await dbLocal.workDays.where("date").aboveOrEqual(actualPlanningStartDate).toArray();
-      const settingsMap = new Map(explicitWorkSettings.map(s => [s.date, s.isWorkDay]));
+      const settingsMap = new Map(explicitWorkSettings.map(s => [s.date, s.isWorkDay !== undefined ? s.isWorkDay : false]));
       const existingScheduleDates = new Set(schedules.map(s => s.date));
       
       let availableWorkDays: any[] = [];

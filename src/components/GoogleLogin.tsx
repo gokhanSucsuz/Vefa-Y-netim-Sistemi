@@ -82,11 +82,10 @@ export default function GoogleLogin() {
       <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-xl max-w-sm w-full text-center">
         <div className="flex justify-center mb-6">
           <img 
-            src="https://www.gstatic.com/images/branding/product/2x/googleg_96dp.png" 
+            src={APP_LOGO_URL} 
             alt="Logo" 
             className="w-20 h-20 object-contain"
             referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
           />
         </div>
         

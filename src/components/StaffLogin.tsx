@@ -132,7 +132,8 @@ export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
 
     try {
       // Check if TC already exists
-      const existing = await dbService.users.where('tcNo').equals(regData.tcNo).toArray();
+      const allUsers = await dbService.users.toArray();
+      const existing = allUsers.filter(u => u.tcNo === regData.tcNo);
       if (existing.length > 0) {
         setError('Bu T.C. Kimlik No ile kayıtlı bir kullanıcı zaten var.');
         setIsSubmitting(false);
