@@ -32,7 +32,7 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
 
     // Past days check
     if (selectedDate < today) {
-      alert('Geçmiş günleri tatil olarak işaretleyemezsiniz.');
+      alert('Geçmiş günlerin ayarlarını değiştiremezsiniz.');
       return;
     }
 
@@ -42,16 +42,19 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
       // Re-fetch existing to be sure
       const latestWorkDays = await dbLocal.workDays.toArray();
       const existing = latestWorkDays.find(wd => wd.date === dateStr);
+      const isWeekendDay = isWeekend(date);
 
       if (existing) {
+        // Remove override, revert to default
         await dbLocal.workDays.delete(existing.id!);
-        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tatil Kaldırma', `${dateStr} tarihindeki tatil işareti kaldırıldı.`);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Varsayılana Dönüş', `${dateStr} tarihi için varsayılan ayarlara dönüldü.`);
       } else {
+        // Add override
         await dbLocal.workDays.add({
           date: dateStr,
-          isWorkDay: false
+          isWorkDay: isWeekendDay // If it's a weekend usually (holiday), mark as workday. If weekday, mark as holiday (false).
         });
-        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tatil Ekleme', `${dateStr} tarihi tatil olarak işaretlendi.`);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, isWeekendDay ? 'Çalışma Günü Ekleme' : 'Tatil Ekleme', `${dateStr} durumu değiştirildi.`);
       }
       
       // Ripple Effect: Shift schedules
@@ -146,16 +149,16 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
 
           {days.map(day => {
             const dateStr = format(day, 'yyyy-MM-dd');
-            const isMarkedHoliday = workDays.some(wd => wd.date === dateStr);
+            const explicitSetting = workDays.find(wd => wd.date === dateStr);
             const weekend = isWeekend(day);
-            const isActualHoliday = isMarkedHoliday || weekend;
+            const isActualHoliday = explicitSetting ? !explicitSetting.isWorkDay : weekend;
             const today = isToday(day);
 
             return (
               <button
                 key={dateStr}
-                onClick={() => !weekend && toggleHoliday(day)}
-                disabled={weekend || (() => {
+                onClick={() => toggleHoliday(day)}
+                disabled={(() => {
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
                   const d = new Date(day);
@@ -164,9 +167,8 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
                 })()}
                 className={`
                   aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all relative group
-                  ${isActualHoliday ? 'bg-amber-100 text-amber-900 border border-amber-200 shadow-sm shadow-amber-100/50' : 'bg-white text-slate-900 border border-slate-100 hover:border-blue-200 hover:bg-blue-50'}
+                  ${isActualHoliday ? 'bg-amber-100 text-amber-900 border border-amber-200 shadow-sm shadow-amber-100/50 hover:border-amber-400' : 'bg-white text-slate-900 border border-slate-100 hover:border-blue-200 hover:bg-blue-50'}
                   ${today ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
-                  ${weekend ? 'opacity-60 cursor-default' : ''}
                   disabled:opacity-40 disabled:cursor-not-allowed
                 `}
               >
@@ -178,6 +180,9 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
                 </span>
                 {today && (
                   <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500" />
+                )}
+                {explicitSetting && (
+                  <div className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-slate-600" title="Özel Ayar" />
                 )}
               </button>
             );

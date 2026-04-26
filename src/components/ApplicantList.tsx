@@ -697,7 +697,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                     longitude: formData.lng || 26.570,
                     zoom: 15
                   }}
-                  mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                  mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
                   style={{ width: '100%', height: '100%' }}
                   onClick={(e) => setFormData(prev => ({ ...prev, lat: e.lngLat.lat, lng: e.lngLat.lng }))}
                 >

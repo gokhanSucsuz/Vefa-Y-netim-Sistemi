@@ -423,7 +423,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                     longitude: markers[0].pos[1],
                     zoom: 12
                   }}
-                  mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                  mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
                   style={{ width: '100%', height: '100%' }}
                 >
                   <NavigationControl position="top-right" />

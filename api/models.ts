@@ -8,6 +8,7 @@ const ApplicantSchema = new mongoose.Schema({
   address: String, // Encrypted
   neighborhood: String,
   haneNo: String, // Encrypted
+  householdSize: Number,
   birthDate: String,
   gender: String,
   maritalStatus: String,
@@ -31,6 +32,10 @@ const StaffSchema = new mongoose.Schema({
   password: String, // Encrypted
   partnerId: String, // Linked teammate
   isActive: { type: Boolean, default: true },
+  dutyLocation: String,
+  googleEmail: String,
+  isApproved: { type: Boolean, default: false },
+  leaves: [{ startDate: String, endDate: String, reason: String }],
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -42,12 +47,14 @@ const WorkDaySchema = new mongoose.Schema({
 
 const ScheduleSchema = new mongoose.Schema({
   date: String,
+  programId: String,
   assignments: [{
     applicantId: String,
     staffIds: [String],
     isCompleted: { type: Boolean, default: false },
     completionDate: String,
-    completionNote: String
+    completionNote: String,
+    approvals: Array
   }]
 });
 
@@ -55,6 +62,8 @@ const ProgramSchema = new mongoose.Schema({
   name: String,
   startDate: String,
   endDate: String,
+  createdAt: String,
+  status: { type: String, default: 'active' },
   scheduleIds: [String],
   isActive: Boolean
 });

@@ -161,7 +161,16 @@ class ApiTable<T extends { id?: string }> {
   }
 
   async update(id: string, changes: Partial<T>): Promise<void> {
-    await this.dexieTable.update(id, changes as any);
+    const safeChanges = { ...changes };
+    delete (safeChanges as any).id;
+    // Remove undefined properties which might cause Dexie errors
+    Object.keys(safeChanges).forEach(key => {
+      if ((safeChanges as any)[key] === undefined) {
+        delete (safeChanges as any)[key];
+      }
+    });
+
+    await this.dexieTable.update(id, safeChanges as any);
     if (navigator.onLine) {
       try {
         await apiFetch(`/${this.collectionName}/${id}`, {
