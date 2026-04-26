@@ -19,9 +19,17 @@ function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
   const { current: map } = useMap();
   useEffect(() => {
     if (map && markers.length > 0) {
-      const bounds = new maplibregl.LngLatBounds();
-      markers.forEach(m => bounds.extend([m.pos[1], m.pos[0]]));
-      map.fitBounds(bounds, { padding: 50, duration: 1000 });
+      try {
+        const bounds = new maplibregl.LngLatBounds();
+        markers.forEach(m => {
+          if (m.pos && !isNaN(m.pos[0]) && !isNaN(m.pos[1])) {
+            bounds.extend([m.pos[1], m.pos[0]]);
+          }
+        });
+        map.fitBounds(bounds, { padding: 50, duration: 1000 });
+      } catch (err) {
+        console.error("Map bounds error:", err);
+      }
     }
   }, [map, markers]);
   return null;
@@ -48,14 +56,22 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
   const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
 
-  const isTodayDate = useMemo(() => isToday(parseISO(selectedDate)), [selectedDate]);
+  const isTodayDate = useMemo(() => {
+    try {
+      const d = parseISO(selectedDate);
+      return !isNaN(d.getTime()) && isToday(d);
+    } catch {
+      return false;
+    }
+  }, [selectedDate]);
 
   // Filter schedules where I am assigned
   const myAssignmentsByDate = useMemo(() => {
-    if (!myStaffRecord) return new Map<string, any[]>();
+    if (!myStaffRecord || !schedules || !applicants) return new Map<string, any[]>();
     
     const map = new Map<string, any[]>();
     schedules.forEach(s => {
+      if (!s.assignments) return;
       const myItems = s.assignments.filter(a => (a.staffIds || []).includes(myStaffRecord.id!));
       if (myItems.length > 0) {
         map.set(s.date, myItems.map(item => ({
@@ -82,6 +98,17 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
     if (!myStaffRecord || !myStaffRecord.partnerId) return null;
     return staff.find(s => s.id === myStaffRecord.partnerId);
   }, [myStaffRecord, staff]);
+
+  const formatSafe = (dateStr: string, formatStr: string, options?: any) => {
+    if (!dateStr) return '-';
+    try {
+      const d = parseISO(dateStr);
+      if (isNaN(d.getTime())) return '-';
+      return format(d, formatStr, options);
+    } catch {
+      return '-';
+    }
+  };
 
   const toggleReveal = (id: string) => {
     const newItems = new Set(revealedItems);
@@ -198,6 +225,8 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
     const validMarkers: { pos: [number, number], name: string }[] = [];
     const missing: string[] = [];
 
+    if (!currentAssignments) return { markers: [], noLocationApplicants: [] };
+
     currentAssignments
       .map(a => a.applicant)
       .filter((app): app is Applicant => app !== undefined && app !== null)
@@ -264,7 +293,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                 onClick={() => setSelectedDate(date)}
                 className={`shrink-0 px-4 py-2 rounded-2xl text-xs font-bold transition-all ${selectedDate === date ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-100'}`}
               >
-                {format(parseISO(date), 'dd MMM', { locale: tr })}
+                {formatSafe(date, 'dd MMM', { locale: tr })}
               </button>
             )) : (
               <p className="text-xs text-slate-400 font-medium py-2 italic font-mono uppercase tracking-tighter">Henüz görev atanmamış</p>
@@ -415,7 +444,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                   {isCompleted && (
                     <div className="mt-3 text-[10px] text-slate-400 font-bold bg-slate-50 p-2 rounded-xl border border-slate-100 flex items-center gap-2">
                        <Clock className="w-3.5 h-3.5" />
-                       Tamamlanma: {format(parseISO(a.completionDate!), 'HH:mm - dd.MM.yyyy')}
+                       Tamamlanma: {formatSafe(a.completionDate!, 'HH:mm - dd.MM.yyyy')}
                     </div>
                   )}
                 </div>
@@ -484,6 +513,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
 
               <div className="flex-1 bg-slate-100 relative min-h-0">
                   <Map
+                    mapLibre={maplibregl}
                     initialViewState={{
                       longitude: markers[0]?.pos[1] || 26.570,
                       latitude: markers[0]?.pos[0] || 41.675,

@@ -97,9 +97,16 @@ export default function GoogleLogin() {
         <p className="text-gray-500 text-sm mb-8">Vefa Sosyal Destek Yönetim Sistemi Girişi</p>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-xs font-bold rounded-2xl flex items-start gap-3 text-left">
-            <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
-            <span>{error}</span>
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-xs font-bold rounded-2xl flex flex-col gap-3 text-left">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+            {error.includes('Google ile giriş yapılamadı') && (
+              <div className="mt-2 p-2 bg-white rounded-lg border border-red-200 text-red-500 font-medium">
+                Not: Iframe kısıtlamaları nedeniyle giriş penceresi açılmıyor olabilir. Lütfen uygulamayı <strong>yeni sekmede açarak</strong> tekrar deneyin.
+              </div>
+            )}
           </div>
         )}
 

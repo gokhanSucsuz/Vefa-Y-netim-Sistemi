@@ -201,10 +201,10 @@ export default function App() {
           <div className="mb-4 flex flex-col gap-2">
             <div className="flex items-center gap-3 px-2">
               <div className="w-10 h-10 rounded-full bg-blue-800 flex items-center justify-center text-white font-bold text-xs">
-                {currentStaffUser.name[0]}{currentStaffUser.surname[0]}
+                {currentStaffUser.name?.[0] || ''}{currentStaffUser.surname?.[0] || ''}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-slate-900 truncate">{currentStaffUser.name} {currentStaffUser.surname}</span>
+                <span className="text-sm font-bold text-slate-900 truncate">{(currentStaffUser.name || '')} {(currentStaffUser.surname || '')}</span>
                 <span className="text-[10px] text-slate-500 font-bold uppercase truncate">{currentStaffUser.role === 'admin' ? 'Yönetici' : 'Süper Yönetici'}</span>
               </div>
             </div>

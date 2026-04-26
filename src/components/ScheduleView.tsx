@@ -11,6 +11,7 @@ import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
 import { formatPhone, formatTC } from '../lib/format';
 import { Map as MapGL, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
+import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { geocodeAddress } from '../services/geocoding';
 import { EDIRNE_NEIGHBORHOOD_COORDS } from '../constants/edirne_data';
@@ -1433,6 +1434,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       {showMap && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden h-[400px] relative z-0">
           <MapGL
+            mapLibre={maplibregl}
             initialViewState={{
               latitude: 41.675,
               longitude: 26.570,
