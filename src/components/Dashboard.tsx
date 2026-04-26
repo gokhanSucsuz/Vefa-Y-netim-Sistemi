@@ -4,7 +4,6 @@ import { Staff, SystemUser } from '../types';
 import { format, isToday, isFuture, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Users, Briefcase, Calendar, Clock, AlertCircle, ArrowRight, ShieldCheck, MapPin } from 'lucide-react';
-import { maskAddress } from '../lib/masking';
 
 interface Props {
   onNavigate: (tab: any, date?: string) => void;

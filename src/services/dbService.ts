@@ -249,16 +249,29 @@ class ApiTable<T extends { id?: string }> {
     return {
       equals: (value: any) => ({
         toArray: () => this.dexieTable.where(field).equals(value).toArray(),
+        first: () => this.dexieTable.where(field).equals(value).first(),
         delete: async () => {
              const items = await this.dexieTable.where(field).equals(value).toArray();
              for(const item of items) if(item.id) await this.delete(item.id);
         },
         count: () => this.dexieTable.where(field).equals(value).count()
       }),
-      above: (value: any) => ({ toArray: () => this.dexieTable.where(field).above(value).toArray() }),
-      aboveOrEqual: (value: any) => ({ toArray: () => this.dexieTable.where(field).aboveOrEqual(value).toArray() }),
-      below: (value: any) => ({ toArray: () => this.dexieTable.where(field).below(value).toArray() }),
-      belowOrEqual: (value: any) => ({ toArray: () => this.dexieTable.where(field).belowOrEqual(value).toArray() }),
+      above: (value: any) => ({ 
+        toArray: () => this.dexieTable.where(field).above(value).toArray(),
+        first: () => this.dexieTable.where(field).above(value).first()
+      }),
+      aboveOrEqual: (value: any) => ({ 
+        toArray: () => this.dexieTable.where(field).aboveOrEqual(value).toArray(),
+        first: () => this.dexieTable.where(field).aboveOrEqual(value).first()
+      }),
+      below: (value: any) => ({ 
+        toArray: () => this.dexieTable.where(field).below(value).toArray(),
+        first: () => this.dexieTable.where(field).below(value).first()
+      }),
+      belowOrEqual: (value: any) => ({ 
+        toArray: () => this.dexieTable.where(field).belowOrEqual(value).toArray(),
+        first: () => this.dexieTable.where(field).belowOrEqual(value).first()
+      }),
     };
   }
 

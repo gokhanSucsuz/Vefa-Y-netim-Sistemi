@@ -3,14 +3,16 @@ import { Shield, User, Lock, LogIn, Loader2, UserPlus, CreditCard, Mail, Phone, 
 import { dbService } from '../db';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
+import { User as FirebaseUser } from 'firebase/auth';
 import { SystemUser } from '../types';
 import CryptoJS from 'crypto-js';
 
 interface StaffLoginProps {
   onLogin: (user: SystemUser) => void;
+  firebaseUser: FirebaseUser | null;
 }
 
-export default function StaffLogin({ onLogin }: StaffLoginProps) {
+export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<'select' | 'login' | 'register'>('select');

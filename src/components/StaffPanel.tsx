@@ -12,7 +12,6 @@ import {
 import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { AnimatePresence } from 'motion/react';
-import { maskAddress } from '../lib/masking';
 import { logAction } from '../services/auditService';
 import { formatPhone } from '../lib/format';
 
@@ -162,13 +161,16 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
         return a;
       });
 
+      const targetAssignment = updatedAssignments.find(a => a.applicantId === activeVisitId);
+      const isVisitFullyCompleted = targetAssignment?.isCompleted;
+
       await dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
       
       const applicant = applicants.find(app => app.id === activeVisitId);
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ziyaret Onayı', 
-        `${applicant?.name} ${applicant?.surname} ziyareti onaylandı. ${isTodayDate ? 'Tamamlandı' : 'Beklemede'}`);
+        `${applicant?.name} ${applicant?.surname} ziyareti onaylandı. ${isVisitFullyCompleted ? 'Tamamlandı' : 'Beklemede'}`);
 
-      alert(isFullyCompleted ? 'Ziyaret her iki personel tarafından onaylandı ve tamamlandı.' : 'Onayınız kaydedildi. Partnerinizin onayı bekleniyor.');
+      alert(isVisitFullyCompleted ? 'Ziyaret her iki personel tarafından onaylandı ve tamamlandı.' : 'Onayınız kaydedildi. Partnerinizin onayı bekleniyor.');
       setActiveVisitId(null);
       setVisitNotes('');
     } catch (err) {

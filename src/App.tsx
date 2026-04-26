@@ -81,7 +81,7 @@ export default function App() {
   }
 
   if (!currentStaffUser) {
-    return <StaffLogin onLogin={handleStaffLogin} />;
+    return <StaffLogin onLogin={handleStaffLogin} firebaseUser={firebaseUser} />;
   }
 
   // If user is staff, show staff panel ONLY

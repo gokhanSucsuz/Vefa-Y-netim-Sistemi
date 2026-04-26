@@ -9,7 +9,6 @@ import * as XLSX from 'xlsx';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
-import { maskTcNo, maskPhone, maskAddress } from '../lib/masking';
 import { formatPhone, formatTC } from '../lib/format';
 import { Map as MapGL, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -74,18 +73,6 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     const saved = localStorage.getItem('dailyLimit');
     return saved ? parseInt(saved) : 6;
   });
-
-  const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
-
-  const toggleReveal = (id: string) => {
-    const newRevealed = new Set(revealedItems);
-    if (newRevealed.has(id)) {
-      newRevealed.delete(id);
-    } else {
-      newRevealed.add(id);
-    }
-    setRevealedItems(newRevealed);
-  };
 
   const validateAssignment = (applicantId: string, date: string, currentSchedules: Schedule[], excludeScheduleId?: string) => {
     // 1. Single visit per day check
@@ -590,7 +577,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       }
 
       // We will loop through sortedApplicants indefinitely when planning a day.
-      // 4. Find available work days starting from actualPlanningStartDate
+      // 4. Determine pool size for work day calculation
+      const totalRequiredVisits = applicants.reduce((sum, app) => {
+        const scheduleCount = schedules.filter(s => s.assignments.some(a => a.applicantId === app.id)).length;
+        return sum + Math.max(0, 2 - scheduleCount);
+      }, 0);
+
+      // 5. Find available work days starting from actualPlanningStartDate
       const explicitWorkSettings = await dbLocal.workDays.where("date").aboveOrEqual(actualPlanningStartDate).toArray();
       const settingsMap = new Map(explicitWorkSettings.map(s => [s.date, s.isWorkDay]));
       const existingScheduleDates = new Set(schedules.map(s => s.date));
@@ -600,7 +593,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       let daysChecked = 0;
       
       // Look ahead up to 90 days to find enough work days
-      while (availableWorkDays.length < Math.max(60, Math.ceil(applicantPool.length / 3)) && daysChecked < 90) {
+      while (availableWorkDays.length < Math.max(60, Math.ceil(totalRequiredVisits / 3)) && daysChecked < 90) {
         const dateStr = format(checkDate, 'yyyy-MM-dd');
         const explicit = settingsMap.get(dateStr);
         
@@ -1525,7 +1518,6 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                         const assignment = schedule?.assignments[idx];
                         const isCompleted = assignment?.isCompleted;
                         const isSelectedForSwap = swapSelection?.date === a.date && swapSelection?.applicantId === item.applicant.id;
-                        const isRevealed = revealedItems.has(item.applicant.id!);
 
                         const todayStr = format(new Date(), 'yyyy-MM-dd');
                         const isFuture = a.date > todayStr;

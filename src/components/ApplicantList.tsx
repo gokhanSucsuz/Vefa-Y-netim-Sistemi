@@ -8,7 +8,7 @@ import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { AnimatePresence, motion, Reorder } from 'motion/react';
 
-import { formatPhone } from '../lib/format';
+import { formatPhone, formatTC } from '../lib/format';
 import { geocodeAddress } from '../services/geocoding';
 import ApplicantStatsModal from './ApplicantStatsModal';
 
@@ -911,7 +911,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                         <div className="text-xs text-gray-500 truncate">{applicant.neighborhood} - {applicant.address}</div>
                      </div>
                      <div className="hidden sm:block text-right">
-                        <div className="text-xs font-bold text-gray-700 font-mono">{maskTcNo(applicant.tcNo)}</div>
+                        <div className="text-xs font-bold text-gray-700 font-mono">{formatTC(applicant.tcNo)}</div>
                         <div className="text-[10px] text-gray-400 font-bold uppercase">{applicant.haneNo || '-'}</div>
                      </div>
                    </Reorder.Item>
