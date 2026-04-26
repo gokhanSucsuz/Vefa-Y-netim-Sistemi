@@ -68,8 +68,13 @@ const AuditLogSchema = new mongoose.Schema({
 });
 
 const AdminSchema = new mongoose.Schema({
+  name: String,
+  surname: String,
+  tcNo: String,
+  phone: String,
   email: { type: String, unique: true },
-  role: { type: String, default: 'admin' }
+  role: { type: String, default: 'admin' },
+  createdAt: { type: String, default: () => new Date().toISOString() }
 });
 
 const UserSchema = new mongoose.Schema({

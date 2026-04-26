@@ -8,20 +8,15 @@
   "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg",
-      "sizes": "400x400",
-      "type": "image/jpeg",
+      "src": "https://www.gstatic.com/images/branding/product/2x/googleg_96dp.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg",
-      "sizes": "192x192",
-      "type": "image/jpeg"
-    },
-    {
-      "src": "https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg",
+      "src": "https://www.gstatic.com/images/branding/product/2x/googleg_96dp.png",
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/png"
     }
   ]
 }

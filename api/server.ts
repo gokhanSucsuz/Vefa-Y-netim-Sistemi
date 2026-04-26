@@ -46,14 +46,18 @@ function encrypt(text: string | undefined): string | undefined {
 }
 
 function decrypt(text: string | undefined): string | undefined {
-  if (!text || typeof text !== 'string' || !text.includes(':')) return text;
+  if (!text || typeof text !== 'string') return text;
+  
+  // If it doesn't have the IV separator, it's already plain text
+  if (!text.includes(':')) return text;
   
   try {
     const parts = text.split(':');
     const ivHex = parts.shift();
     const encryptedHex = parts.join(':');
     
-    if (!ivHex || !encryptedHex || ivHex.length !== (IV_LENGTH * 2)) {
+    // Check if parts look like hex and IV has correct length (16 bytes = 32 chars)
+    if (!ivHex || !encryptedHex || ivHex.length !== 32 || !/^[0-9a-f]+$/i.test(ivHex) || !/^[0-9a-f]+$/i.test(encryptedHex)) {
       return text;
     }
     
@@ -64,7 +68,7 @@ function decrypt(text: string | undefined): string | undefined {
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted.toString('utf8');
   } catch (e) {
-    // If decryption fails, return original text to avoid losing data
+    // If decryption fails, it's probably not encrypted or has a different key
     return text;
   }
 }
@@ -420,8 +424,8 @@ app.use("/api/workdays", createCrudRoutes(WorkDayModel, 'workday'));
 app.use("/api/schedules", createCrudRoutes(ScheduleModel, 'schedule'));
 app.use("/api/programs", createCrudRoutes(ProgramModel, 'program'));
 app.use("/api/auditlogs", createCrudRoutes(AuditLogModel, 'auditlog'));
-app.use("/api/admins", createCrudRoutes(AdminModel, 'admin'));
-app.use("/api/users", createCrudRoutes(UserModel, 'user', ['tcNo', 'phone', 'password', 'passwordHash', 'email']));
+app.use("/api/admins", createCrudRoutes(AdminModel, 'admin', ['name', 'surname', 'tcNo', 'phone', 'email']));
+app.use("/api/users", createCrudRoutes(UserModel, 'user', ['name', 'surname', 'tcNo', 'phone', 'email', 'password', 'passwordHash']));
 
 // Reset Mock Data Route
 app.post("/api/admin/reset-mock-data", async (req, res) => {
@@ -586,15 +590,37 @@ app.get(["/api/auth/callback", "/auth/callback"], async (req, res) => {
 
     const oauth2 = google.oauth2({ version: "v2", auth: client });
     const userInfo = await oauth2.userinfo.get();
+    const userEmail = userInfo.data.email?.toLowerCase();
 
-    if (userInfo.data.email !== ALLOWED_EMAIL) {
+    if (!userEmail) {
+      throw new Error("E-posta bilgisi alınamadı.");
+    }
+
+    await connectDB();
+    
+    // Check if user is allowed
+    // 1. Check direct ALLOWED_EMAIL (Super Admin override)
+    // 2. Check if email exists in System Users
+    // 3. Check if email exists in Staff records
+    
+    const isMasterAdmin = userEmail === ALLOWED_EMAIL;
+    const allUsers = await (UserModel as any).find({}).lean();
+    const existsInUsers = allUsers.some((u: any) => decrypt(u.email)?.toLowerCase() === userEmail);
+    
+    const allStaff = await (StaffModel as any).find({}).lean();
+    const existsInStaff = allStaff.some((s: any) => decrypt(s.googleEmail)?.toLowerCase() === userEmail);
+
+    if (!isMasterAdmin && !existsInUsers && !existsInStaff) {
       return res.status(403).send(`
         <html>
-          <body>
-            <script>
-              alert("Bu uygulamaya sadece ${ALLOWED_EMAIL} hesabı giriş yapabilir.");
-              window.close();
-            </script>
+          <head><meta charset="UTF-8"></head>
+          <body style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #fef2f2; color: #991b1b;">
+            <h1 style="margin-bottom: 8px;">Giriş Yetkiniz Yok</h1>
+            <p style="text-align: center; max-width: 400px; line-height: 1.5;">
+              <strong>${userInfo.data.email}</strong> hesabı sisteme kayıtlı değil.<br>
+              Lütfen yöneticinizle iletişime geçin.
+            </p>
+            <button onclick="window.close()" style="margin-top: 24px; padding: 10px 20px; background: #dc2626; color: white; border: none; rounded: 8px; font-weight: bold; cursor: pointer;">Pencereyi Kapat</button>
           </body>
         </html>
       `);
