@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { logAction } from '../services/auditService';
 import { formatPhone } from '../lib/format';
-import { Map, Marker, NavigationControl, Popup, useMap } from 'react-map-gl/maplibre';
+import { Map as MapGL, Marker, NavigationControl, Popup, useMap } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -512,8 +512,8 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
               )}
 
               <div className="flex-1 bg-slate-100 relative min-h-0">
-                  <Map
-                    mapLibre={maplibregl}
+                  <MapGL
+                    mapLib={maplibregl}
                     initialViewState={{
                       longitude: markers[0]?.pos[1] || 26.570,
                       latitude: markers[0]?.pos[0] || 41.675,
@@ -543,7 +543,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                         </Marker>
                       </div>
                     ))}
-                  </Map>
+                  </MapGL>
               </div>
             </div>
           </div>
