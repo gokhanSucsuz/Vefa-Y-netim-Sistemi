@@ -84,12 +84,27 @@ export default function InstallPrompt() {
             </p>
 
             {platform === 'ios' ? (
-              <div className="mt-3 bg-blue-50 rounded-lg p-3">
-                <p className="text-[11px] text-blue-800 font-medium flex items-center flex-wrap gap-1">
-                  Alttaki <Share className="w-3 h-3 inline" /> butonuna tıklayın ve 
-                  <span className="font-bold underline text-blue-900">"Ana Ekrana Ekle"</span> 
-                  seçeneğini seçin.
+              <div className="mt-3 bg-blue-50/50 rounded-xl p-4 border border-blue-100">
+                <p className="text-[12px] text-blue-900 font-bold mb-2">
+                  iPhone Kurulum Rehberi:
                 </p>
+                <ol className="text-[11px] text-blue-800 space-y-2 font-medium">
+                  <li className="flex items-start gap-2">
+                    <span className="bg-blue-200 text-blue-700 w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-bold">1</span>
+                    <span>Safari'nin en altındaki <Share className="w-3.5 h-3.5 inline mx-0.5 text-blue-600" /> <b>Paylaş</b> ikonuna dokunun.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-blue-200 text-blue-700 w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-bold">2</span>
+                    <span>Açılan menüyü aşağı kaydırın.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-blue-200 text-blue-700 w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-bold">3</span>
+                    <span><b className="underline">Ana Ekrana Ekle</b> (Add to Home Screen) seçeneğine dokunun.</span>
+                  </li>
+                </ol>
+                <div className="mt-3 text-[10px] text-blue-600/80 bg-blue-100/50 p-2 rounded-lg italic">
+                  Not: Eğer uygulamayı Instagram/Google içinden açtıysanız sağ alt köşeden "Safari'de Aç" demelisiniz.
+                </div>
               </div>
             ) : (
               <button
