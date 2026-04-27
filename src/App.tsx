@@ -43,6 +43,9 @@ export default function App() {
     setActiveTab('schedule');
   };
 
+  const { user: currentStaffUser, firebaseUser, isLoading, login, logout } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   useEffect(() => {
     if (currentStaffUser && !currentStaffUser.isSuperAdmin && activeTab === 'users') {
       setActiveTab('dashboard');
@@ -50,9 +53,6 @@ export default function App() {
       localStorage.setItem('vefaActiveTab', activeTab);
     }
   }, [activeTab, currentStaffUser]);
-
-  const { user: currentStaffUser, firebaseUser, isLoading, login, logout } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleStaffLogin = (user: SystemUser) => {
     login(user);
