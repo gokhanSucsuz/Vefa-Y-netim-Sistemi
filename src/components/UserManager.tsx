@@ -18,14 +18,6 @@ export default function UserManager({ currentUser }: UserManagerProps) {
   const itemsPerPage = 30;
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
-  if (!currentUser.isSuperAdmin) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-red-500 font-bold">Bu sayfayı görüntüleme yetkiniz yok.</p>
-      </div>
-    );
-  }
-
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
@@ -119,6 +111,14 @@ export default function UserManager({ currentUser }: UserManagerProps) {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredUsers.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredUsers, currentPage]);
+
+  if (!currentUser.isSuperAdmin) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500 font-bold">Bu sayfayı görüntüleme yetkiniz yok.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
