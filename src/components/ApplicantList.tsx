@@ -141,13 +141,15 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
       if (editingId) {
         await dbLocal.applicants.update(editingId, formData);
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Güncelleme', `${formData.name} ${formData.surname} hanesi güncellendi.`);
+        alert('Hane başarıyla güncellendi.');
         setEditingId(null);
       } else {
         const maxPriority = applicants.reduce((max, a) => Math.max(max, a.priority || 0), 0);
         await dbLocal.applicants.add({ ...formData, priority: maxPriority + 1 });
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Ekleme', `${formData.name} ${formData.surname} hanesi eklendi.`);
-        setIsAdding(false);
+        alert('Yeni hane başarıyla eklendi.');
       }
+      setIsAdding(false);
       setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '', lat: 41.675, lng: 26.570, priority: 0 });
       await reindexPriorities();
       await reAlignActiveProgramSchedules();
