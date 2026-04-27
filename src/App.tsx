@@ -44,14 +44,21 @@ export default function App() {
   };
 
   useEffect(() => {
-    localStorage.setItem('vefaActiveTab', activeTab);
-  }, [activeTab]);
+    if (currentStaffUser && !currentStaffUser.isSuperAdmin && activeTab === 'users') {
+      setActiveTab('dashboard');
+    } else {
+      localStorage.setItem('vefaActiveTab', activeTab);
+    }
+  }, [activeTab, currentStaffUser]);
 
   const { user: currentStaffUser, firebaseUser, isLoading, login, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleStaffLogin = (user: SystemUser) => {
     login(user);
+    if (user.role !== 'staff') {
+      setActiveTab('dashboard');
+    }
     logAction(user.id!, `${user.name} ${user.surname}`, 'Giriş', 'Sisteme giriş yapıldı.');
   };
 
@@ -251,7 +258,7 @@ export default function App() {
           {activeTab === 'completed' && <CompletedCleanings applicants={applicants} staff={staff} schedules={schedules} currentUser={currentStaffUser!} />}
           {activeTab === 'stats' && <Statistics currentUser={currentStaffUser!} onNavigate={navigateToSchedule} />}
           {activeTab === 'audit' && <AuditLogView />}
-          {activeTab === 'users' && <UserManager currentUser={currentStaffUser!} />}
+          {activeTab === 'users' && currentStaffUser?.isSuperAdmin && <UserManager currentUser={currentStaffUser!} />}
           {activeTab === 'docs' && <Documentation />}
           {activeTab === 'backup' && <BackupManager user={firebaseUser} />}
         </div>
