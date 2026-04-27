@@ -7,13 +7,14 @@ import { tr } from 'date-fns/locale';
 import { 
   MapPin, Clock, CheckCircle2, Play, Square, 
   User, Users, Calendar, AlertCircle, Route,
-  ChevronRight, LogOut, Navigation, Info, Search, Map as MapIcon
+  ChevronRight, LogOut, Navigation, Info, Search, Map as MapIcon, Smartphone
 } from 'lucide-react';
 import { logAction } from '../services/auditService';
 import { formatPhone } from '../lib/format';
 import { Map as MapGL, Marker, NavigationControl, Popup, useMap } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import InstallPrompt from './InstallPrompt';
 
 function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
   const { current: map } = useMap();
@@ -276,9 +277,22 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Saha Personeli Paneli</p>
             </div>
           </div>
-          <button onClick={onLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => {
+                // We'll dispatch a custom event to show the InstallPrompt if hidden
+                window.dispatchEvent(new CustomEvent('show-install-prompt'));
+              }} 
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all flex flex-col items-center justify-center gap-0.5"
+              title="Uygulamayı İndir"
+            >
+              <Smartphone className="w-5 h-5" />
+              <span className="text-[8px] font-bold uppercase">Yükle</span>
+            </button>
+            <button onClick={onLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -584,6 +598,8 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
             </div>
           </div>
         )}
+      
+      <InstallPrompt />
     </div>
   );
 }
