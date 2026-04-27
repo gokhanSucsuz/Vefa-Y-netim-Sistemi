@@ -106,6 +106,25 @@ export default function InstallPrompt() {
                   Not: Eğer uygulamayı Instagram/Google içinden açtıysanız sağ alt köşeden "Safari'de Aç" demelisiniz.
                 </div>
               </div>
+            ) : platform === 'android' && !deferredPrompt ? (
+              <div className="mt-3 bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
+                <p className="text-[12px] text-emerald-900 font-bold mb-2">
+                  Android Kurulum Rehberi:
+                </p>
+                <ol className="text-[11px] text-emerald-800 space-y-2 font-medium">
+                  <li className="flex items-start gap-2">
+                    <span className="bg-emerald-200 text-emerald-700 w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-bold">1</span>
+                    <span>Tarayıcının sağ üst köşesindeki <b>Üç Nokta (⋮)</b> menüsüne dokunun (veya alt menü).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-emerald-200 text-emerald-700 w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-bold">2</span>
+                    <span>Açılan menüden <b className="underline">Ana Ekrana Ekle</b> veya <b className="underline">Uygulamayı Yükle</b> seçeneğine dokunun.</span>
+                  </li>
+                </ol>
+                <div className="mt-3 text-[10px] text-emerald-600/80 bg-emerald-100/50 p-2 rounded-lg italic">
+                  Not: Eğer uygulamayı uygulama içi tarayıcıdan (Instagram vb.) açtıysanız sağ üstteki menüden "Chrome'da Aç" demelisiniz.
+                </div>
+              </div>
             ) : (
               <button
                 onClick={handleInstallClick}
