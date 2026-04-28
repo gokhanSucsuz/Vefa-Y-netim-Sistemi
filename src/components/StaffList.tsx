@@ -212,7 +212,11 @@ export default function StaffList({ staff, currentUser }: Props) {
           )}
           {!isAdding && (
             <button
-              onClick={() => setIsAdding(true)}
+              onClick={() => {
+                setFormData({ name: '', surname: '', tcNo: '', phone: '', googleEmail: '', isApproved: false, partnerId: undefined, isActive: true, isBackup: false, dutyLocation: '' });
+                setEditingId(null);
+                setIsAdding(true);
+              }}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 text-sm"
             >
               <UserPlus className="w-5 h-5" />
@@ -228,7 +232,7 @@ export default function StaffList({ staff, currentUser }: Props) {
             <h3 className="text-lg font-semibold text-gray-900">
               {editingId ? 'Personel Düzenle' : 'Yeni Personel Kaydı'}
             </h3>
-            <button onClick={() => { setIsAdding(false); setEditingId(null); setFormData({ name: '', surname: '', tcNo: '', phone: '', partnerId: undefined }); }} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => { setIsAdding(false); setEditingId(null); setFormData({ name: '', surname: '', tcNo: '', phone: '', googleEmail: '', isApproved: false, partnerId: undefined, isActive: true, isBackup: false, dutyLocation: '' }); }} className="text-gray-400 hover:text-gray-600">
               <X className="w-6 h-6" />
             </button>
           </div>

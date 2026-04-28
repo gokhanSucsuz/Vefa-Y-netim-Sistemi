@@ -174,8 +174,8 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
     }
   };
 
-  const handleFinishVisit = async () => {
-    if (!activeVisitId || !myStaffRecord) return;
+  const handleFinishVisit = async (visitApplicantId: string) => {
+    if (!visitApplicantId || !myStaffRecord) return;
     if (!isTodayDate) {
       alert('Sadece bugün için işlem yapabilirsiniz.');
       return;
@@ -191,14 +191,15 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
       }).catch(() => null); // Allow finishing without GPS if it fails, but try to get it
 
       const updatedAssignments = schedule.assignments.map(a => {
-        if (a.applicantId === activeVisitId) {
+        if (a.applicantId === visitApplicantId) {
           const otherApprovals = (a.approvals || []).filter(apr => apr.staffId !== myStaffRecord.id);
           const myOldApproval = (a.approvals || []).find(apr => apr.staffId === myStaffRecord.id);
           
           const myFinalApproval = {
             ...myOldApproval,
             staffId: myStaffRecord.id!,
-            date: new Date().toISOString(),
+            date: myOldApproval?.date || new Date().toISOString(),
+            startTime: myOldApproval?.startTime || new Date().toISOString(),
             endTime: new Date().toISOString(),
             note: visitNotes,
             lat: position?.coords.latitude,
@@ -222,12 +223,12 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
         return a;
       });
 
-      const targetAssignment = updatedAssignments.find(a => a.applicantId === activeVisitId);
+      const targetAssignment = updatedAssignments.find(a => a.applicantId === visitApplicantId);
       const isVisitFullyCompleted = targetAssignment?.isCompleted;
 
       await dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
       
-      const applicant = applicants.find(app => app.id === activeVisitId);
+      const applicant = applicants.find(app => app.id === visitApplicantId);
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ziyaret Onayı', 
         `${applicant?.name} ${applicant?.surname} ziyareti onaylandı. ${isVisitFullyCompleted ? 'Tamamlandı' : 'Beklemede'}`);
 
@@ -457,14 +458,42 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                         />
                       </div>
                       <div className="flex gap-2">
+                        {isStartedByMe ? (
+                          <button 
+                            onClick={async () => {
+                              if (confirm('Temizliğe başlamayı iptal etmek istediğinize emin misiniz?')) {
+                                try {
+                                  const schedule = schedules.find(s => s.date === selectedDate);
+                                  if (!schedule) return;
+                                  const updatedAssignments = schedule.assignments.map(a => {
+                                    if (a.applicantId === applicant.id) {
+                                      return {
+                                        ...a,
+                                        approvals: (a.approvals || []).filter(apr => apr.staffId !== myStaffRecord.id)
+                                      };
+                                    }
+                                    return a;
+                                  });
+                                  await dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
+                                  setActiveVisitId(null);
+                                  setVisitNotes('');
+                                } catch (err) {}
+                              }
+                            }}
+                            className="flex-1 py-3 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-all uppercase tracking-widest"
+                          >
+                            Başlangıcı İptal Et
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => setActiveVisitId(null)}
+                            className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase tracking-widest"
+                          >
+                            İptal
+                          </button>
+                        )}
                         <button 
-                          onClick={() => setActiveVisitId(null)}
-                          className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase tracking-widest"
-                        >
-                          İptal
-                        </button>
-                        <button 
-                          onClick={handleFinishVisit}
+                          onClick={() => handleFinishVisit(applicant.id!)}
                           disabled={isProcessing}
                           className="flex-[2] flex items-center justify-center gap-2 bg-emerald-500 text-white py-3 rounded-xl text-xs font-bold shadow-lg shadow-emerald-100 active:scale-95 transition-all uppercase tracking-widest"
                         >

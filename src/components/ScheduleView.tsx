@@ -1198,16 +1198,23 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     pdfMake.createPdf(docDefinition).download(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
   };
 
-  // Expand the first day that has items by default when the month changes or assignments load
+  // Expand today or the first day that has items by default when the month changes or assignments load
   useEffect(() => {
     if (assignments.length > 0) {
       const isExpandedDayValid = assignments.some(a => a.date === expandedDay);
       if (!isExpandedDayValid) {
-        const firstWithItems = assignments.find(a => a.items.length > 0);
-        if (firstWithItems) {
-          setExpandedDay(firstWithItems.date);
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const todayWithItems = assignments.find(a => a.date === todayStr && a.items.length > 0);
+        
+        if (todayWithItems) {
+          setExpandedDay(todayStr);
         } else {
-          setExpandedDay(null);
+          const firstWithItems = assignments.find(a => a.items.length > 0);
+          if (firstWithItems) {
+            setExpandedDay(firstWithItems.date);
+          } else {
+            setExpandedDay(null);
+          }
         }
       }
     } else {
