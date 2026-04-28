@@ -313,30 +313,40 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
     ).length;
     const visitCount = pastSchedulesCount + 1;
 
-    const logoUrl = 'https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg';
-    let logoBase64 = '';
+    const logoUrlRight = 'https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg';
+    const logoUrlLeft = 'https://www.aile.gov.tr/media/4336/logo-department.svg';
+    
+    let logoBase64Right = '';
+    let logoBase64Left = '';
+
+    const getBase64ImageFromURL = (url: string): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.setAttribute('crossOrigin', 'anonymous');
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0);
+          const dataURL = canvas.toDataURL('image/png');
+          resolve(dataURL);
+        };
+        img.onerror = (error) => reject(error);
+        img.src = url;
+      });
+    };
+
     try {
-      const getBase64ImageFromURL = (url: string): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.setAttribute('crossOrigin', 'anonymous');
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0);
-            const dataURL = canvas.toDataURL('image/png');
-            resolve(dataURL);
-          };
-          img.onerror = (error) => reject(error);
-          img.src = url;
-        });
-      };
-      // Use weserv proxy to avoid CORS issues if necessary, but try direct first
-      logoBase64 = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(logoUrl)}`);
+      logoBase64Right = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(logoUrlRight)}`);
     } catch (e) {
-      console.error("Logo could not be fetched", e);
+      console.error("Right Logo could not be fetched", e);
+    }
+
+    try {
+      logoBase64Left = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(logoUrlLeft)}`);
+    } catch (e) {
+      console.error("Left Logo could not be fetched", e);
     }
 
     const docDefinition: any = {
@@ -345,9 +355,11 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
       content: [
         {
           columns: [
+            logoBase64Left ? { image: logoBase64Left, width: 140, alignment: 'left' } : { text: '', width: 140 },
             { text: '', width: '*' },
-            logoBase64 ? { image: logoBase64, width: 45, alignment: 'right' } : { text: '' }
-          ]
+            logoBase64Right ? { image: logoBase64Right, width: 45, alignment: 'right' } : { text: '', width: 45 }
+          ],
+          margin: [0, 0, 0, 5]
         },
         { 
           text: 'VEFA (YAŞLI EVDE BAKIM) YARDIM PROGRAMI FAALİYET KONTROL LİSTESİ', 
@@ -381,7 +393,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
               ],
               [
                 { text: 'Ziyaret:', bold: true },
-                { text: `Hanenin ${visitCount}. kez ziyaret edildiğinin sayısı`, colSpan: 2 },
+                { text: `${visitCount}. ziyaret`, colSpan: 2 },
                 ''
               ]
             ]

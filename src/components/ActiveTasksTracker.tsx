@@ -150,7 +150,7 @@ export default function ActiveTasksTracker() {
     
     await setupPdfMakeFonts();
     const logoUrlRight = 'https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg';
-    const logoUrlLeft = 'https://yt3.googleusercontent.com/ytc/AIdro_n49f0Yh8f8p6Z6z6z6z6z6z6z6z6z6z6z6z6z=s900-c-k-c0x00ffffff-no-rj';
+    const logoUrlLeft = 'https://www.aile.gov.tr/media/4336/logo-department.svg';
     
     let logoBase64Right = '';
     let logoBase64Left = '';
