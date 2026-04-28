@@ -332,35 +332,66 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
     const captureChart = async (id: string) => {
       const element = document.getElementById(id);
       if (!element) return null;
+      
       try {
-        // Ensure element is visible and has dimensions before capture
-        const originalStyle = element.getAttribute('style') || '';
-        
-        // Force standard colors to avoid oklch issues with html2canvas
+        // Wait for potential re-renders
+        await new Promise(resolve => setTimeout(resolve, 800));
+
         const canvas = await html2canvas(element, {
           scale: 2,
           backgroundColor: '#ffffff',
           logging: false,
           useCORS: true,
+          width: 800, // Fixed width for capture
+          height: 400, // Fixed height for capture
           onclone: (clonedDoc) => {
             const clonedElement = clonedDoc.getElementById(id);
             if (clonedElement) {
-              // Remove oklch-based tailwind classes and force hex colors in the clone
+              clonedElement.style.width = '800px';
+              clonedElement.style.height = '400px';
+              clonedElement.style.display = 'block';
+              clonedElement.style.position = 'relative';
               clonedElement.style.backgroundColor = '#ffffff';
-              clonedElement.style.color = '#000000';
-              // Find all elements with likely oklch colors and overwrite them
-              const all = clonedElement.getElementsByTagName('*');
-              for (let i = 0; i < all.length; i++) {
-                const el = all[i] as HTMLElement;
-                const style = window.getComputedStyle(el);
-                if (style.color.includes('oklch')) el.style.color = '#64748b';
-                if (style.backgroundColor.includes('oklch')) el.style.backgroundColor = '#ffffff';
-                if (style.borderColor.includes('oklch')) el.style.borderColor = '#f1f5f9';
+
+              // Aggressively remove oklch from ALL stylesheets in the clone
+              // html2canvas fails if it finds oklch in ANY CSS rule it parses
+              for (let i = 0; i < clonedDoc.styleSheets.length; i++) {
+                try {
+                  const sheet = clonedDoc.styleSheets[i];
+                  const rules = sheet.cssRules || sheet.rules;
+                  for (let j = rules.length - 1; j >= 0; j--) {
+                    const rule = rules[j] as CSSStyleRule;
+                    if (rule.cssText && rule.cssText.includes('oklch')) {
+                      // More effective to just remove the rule or replace oklch
+                      const newCssText = rule.cssText.replace(/oklch\([^)]+\)/g, '#3b82f6');
+                      sheet.deleteRule(j);
+                      sheet.insertRule(newCssText, j);
+                    }
+                  }
+                } catch (e) {
+                  // Some stylesheets might be cross-origin
+                }
+              }
+
+              // Also check inline styles and common Recharts elements
+              const allElements = clonedElement.getElementsByTagName('*');
+              for (let i = 0; i < allElements.length; i++) {
+                const el = allElements[i] as HTMLElement;
+                // Force fixed size for ResponsiveContainer inside the clone
+                if (el.classList.contains('recharts-responsive-container')) {
+                  el.style.width = '800px !important';
+                  el.style.height = '400px !important';
+                }
+                
+                // Clear oklch from inline styles
+                if (el.style.cssText.includes('oklch')) {
+                  el.style.cssText = el.style.cssText.replace(/oklch\([^)]+\)/g, '#3b82f6');
+                }
               }
             }
           }
         });
-        return canvas.toDataURL('image/png');
+        return canvas.toDataURL('image/png', 1.0);
       } catch (e) {
         console.error(`Chart ${id} could not be captured`, e);
         return null;
@@ -433,15 +464,21 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
         // Charts Section
         neighborhoodChartImg || staffChartImg ? { text: '4. Grafik Analizleri', style: 'sectionHeader', pageBreak: 'before' } : null,
         
-        neighborhoodChartImg ? [
-          { text: 'Mahalle Bazlı Dağılım Grafiği', margin: [0, 10, 0, 10], bold: true, fontSize: 10 },
-          { image: neighborhoodChartImg, width: 450, alignment: 'center', margin: [0, 0, 0, 20] }
-        ] : null,
+        neighborhoodChartImg ? {
+          unbreakable: true,
+          stack: [
+            { text: 'Mahalle Bazlı Dağılım Grafiği', margin: [0, 10, 0, 10], bold: true, fontSize: 10 },
+            { image: neighborhoodChartImg, width: 450, alignment: 'center', margin: [0, 0, 0, 20] }
+          ]
+        } : null,
 
-        staffChartImg ? [
-          { text: 'Personel İş Yükü Grafiği', margin: [0, 10, 0, 10], bold: true, fontSize: 10 },
-          { image: staffChartImg, width: 450, alignment: 'center' }
-        ] : null
+        staffChartImg ? {
+          unbreakable: true,
+          stack: [
+            { text: 'Personel İş Yükü Grafiği', margin: [0, 10, 0, 10], bold: true, fontSize: 10 },
+            { image: staffChartImg, width: 450, alignment: 'center' }
+          ]
+        } : null
       ],
       watermark: { 
         text: 'Edirne Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', 
