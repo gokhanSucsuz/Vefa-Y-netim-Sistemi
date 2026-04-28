@@ -1,4 +1,5 @@
 import { useState, useMemo, ReactNode, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
 import { Program, Schedule, SystemUser } from '../types';
@@ -296,6 +297,164 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
     logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'PDF İstatistik İndirme', `${startDate} - ${endDate} dönemi için PDF raporu alındı.`);
   };
 
+  const exportToPDFWithCharts = async () => {
+    const pdfMake = await setupPdfMakeFonts();
+    if (!pdfMake) {
+      console.error("Fonts could not be loaded for pdfmake");
+      return;
+    }
+
+    let logoBase64 = '';
+    try {
+      const getBase64ImageFromURL = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.setAttribute('crossOrigin', 'anonymous');
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL('image/png');
+            resolve(dataURL);
+          };
+          img.onerror = (error) => reject(error);
+          img.src = url;
+        });
+      };
+      logoBase64 = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`);
+    } catch (e) {
+      console.error("Logo could not be added to PDF", e);
+    }
+
+    // Capture charts
+    const captureChart = async (id: string) => {
+      const element = document.getElementById(id);
+      if (!element) return null;
+      try {
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          logging: false
+        });
+        return canvas.toDataURL('image/png');
+      } catch (e) {
+        console.error(`Chart ${id} could not be captured`, e);
+        return null;
+      }
+    };
+
+    const neighborhoodChartImg = await captureChart('neighborhood-chart');
+    const staffChartImg = await captureChart('staff-chart');
+
+    const docDefinition: any = {
+      content: [
+        logoBase64 ? {
+          image: logoBase64,
+          width: 50,
+          alignment: 'center',
+          margin: [0, 0, 0, 10]
+        } : null,
+        { text: 'T.C.', style: 'header', alignment: 'center' },
+        { text: 'EDİRNE VALİLİĞİ', style: 'header', alignment: 'center' },
+        { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
+        { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
+        { text: `VEFA PROJESİ İSTATİSTİK RAPORU (${format(parseISO(startDate), 'dd.MM.yyyy')} - ${format(parseISO(endDate), 'dd.MM.yyyy')})`, style: 'title', alignment: 'center', margin: [0, 15, 0, 15] },
+        { text: `Rapor Tarihi: ${format(new Date(), 'dd.MM.yyyy HH:mm')}`, alignment: 'right', fontSize: 8, color: '#666', margin: [0, 0, 0, 10] },
+        
+        { text: '1. Özet Bilgiler', style: 'sectionHeader' },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              [{ text: 'İstatistik Özeti', style: 'tableHeader' }, { text: 'Değer', style: 'tableHeader' }],
+              ['Toplam Temizlik Sayısı', stats.totalCleanings.toString()],
+              ['Gidilen Mahalle Sayısı', stats.totalNeighborhoods.toString()],
+              ['Hizmet Verilen Hane Sayısı', stats.totalUniqueApplicants.toString()]
+            ]
+          }
+        },
+
+        { text: '2. Mahalle Dağılımı', style: 'sectionHeader' },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['*', '*', '*'],
+            body: [
+              [
+                { text: 'Mahalle', style: 'tableHeader' },
+                { text: 'Temizlik Sayısı', style: 'tableHeader' },
+                { text: 'Hane Sayısı', style: 'tableHeader' }
+              ],
+              ...stats.neighborhoodData.map(n => [n.name, n.count.toString(), n.uniqueApplicants.toString()])
+            ]
+          }
+        },
+
+        { text: '3. Personel Performansı', style: 'sectionHeader' },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['*', '*', '*'],
+            body: [
+              [
+                { text: 'Personel', style: 'tableHeader' },
+                { text: 'Toplam İş', style: 'tableHeader' },
+                { text: 'Hane Sayısı', style: 'tableHeader' }
+              ],
+              ...stats.staffData.map(s => [s.name, s.jobCount.toString(), s.uniqueApplicantsCount.toString()])
+            ]
+          }
+        },
+
+        // Charts Section
+        neighborhoodChartImg || staffChartImg ? { text: '4. Grafik Analizleri', style: 'sectionHeader', pageBreak: 'before' } : null,
+        
+        neighborhoodChartImg ? [
+          { text: 'Mahalle Bazlı Dağılım Grafiği', margin: [0, 10, 0, 10], bold: true, fontSize: 10 },
+          { image: neighborhoodChartImg, width: 450, alignment: 'center', margin: [0, 0, 0, 20] }
+        ] : null,
+
+        staffChartImg ? [
+          { text: 'Personel İş Yükü Grafiği', margin: [0, 10, 0, 10], bold: true, fontSize: 10 },
+          { image: staffChartImg, width: 450, alignment: 'center' }
+        ] : null
+      ],
+      watermark: { 
+        text: 'Edirne Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', 
+        color: '#666', 
+        opacity: 0.05, 
+        bold: true, 
+        fontSize: 25
+      },
+      footer: (currentPage: number, pageCount: number) => {
+        return {
+          text: `Bu rapor ${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır. Sayfa ${currentPage} / ${pageCount}`,
+          alignment: 'center',
+          fontSize: 8,
+          color: '#666',
+          margin: [0, 10, 0, 0]
+        };
+      },
+      styles: {
+        header: { fontSize: 14, bold: true, margin: [0, 2, 0, 2] },
+        subheader: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
+        title: { fontSize: 12, bold: true },
+        sectionHeader: { fontSize: 11, bold: true, margin: [0, 15, 0, 5] },
+        tableHeader: { bold: true, fontSize: 10, fillColor: '#f1f5f9', alignment: 'left' }
+      },
+      defaultStyle: {
+        font: 'Roboto',
+        fontSize: 10
+      },
+      pageMargins: [40, 40, 40, 60]
+    };
+
+    pdfMake.createPdf(docDefinition).download(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
+    logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'PDF İstatistik İndirme (Grafikli)', `${startDate} - ${endDate} dönemi için grafikli PDF raporu alındı.`);
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Hidden Report for PDF Generation */}
@@ -433,7 +592,7 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
               <FileSpreadsheet className="w-5 h-5" />
               <span className="sm:hidden text-[10px] font-bold">EXCEL</span>
             </button>
-            <button onClick={exportToPDF} className="flex-1 sm:flex-none flex items-center justify-center gap-2 p-2 text-red-600 hover:bg-red-50 rounded-xl transition-colors" title="PDF İndir">
+            <button onClick={exportToPDFWithCharts} className="flex-1 sm:flex-none flex items-center justify-center gap-2 p-2 text-red-600 hover:bg-red-50 rounded-xl transition-colors" title="PDF İndir">
               <FileText className="w-5 h-5" />
               <span className="sm:hidden text-[10px] font-bold">PDF</span>
             </button>
@@ -478,7 +637,7 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
               Mahalle Bazlı Dağılım
             </h3>
           </div>
-          <div className="h-[300px] w-full relative">
+          <div id="neighborhood-chart" className="h-[300px] w-full relative bg-white">
             {stats.neighborhoodData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%" debounce={1}>
                 <BarChart data={stats.neighborhoodData.slice(0, 8)}>
@@ -513,7 +672,7 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
               Personel İş Yükü
             </h3>
           </div>
-          <div className="h-[300px] w-full relative">
+          <div id="staff-chart" className="h-[300px] w-full relative bg-white">
             {stats.staffData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%" debounce={1}>
                 <PieChart>
