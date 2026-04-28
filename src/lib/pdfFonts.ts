@@ -10,11 +10,11 @@ const ROBOTO_FONTS = {
 
 export async function setupPdfMakeFonts() {
   try {
-    // Dynamically import pdfmake and vfs_fonts
-    const [pdfMakeModule, pdfFontsModule] = await Promise.all([
-      import('pdfmake/build/pdfmake'),
-      import('pdfmake/build/vfs_fonts')
-    ]);
+      // Dynamically import pdfmake and vfs_fonts
+      const [pdfMakeModule, pdfFontsModule] = await Promise.all([
+        import('pdfmake/build/pdfmake').catch(err => { throw err; }),
+        import('pdfmake/build/vfs_fonts').catch(err => { throw err; })
+      ]);
 
     const pdfMake = pdfMakeModule.default || pdfMakeModule;
     const pdfFonts = pdfFontsModule.default || pdfFontsModule;
@@ -35,6 +35,10 @@ export async function setupPdfMakeFonts() {
     }
   } catch (e) {
     console.error("Error setting up internal pdfmake fonts:", e);
+    if (e instanceof TypeError && e.message.includes('Failed to fetch dynamically imported module')) {
+      alert("Sistem güncellendi. Rapor alabilmek için sayfanın yenilenmesi gerekiyor.");
+      window.location.reload();
+    }
   }
 
   return false;

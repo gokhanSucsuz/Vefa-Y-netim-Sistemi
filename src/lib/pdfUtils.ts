@@ -121,7 +121,17 @@ export const generateMassCleaningReport = async (items: any[], periodName: strin
     pageOrientation: 'landscape'
   };
 
-  const pdfMakeModule = await import('pdfmake/build/pdfmake');
+  let pdfMakeModule: any;
+  try {
+    pdfMakeModule = await import('pdfmake/build/pdfmake');
+  } catch (e) {
+    if (e instanceof TypeError && e.message.includes('Failed to fetch dynamically imported module')) {
+      alert("Sistem güncellendi. Rapor alabilmek için sayfanın yenilenmesi gerekiyor.");
+      window.location.reload();
+      return;
+    }
+    throw e;
+  }
   const pdfMake = pdfMakeModule.default || pdfMakeModule;
   pdfMake.createPdf(docDefinition).download(`Toplu_Temizlik_Raporu_${periodName.replace(/\s+/g, '_')}.pdf`);
 };
@@ -276,7 +286,17 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
     pageMargins: [40, 40, 40, 60]
   };
 
-  const pdfMakeModule = await import('pdfmake/build/pdfmake');
+  let pdfMakeModule: any;
+  try {
+    pdfMakeModule = await import('pdfmake/build/pdfmake');
+  } catch (e) {
+    if (e instanceof TypeError && e.message.includes('Failed to fetch dynamically imported module')) {
+      alert("Sistem güncellendi. Rapor alabilmek için sayfanın yenilenmesi gerekiyor.");
+      window.location.reload();
+      return;
+    }
+    throw e;
+  }
   const pdfMake = pdfMakeModule.default || pdfMakeModule;
   pdfMake.createPdf(docDefinition).download(`Temizlik_Raporu_${applicant.name}_${applicant.surname}_${date}.pdf`);
 };
