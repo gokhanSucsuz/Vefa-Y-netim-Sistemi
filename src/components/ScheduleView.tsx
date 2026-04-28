@@ -1075,14 +1075,25 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   }, [schedules, currentMonthWorkDays, monthStart, monthEnd]);
 
   const exportToExcel = () => {
-    const data = assignments.flatMap(a => a.items.map(item => ({
-      'Tarih': formatSafe(a.date, 'dd MMMM yyyy', { locale: tr }),
-      'Mahalle': item.applicant.neighborhood,
-      'Hane': `${item.applicant.name} ${item.applicant.surname}`,
-      'TC No': item.applicant.tcNo,
-      'Hane Kişi Sayısı': item.applicant.householdSize || 1,
-      'Görevli Personeller': item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || 'Atanmamış'
-    })));
+    const data = assignments.flatMap(a => a.items.map((item, idx) => {
+      const teamKey = item.staffMembers.map(s => s.id).sort().join(',');
+      const teamTasks = a.items.filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey);
+      const teamTasksIndex = a.items.slice(0, idx).filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey).length;
+      let timingLabel = '-';
+      if (teamTasks.length === 2) {
+        timingLabel = teamTasksIndex === 0 ? 'Sabah' : 'Öğleden Sonra';
+      }
+
+      return {
+        'Tarih': formatSafe(a.date, 'dd MMMM yyyy', { locale: tr }),
+        'Zaman': timingLabel,
+        'Mahalle': item.applicant.neighborhood,
+        'Hane': `${item.applicant.name} ${item.applicant.surname}`,
+        'TC No': item.applicant.tcNo,
+        'Hane Kişi Sayısı': item.applicant.householdSize || 1,
+        'Görevli Personeller': item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || 'Atanmamış'
+      };
+    }));
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -1121,12 +1132,23 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       console.error("Logo could not be added to PDF", e);
     }
 
-    const tableData = assignments.flatMap(a => a.items.map(item => [
-      formatSafe(a.date, 'dd.MM.yyyy'),
-      item.applicant.neighborhood || '-',
-      `${item.applicant.name} ${item.applicant.surname}`,
-      item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'
-    ]));
+    const tableData = assignments.flatMap(a => a.items.map((item, idx) => {
+      const teamKey = item.staffMembers.map(s => s.id).sort().join(',');
+      const teamTasks = a.items.filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey);
+      const teamTasksIndex = a.items.slice(0, idx).filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey).length;
+      let timingLabel = '-';
+      if (teamTasks.length === 2) {
+        timingLabel = teamTasksIndex === 0 ? 'Sabah' : 'Öğl. Sonra';
+      }
+
+      return [
+        formatSafe(a.date, 'dd.MM.yyyy'),
+        timingLabel,
+        item.applicant.neighborhood || '-',
+        `${item.applicant.name} ${item.applicant.surname}`,
+        item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'
+      ];
+    }));
 
     const docDefinition: any = {
       content: [
@@ -1150,10 +1172,11 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
         {
           table: {
             headerRows: 1,
-            widths: [70, 100, '*', '*'],
+            widths: [60, 50, 80, '*', '*'],
             body: [
               [
                 { text: 'Tarih', style: 'tableHeader' },
+                { text: 'Zaman', style: 'tableHeader' },
                 { text: 'Mahalle', style: 'tableHeader' },
                 { text: 'Hane', style: 'tableHeader' },
                 { text: 'Görevli Personeller', style: 'tableHeader' }
@@ -1276,20 +1299,32 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9' }}>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Tarih</th>
+                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Zaman</th>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Mahalle</th>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Hane</th>
                 <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Görevli Personeller</th>
               </tr>
             </thead>
             <tbody>
-              {assignments.flatMap(a => a.items.map((item, idx) => (
-                <tr key={`${a.date}-${idx}`}>
-                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{formatSafe(a.date, 'dd.MM.yyyy')}</td>
-                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.neighborhood}</td>
-                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.name} {item.applicant.surname}</td>
-                  <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'}</td>
-                </tr>
-              )))}
+              {assignments.flatMap(a => a.items.map((item, idx) => {
+                const teamKey = item.staffMembers.map(s => s.id).sort().join(',');
+                const teamTasks = a.items.filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey);
+                const teamTasksIndex = a.items.slice(0, idx).filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey).length;
+                let timingLabel = '-';
+                if (teamTasks.length === 2) {
+                  timingLabel = teamTasksIndex === 0 ? 'Sabah' : 'Öğleden Sonra';
+                }
+
+                return (
+                  <tr key={`${a.date}-${idx}`}>
+                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{formatSafe(a.date, 'dd.MM.yyyy')}</td>
+                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{timingLabel}</td>
+                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.neighborhood}</td>
+                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.name} {item.applicant.surname}</td>
+                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'}</td>
+                  </tr>
+                );
+              }))}
             </tbody>
           </table>
 
@@ -1689,6 +1724,25 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                             isCompleted ? 'bg-emerald-50 border-emerald-100 shadow-none' : 
                             isSelectedForSwap ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-100' : 'bg-white'
                           }`}>
+                            {/* Timing Label (Sabah/Öğleden Sonra) */}
+                            {(() => {
+                              const teamKey = item.staffMembers.map(s => s.id).sort().join(',');
+                              const teamTasks = a.items.filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey);
+                              const teamTasksIndex = a.items.slice(0, idx).filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey).length;
+                              
+                              if (teamTasks.length === 2) {
+                                const label = teamTasksIndex === 0 ? 'Sabah' : 'Öğleden Sonra';
+                                return (
+                                  <div className={`absolute top-0 right-0 mt-2 mr-2 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-widest z-10 ${
+                                    label === 'Sabah' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
+                                  }`}>
+                                    {label}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+
                             <div className="flex justify-between items-start gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-0.5">
