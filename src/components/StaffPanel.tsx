@@ -7,10 +7,12 @@ import { tr } from 'date-fns/locale';
 import { 
   MapPin, Clock, CheckCircle2, Play, Square, 
   User, Users, Calendar, AlertCircle, Route,
-  ChevronRight, LogOut, Navigation, Info, Search, Map as MapIcon, Smartphone
+  ChevronRight, LogOut, Navigation, Info, Search, Map as MapIcon, Smartphone,
+  FileText
 } from 'lucide-react';
 import { logAction } from '../services/auditService';
 import { formatPhone } from '../lib/format';
+import { setupPdfMakeFonts } from '../lib/pdfFonts';
 import { Map as MapGL, Marker, NavigationControl, Popup, useMap } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -299,6 +301,193 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
     return { markers: validMarkers, noLocationApplicants: missing };
   }, [currentAssignments]);
 
+  const generateActivityChecklist = async (schedule: Schedule, assignment: any) => {
+    await setupPdfMakeFonts();
+    const applicant = applicants.find(a => a.id === assignment.applicantId);
+    const assignedStaff = staff.filter(s => assignment.staffIds.includes(s.id!));
+    
+    // Calculate visit count
+    const pastSchedulesCount = schedules.filter(s => 
+      s.assignments?.some(a => a.applicantId === assignment.applicantId && a.isCompleted) &&
+      s.date < schedule.date
+    ).length;
+    const visitCount = pastSchedulesCount + 1;
+
+    const logoUrl = 'https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg';
+    let logoBase64 = '';
+    try {
+      const getBase64ImageFromURL = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.setAttribute('crossOrigin', 'anonymous');
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL('image/png');
+            resolve(dataURL);
+          };
+          img.onerror = (error) => reject(error);
+          img.src = url;
+        });
+      };
+      // Use weserv proxy to avoid CORS issues if necessary, but try direct first
+      logoBase64 = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(logoUrl)}`);
+    } catch (e) {
+      console.error("Logo could not be fetched", e);
+    }
+
+    const docDefinition: any = {
+      pageSize: 'A4',
+      pageMargins: [40, 40, 40, 40],
+      content: [
+        {
+          columns: [
+            { text: '', width: '*' },
+            logoBase64 ? { image: logoBase64, width: 45, alignment: 'right' } : { text: '' }
+          ]
+        },
+        { 
+          text: 'VEFA (YAŞLI EVDE BAKIM) YARDIM PROGRAMI FAALİYET KONTROL LİSTESİ', 
+          style: 'mainTitle',
+          alignment: 'center',
+          margin: [0, 5, 0, 15]
+        },
+        {
+          table: {
+            widths: [70, 70, '*'],
+            body: [
+              [
+                { text: 'Hane Sahibi:', bold: true, rowSpan: 3, margin: [0, 12, 0, 0] },
+                { text: 'İsim Soyisim', fontSize: 7, color: '#666' },
+                { text: applicant ? `${applicant.name} ${applicant.surname}` : '-', bold: true }
+              ],
+              [
+                '',
+                { text: 'Telefon', fontSize: 7, color: '#666' },
+                { text: applicant?.phone || '-' }
+              ],
+              [
+                '',
+                { text: 'Adres', fontSize: 7, color: '#666' },
+                { text: applicant?.address || '-', fontSize: 8 }
+              ],
+              [
+                { text: 'Tarih:', bold: true },
+                { text: format(parseISO(schedule.date), 'dd.MM.yyyy'), colSpan: 2 },
+                ''
+              ],
+              [
+                { text: 'Ziyaret:', bold: true },
+                { text: `Hanenin ${visitCount}. kez ziyaret edildiğinin sayısı`, colSpan: 2 },
+                ''
+              ]
+            ]
+          },
+          margin: [0, 0, 0, 10]
+        },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['*', 130, 130],
+            body: [
+              [
+                { text: 'GÖREV', style: 'tableHeader' },
+                { text: 'DURUM (Tamamlandı, Başlamadı...)', style: 'tableHeader' },
+                { text: 'NOTLAR', style: 'tableHeader' }
+              ],
+              ...[
+                'Süpürme', 'Silme', 'Toz Alma', 'Yemek Pişirme', 'Banyo Yaptırma', 
+                'Saç-Sakal Tıraşı', 'Kişisel Temizlik-Tırnak Kesimi', 'Mutfak Temizliği',
+                'Bulaşıkların Yıkanması', 'Banyo Temizliği', 'Oda Temizliği (Halı, koltuk vb.)',
+                'Yaşlı/Engelli Yatak Temizliği ve Nevresim Değişimi', 'Çamaşır Yıkama',
+                'Ütü', 'Cam Silme', 'Perde Yıkama', 'Alışveriş', 'Hane Önü Temizliği'
+              ].map(task => [
+                { text: task, margin: [0, 1, 0, 1] },
+                '',
+                ''
+              ]),
+              [
+                { text: 'İhtiyaç Tespiti', margin: [0, 6, 0, 6], bold: true },
+                { text: '', colSpan: 2 },
+                ''
+              ],
+              [
+                { text: 'Görevlinin Genel Görüşü', margin: [0, 6, 0, 6], bold: true },
+                { text: '', colSpan: 2 },
+                ''
+              ]
+            ]
+          }
+        },
+        {
+          table: {
+            widths: [100, '*', '*'],
+            body: [
+              [
+                { text: 'PERSONEL', bold: true, rowSpan: 2, margin: [0, 15, 0, 0] },
+                {
+                  stack: [
+                    { text: 'Personel Adı Soyadı', fontSize: 7, color: '#666' },
+                    { text: assignedStaff[0] ? `${assignedStaff[0].name} ${assignedStaff[0].surname}` : '-', margin: [0, 2, 0, 2] },
+                    { text: 'İmza', fontSize: 7, color: '#666', margin: [0, 10, 0, 0] }
+                  ]
+                },
+                {
+                  stack: [
+                    { text: 'Personel Adı Soyadı', fontSize: 7, color: '#666' },
+                    { text: assignedStaff[1] ? `${assignedStaff[1].name} ${assignedStaff[1].surname}` : '-', margin: [0, 2, 0, 2] },
+                    { text: 'İmza', fontSize: 7, color: '#666', margin: [0, 10, 0, 0] }
+                  ]
+                }
+              ],
+              ['', '', ''],
+              [
+                { text: 'İŞE BAŞLAMA SAATİ\nİŞİ BİTİRME SAATİ', bold: true, fontSize: 8 },
+                {
+                  stack: [
+                    { text: 'İşe Başlama: ' + (assignedStaff[0] && assignment.approvals?.find((ap:any) => ap.staffId === assignedStaff[0].id)?.startTime ? format(parseISO(assignment.approvals.find((ap:any) => ap.staffId === assignedStaff[0].id).startTime), 'HH:mm') : '____:____') },
+                    { text: 'İşi Bitirme: ' + (assignedStaff[0] && assignment.approvals?.find((ap:any) => ap.staffId === assignedStaff[0].id)?.endTime ? format(parseISO(assignment.approvals.find((ap:any) => ap.staffId === assignedStaff[0].id).endTime), 'HH:mm') : '____:____') }
+                  ],
+                  fontSize: 8
+                },
+                {
+                  stack: [
+                    { text: 'İşe Başlama: ' + (assignedStaff[1] && assignment.approvals?.find((ap:any) => ap.staffId === assignedStaff[1].id)?.startTime ? format(parseISO(assignment.approvals.find((ap:any) => ap.staffId === assignedStaff[1].id).startTime), 'HH:mm') : '____:____') },
+                    { text: 'İşi Bitirme: ' + (assignedStaff[1] && assignment.approvals?.find((ap:any) => ap.staffId === assignedStaff[1].id)?.endTime ? format(parseISO(assignment.approvals.find((ap:any) => ap.staffId === assignedStaff[1].id).endTime), 'HH:mm') : '____:____') }
+                  ],
+                  fontSize: 8
+                }
+              ]
+            ]
+          },
+          margin: [0, 10, 0, 20]
+        },
+        {
+          columns: [
+            { text: 'Görevli\nİmza', alignment: 'center', fontSize: 8 },
+            { text: 'Onaylayan\nVakıf Müdürü\nİmza', alignment: 'center', fontSize: 8 },
+            { text: 'Yararlanıcı\nİmza', alignment: 'center', fontSize: 8 }
+          ]
+        }
+      ],
+      styles: {
+        mainTitle: { fontSize: 11, bold: true },
+        tableHeader: { bold: true, fontSize: 8, fillColor: '#f1f5f9' }
+      },
+      defaultStyle: {
+        font: 'Roboto',
+        fontSize: 9
+      }
+    };
+
+    const pdfMakeModule = await import('pdfmake/build/pdfmake');
+    const pdfMake = pdfMakeModule.default || pdfMakeModule;
+    pdfMake.createPdf(docDefinition).download(`Faaliyet_Listesi_${applicant?.name || 'Hane'}.pdf`);
+  };
+
   if (!myStaffRecord) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
@@ -480,14 +669,26 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                     </div>
                   </div>
 
-                  {canStart && (
-                    <button 
-                      onClick={() => handleStartVisit(applicant.id!)}
-                      className="mt-4 w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-3 rounded-2xl text-xs font-bold border border-blue-100 hover:bg-blue-100 transition-all uppercase tracking-widest"
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => {
+                        const sched = schedules.find(s => s.date === selectedDate);
+                        if (sched) generateActivityChecklist(sched, a);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-3 rounded-2xl text-xs font-bold border border-slate-200 hover:bg-slate-200 transition-all uppercase tracking-widest"
                     >
-                      <Play className="w-4 h-4 fill-current" /> {isStartedByMe ? 'Devam Et' : 'Temizliği Başlat'}
+                      <FileText className="w-4 h-4" /> Faaliyet Listesi
                     </button>
-                  )}
+
+                    {canStart && (
+                      <button 
+                        onClick={() => handleStartVisit(applicant.id!)}
+                        className="flex-1 flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-3 rounded-2xl text-xs font-bold border border-blue-100 hover:bg-blue-100 transition-all uppercase tracking-widest"
+                      >
+                        <Play className="w-4 h-4 fill-current" /> {isStartedByMe ? 'Devam Et' : 'Başlat'}
+                      </button>
+                    )}
+                  </div>
 
                   {(isSelected || isStartedByMe) && (
                     <div className="mt-4 p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-100">
