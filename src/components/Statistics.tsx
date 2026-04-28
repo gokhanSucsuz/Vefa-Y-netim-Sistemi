@@ -18,7 +18,18 @@ import * as XLSX from 'xlsx';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
 
-const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'];
+const COLORS = [
+  '#3b82f6', // Mavi
+  '#ef4444', // Kırmızı
+  '#10b981', // Yeşil
+  '#f59e0b', // Turuncu
+  '#8b5cf6', // Mor
+  '#ec4899', // Pembe
+  '#06b6d4', // Turkuaz
+  '#f97316', // Turuncu-Kırmızı
+  '#14b8a6', // Teal
+  '#6366f1'  // Indigo
+];
 
 export default function Statistics({ currentUser, onNavigate }: { currentUser: SystemUser, onNavigate: (tab: any, date?: string) => void }) {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -515,7 +526,7 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
   };
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-6">
       {/* Hidden Report for PDF Generation */}
       <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '25mm', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.5' }}>
         <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '20px', color: '#000000' }}>

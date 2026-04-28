@@ -181,6 +181,29 @@ export default function App() {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+          {/* User & Logout Section - Moved above links */}
+          <div className="mb-6 px-2 py-4 bg-slate-50/80 rounded-3xl border border-slate-100">
+            <div className="flex items-center gap-3 px-2 mb-4">
+              <div className="w-10 h-10 rounded-full bg-blue-800 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-lg shadow-blue-900/10">
+                {currentStaffUser.name?.[0] || ''}{currentStaffUser.surname?.[0] || ''}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-bold text-slate-900 truncate">{(currentStaffUser.name || '')} {(currentStaffUser.surname || '')}</span>
+                <span className="text-[10px] text-slate-500 font-bold uppercase truncate">{currentStaffUser.role === 'admin' ? 'Yönetici' : 'Süper Yönetici'}</span>
+              </div>
+            </div>
+            
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-red-600 hover:bg-white border border-red-50 hover:border-red-200 rounded-2xl transition-all font-bold text-xs shadow-sm bg-white/50"
+            >
+              <LogOut className="w-4 h-4" />
+              Oturumu Kapat
+            </button>
+          </div>
+
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-4 mb-2">MENÜ</div>
+
           {menuItems.map((item) => (
             <button
               key={item.id}
@@ -204,39 +227,8 @@ export default function App() {
               <span className="text-sm">Uygulamayı İndir (PWA)</span>
             </button>
           )}
-        </nav>
 
-        <div className="p-6 border-t border-gray-100 bg-slate-50/50">
-          <div className="mb-4 flex flex-col gap-2">
-            <div className="flex items-center gap-3 px-2">
-              <div className="w-10 h-10 rounded-full bg-blue-800 flex items-center justify-center text-white font-bold text-xs">
-                {currentStaffUser.name?.[0] || ''}{currentStaffUser.surname?.[0] || ''}
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-slate-900 truncate">{(currentStaffUser.name || '')} {(currentStaffUser.surname || '')}</span>
-                <span className="text-[10px] text-slate-500 font-bold uppercase truncate">{currentStaffUser.role === 'admin' ? 'Yönetici' : 'Süper Yönetici'}</span>
-              </div>
-            </div>
-            
-            {canInstall && (
-              <button
-                onClick={install}
-                className="hidden lg:flex w-full items-center gap-2 px-4 py-2 text-blue-700 hover:bg-blue-100 border border-transparent hover:border-blue-200 rounded-xl transition-all font-bold text-[11px] uppercase tracking-wider"
-              >
-                <Download className="w-4 h-4" />
-                Uygulamayı Yükle
-              </button>
-            )}
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 border border-red-100 rounded-2xl transition-all font-bold text-sm shadow-sm"
-          >
-            <LogOut className="w-5 h-5" />
-            Oturumu Kapat
-          </button>
-          <div className="mt-6 text-center opacity-70">
+          <div className="mt-8 pt-8 border-t border-gray-100 text-center opacity-70 pb-8">
             <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">
               TASARIM & YÖNETİM
             </p>
@@ -244,12 +236,12 @@ export default function App() {
               Gökhan SUÇSUZ
             </p>
           </div>
-        </div>
+        </nav>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-10 w-full">
-        <div className="max-w-7xl mx-auto pb-20 w-full animate-in fade-in duration-500">
+        <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500 pb-10">
           {activeTab === 'dashboard' && (
             <Dashboard 
               onNavigate={(tab, date) => {
