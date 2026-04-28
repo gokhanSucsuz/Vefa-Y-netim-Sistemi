@@ -16,12 +16,12 @@ export default function ActiveTasksTracker() {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todaySchedule = schedules.find(s => s.date === todayStr);
 
-  // Auto-fix inconsistent active tasks (multiple active tasks for same person or team mismatch)
+  // Auto-fix inconsistent active tasks and handle 17:20 automatic completion
   useEffect(() => {
     if (!todaySchedule || !todaySchedule.assignments) return;
 
     let modified = false;
-    const assignments = [...todaySchedule.assignments];
+    let assignments = [...todaySchedule.assignments];
 
     // Find the primary active task per team (first one that has a started but not ended approval)
     const teamActiveAssignmentIds: Record<string, string> = {};
@@ -46,9 +46,39 @@ export default function ActiveTasksTracker() {
       }
     });
 
-    if (modified && todaySchedule.id) {
-      dbLocal.schedules.update(todaySchedule.id, { assignments }).catch(console.error);
-    }
+    const check1720Completion = () => {
+      const now = new Date();
+      if (now.getHours() > 17 || (now.getHours() === 17 && now.getMinutes() >= 20)) {
+        let needsCompletion = false;
+        const autoCompletedAssignments = assignments.map(a => {
+          if (!a.isCompleted) {
+            needsCompletion = true;
+            return {
+              ...a,
+              isCompleted: true,
+              completionDate: new Date().toISOString(),
+              completionNote: 'Sistem tarafından otomatik olarak tamamlandı (17:20).'
+            };
+          }
+          return a;
+        });
+        
+        if (needsCompletion) {
+          assignments = autoCompletedAssignments;
+          modified = true;
+        }
+      }
+      
+      if (modified && todaySchedule.id) {
+        dbLocal.schedules.update(todaySchedule.id, { assignments }).catch(console.error);
+        modified = false; // Reset flag after save
+      }
+    };
+
+    check1720Completion();
+    const intervalId = setInterval(check1720Completion, 60000); // Check every minute
+
+    return () => clearInterval(intervalId);
   }, [todaySchedule]);
 
   const activeAssignments = useMemo(() => {

@@ -135,6 +135,22 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
 
+  const moveAssignment = async (date: string, idx: number, direction: 'up' | 'down') => {
+    const schedule = schedules.find(s => s.date === date);
+    if (!schedule) return;
+    const newAssignments = [...schedule.assignments];
+    if (direction === 'up' && idx > 0) {
+      const temp = newAssignments[idx];
+      newAssignments[idx] = newAssignments[idx - 1];
+      newAssignments[idx - 1] = temp;
+    } else if (direction === 'down' && idx < newAssignments.length - 1) {
+      const temp = newAssignments[idx];
+      newAssignments[idx] = newAssignments[idx + 1];
+      newAssignments[idx + 1] = temp;
+    }
+    await dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
+  };
+
   const handleSwap = async (date: string, applicantId: string) => {
     if (!swapSelection) {
       setSwapSelection({ date, applicantId });
@@ -875,15 +891,19 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     const newAssignments = schedule.assignments.map(a => {
       if (a.applicantId === applicantId) {
         const newStaffIds = [...(a.staffIds || [])];
-        newStaffIds[staffIndex] = staffId;
-
-        // If this staff has a partner, automatically set the partner in the other slot
-        if (selectedStaff?.partnerId) {
-          const otherIndex = staffIndex === 0 ? 1 : 0;
-          newStaffIds[otherIndex] = selectedStaff.partnerId;
+        
+        if (!staffId) {
+          // Remove staff from this slot
+          newStaffIds[staffIndex] = '';
+        } else {
+          newStaffIds[staffIndex] = staffId;
+          // If this staff has a partner, automatically set the partner in the other slot
+          if (selectedStaff?.partnerId) {
+            const otherIndex = staffIndex === 0 ? 1 : 0;
+            newStaffIds[otherIndex] = selectedStaff.partnerId;
+          }
         }
-
-        return { ...a, staffIds: newStaffIds };
+        return { ...a, staffIds: newStaffIds.filter(Boolean) }; // Filter out empty strings
       }
       return a;
     });
@@ -1635,26 +1655,43 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                               <button
                                 onClick={() => handleSwap(a.date, item.applicant.id!)}
                                 disabled={isCompleted || isPast}
-                                className={`flex-1 py-2 text-[10px] font-bold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
+                                className={`flex-1 py-1 text-[10px] font-bold rounded-xl border transition-all flex items-center justify-center gap-1 ${
                                   isSelectedForSwap 
                                     ? 'bg-amber-500 text-white border-amber-500 shadow-sm' 
                                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                                 } disabled:opacity-30 disabled:cursor-not-allowed`}
                               >
-                                <RefreshCw className={`w-3.5 h-3.5 ${isSelectedForSwap ? 'animate-spin' : ''}`} />
-                                {isSelectedForSwap ? 'Hedef Seçin' : 'Yer Değiştir'}
+                                <RefreshCw className={`w-3 h-3 ${isSelectedForSwap ? 'animate-spin' : ''}`} />
+                                {isSelectedForSwap ? 'Hedef' : 'Değiştir'}
                               </button>
-                              
+
                               {!isCompleted && (
                                 <button
                                   onClick={() => handleCancelAssignment(a.date, item.applicant.id!)}
                                   disabled={isPast}
-                                  className="p-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl hover:bg-rose-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                  className="p-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl hover:bg-rose-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                                   title="İptal Et ve Kaydır"
                                 >
-                                  <Clock className="w-4 h-4" />
+                                  <Clock className="w-3.5 h-3.5" />
                                 </button>
                               )}
+                              
+                              <button
+                                onClick={() => moveAssignment(a.date, idx, 'up')}
+                                disabled={isCompleted || idx === 0}
+                                className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Sırayı Yukarı Taşı (Sabah)"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => moveAssignment(a.date, idx, 'down')}
+                                disabled={isCompleted || idx === a.items.length - 1}
+                                className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Sırayı Aşağı Taşı (Öğleden Sonra)"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
                             </div>
 
                             <button
