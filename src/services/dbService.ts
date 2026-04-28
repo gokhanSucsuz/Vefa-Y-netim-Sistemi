@@ -32,7 +32,7 @@ class VefaDatabase extends Dexie {
 
 export const dexieDb = new VefaDatabase();
 
-const API_BASE = '/api';
+const API_BASE = window.location.origin + '/api';
 
 async function apiFetch(path: string, options?: RequestInit) {
   const user = useAuthStore.getState().user;
@@ -45,6 +45,7 @@ async function apiFetch(path: string, options?: RequestInit) {
     if (user.role) headers['x-user-role'] = user.role;
   }
 
+  console.log(`fetching: ${API_BASE}${path}`);
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       ...options,
