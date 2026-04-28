@@ -17,20 +17,30 @@ interface Props {
 
 export default function StaffStatsModal({ staff, currentUser, onClose }: Props) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
+  const [allStaff, setAllStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      const allSchedules = await dbLocal.schedules.toArray();
+    const fetchData = async () => {
+      const [schedulesData, applicantsData, staffData] = await Promise.all([
+        dbLocal.schedules.toArray(),
+        dbLocal.applicants.toArray(),
+        dbLocal.staff.toArray()
+      ]);
+
       // Filter schedules where this staff was assigned
-      const staffSchedules = allSchedules.filter(s => 
+      const staffSchedules = schedulesData.filter(s => 
         s.assignments.some(a => a.staffIds.includes(staff.id!))
       );
+      
       setSchedules(staffSchedules.sort((a, b) => b.date.localeCompare(a.date)));
+      setApplicants(applicantsData);
+      setAllStaff(staffData);
       setLoading(false);
     };
-    fetchStats();
+    fetchData();
   }, [staff.id]);
 
   const totalAssignments = schedules.length;
@@ -75,6 +85,14 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
       console.error("Logo could not be added to PDF", e);
     }
 
+    const completedAssignmentsList = schedules.flatMap(s => 
+      s.assignments.filter(a => a.staffIds.includes(staff.id!) && a.isCompleted)
+      .map(a => ({ ...a, date: s.date }))
+    ).sort((a, b) => b.date.localeCompare(a.date));
+
+    const totalCompleted = completedAssignmentsList.length;
+    const performanceRate = totalAssignments > 0 ? Math.round((totalCompleted / totalAssignments) * 100) : 0;
+
     const docDefinition: any = {
       content: [
         logoBase64 ? {
@@ -99,33 +117,77 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
               ['Ad Soyad', `${staff.name} ${staff.surname}`],
               ['TC No', formatTC(staff.tcNo)],
               ['Telefon', formatPhone(staff.phone)],
-              ['Toplam Görev', schedules.length.toString()]
+              ['Toplam Görev', totalAssignments.toString()],
+              ['Tamamlanan Görev', totalCompleted.toString()],
+              ['Performans Oranı', `%${performanceRate}`]
             ]
           }
         },
 
-        { text: '2. Görev Geçmişi', style: 'sectionHeader' },
-        {
-          table: {
-            headerRows: 1,
-            widths: ['*', '*', '*'],
-            body: [
-              [
-                { text: 'Tarih', style: 'tableHeader' },
-                { text: 'Hane', style: 'tableHeader' },
-                { text: 'Mahalle', style: 'tableHeader' }
-              ],
-              ...schedules.map(s => {
-                const assignment = s.assignments.find(a => a.staffIds.includes(staff.id!));
-                return [
-                  format(parseISO(s.date), 'dd.MM.yyyy'),
-                  assignment ? `${assignment.applicantName}` : '-',
-                  assignment ? `${assignment.neighborhood}` : '-'
-                ];
-              })
-            ]
+        { text: '2. Tamamlanan Görev Geçmişi', style: 'sectionHeader' },
+        ...(() => {
+          // Group completed assignments by date
+          const grouped: Record<string, typeof completedAssignmentsList> = {};
+          completedAssignmentsList.forEach(a => {
+            if (!grouped[a.date]) grouped[a.date] = [];
+            grouped[a.date].push(a);
+          });
+
+          const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+          
+          if (sortedDates.length === 0) {
+            return [{ text: 'Tamamlanmış görev bulunmamaktadır.', fontStyle: 'italic', margin: [0, 10, 0, 0] }];
           }
-        }
+
+          return sortedDates.map(date => {
+            const dayAssignments = grouped[date];
+            return [
+              { text: format(parseISO(date), 'dd MMMM yyyy, EEEE', { locale: tr }), style: 'dateHeader', margin: [0, 10, 0, 5] },
+              {
+                table: {
+                  headerRows: 1,
+                  widths: ['auto', '*', '*', '*'],
+                  body: [
+                    [
+                      { text: 'Saat', style: 'tableHeader' },
+                      { text: 'Hane / Adres', style: 'tableHeader' },
+                      { text: 'Mahalle / Hane No', style: 'tableHeader' },
+                      { text: 'Takım Arkadaşı', style: 'tableHeader' }
+                    ],
+                    ...dayAssignments.map(a => {
+                      const applicant = applicants.find(ap => ap.id === a.applicantId);
+                      const teammateIds = a.staffIds.filter(id => id !== staff.id);
+                      const teammateNames = teammateIds.map(id => {
+                        const s = allStaff.find(st => st.id === id);
+                        return s ? `${s.name} ${s.surname}` : 'Bilinmiyor';
+                      }).join(', ');
+
+                      const approval = a.approvals?.find(apr => apr.staffId === staff.id);
+                      const timeStr = approval?.startTime ? `${approval.startTime} - ${approval.endTime || '...'}` : '-';
+
+                      return [
+                        timeStr,
+                        {
+                          stack: [
+                            { text: applicant ? `${applicant.name} ${applicant.surname}` : 'Bilinmiyor', bold: true },
+                            { text: applicant?.address || '-', fontSize: 8, color: '#666' }
+                          ]
+                        },
+                        {
+                          stack: [
+                            { text: applicant?.neighborhood || '-' },
+                            { text: applicant?.haneNo ? `Hane No: ${applicant.haneNo}` : '-', fontSize: 8, color: '#666' }
+                          ]
+                        },
+                        teammateNames || '-'
+                      ];
+                    })
+                  ]
+                }
+              }
+            ];
+          }).flat();
+        })()
       ],
       watermark: { 
         text: 'Edirne Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', 
@@ -147,8 +209,9 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
         header: { fontSize: 14, bold: true, margin: [0, 2, 0, 2] },
         subheader: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
         title: { fontSize: 12, bold: true },
-        sectionHeader: { fontSize: 11, bold: true, margin: [0, 15, 0, 5] },
-        tableHeader: { bold: true, fontSize: 10, fillColor: '#f1f5f9', alignment: 'left' }
+        sectionHeader: { fontSize: 11, bold: true, margin: [0, 15, 0, 5], color: '#1e40af' },
+        tableHeader: { bold: true, fontSize: 9, fillColor: '#f1f5f9', alignment: 'left' },
+        dateHeader: { bold: true, fontSize: 10, color: '#334155', margin: [0, 10, 0, 2] }
       },
       defaultStyle: {
         font: 'Roboto',
@@ -199,7 +262,7 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '30px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '30px' }}>
             <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', borderRadius: '6px' }}>
               <div style={{ fontSize: '9pt', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Toplam Görev</div>
               <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>{totalAssignments}</div>
@@ -214,35 +277,61 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
                 {totalAssignments > 0 ? `%${Math.round((completedAssignments / totalAssignments) * 100)}` : '%0'}
               </div>
             </div>
+            <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', borderRadius: '6px' }}>
+              <div style={{ fontSize: '10pt', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Çalışılan Gün Sayısı</div>
+              <div style={{ fontSize: '14pt', fontWeight: 'bold' }}>{new Set(schedules.map(s => s.date)).size}</div>
+            </div>
           </div>
 
-          <h2 style={{ fontSize: '12pt', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid #000', paddingBottom: '5px' }}>Görev Kayıt Çizelgesi</h2>
+          <h2 style={{ fontSize: '12pt', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid #000', paddingBottom: '5px' }}>Tamamlanan Görev Geçmişi</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '10pt' }}>
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9' }}>
-                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Sıra No</th>
-                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Görev Tarihi</th>
-                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Durum Bilgisi</th>
+                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Tarih / Saat</th>
+                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Hane / Adres</th>
+                <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #94a3b8' }}>Takım Arkadaşı</th>
               </tr>
             </thead>
             <tbody>
-              {schedules.map((s, idx) => {
-                const assignment = s.assignments.find(a => a.staffIds.includes(staff.id!));
-                return (
-                  <tr key={s.id}>
-                    <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{schedules.length - idx}</td>
-                    <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{format(parseISO(s.date), 'dd.MM.yyyy')}</td>
-                    <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: '500' }}>
-                      {assignment?.isCompleted ? 'Tamamlandı' : 'Beklemede'}
-                    </td>
-                  </tr>
-                );
-              })}
-              {schedules.length === 0 && (
-                <tr>
-                  <td colSpan={3} style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>Kayıtlı görev bulunmamaktadır.</td>
-                </tr>
-              )}
+              {(() => {
+                const completedList = schedules.flatMap(s => 
+                  s.assignments.filter(a => a.staffIds.includes(staff.id!) && a.isCompleted)
+                  .map(a => ({ ...a, date: s.date }))
+                ).sort((a, b) => b.date.localeCompare(a.date));
+
+                if (completedList.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={3} style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>Tamamlanmış görev bulunmamaktadır.</td>
+                    </tr>
+                  );
+                }
+
+                return completedList.map((a, idx) => {
+                  const applicant = applicants.find(ap => ap.id === a.applicantId);
+                  const teammateIds = a.staffIds.filter(id => id !== staff.id);
+                  const teammateNames = teammateIds.map(id => {
+                    const s = allStaff.find(st => st.id === id);
+                    return s ? `${s.name} ${s.surname}` : 'Bilinmiyor';
+                  }).join(', ');
+                  const approval = a.approvals?.find(apr => apr.staffId === staff.id);
+                  const timeStr = approval?.startTime ? `${approval.startTime} - ${approval.endTime || '...'}` : '';
+
+                  return (
+                    <tr key={idx}>
+                      <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>
+                        <div>{format(parseISO(a.date), 'dd.MM.yyyy')}</div>
+                        <div style={{ fontSize: '8pt', color: '#64748b' }}>{timeStr}</div>
+                      </td>
+                      <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: '500' }}>{applicant ? `${applicant.name} ${applicant.surname}` : 'Bilinmiyor'}</div>
+                        <div style={{ fontSize: '8pt', color: '#64748b' }}>{applicant?.address || '-'}</div>
+                      </td>
+                      <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{teammateNames || '-'}</td>
+                    </tr>
+                  );
+                });
+              })()}
             </tbody>
           </table>
 
@@ -333,39 +422,79 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900 flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-blue-600" />
-                  Görev Geçmişi
+                  Tamamlanan Görev Geçmişi
                 </h4>
                 
-                <div className="space-y-3">
-                  {schedules.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                      Henüz bir görev kaydı bulunmuyor.
-                    </div>
-                  ) : (
-                    schedules.map((s, idx) => {
-                      const assignment = s.assignments.find(a => a.staffIds.includes(staff.id!));
+                <div className="space-y-4">
+                  {(() => {
+                    const completedList = schedules.flatMap(s => 
+                      s.assignments.filter(a => a.staffIds.includes(staff.id!) && a.isCompleted)
+                      .map(a => ({ ...a, date: s.date }))
+                    ).sort((a, b) => b.date.localeCompare(a.date));
+
+                    if (completedList.length === 0) {
                       return (
-                        <div key={s.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm text-blue-600 font-bold">
-                              {schedules.length - idx}
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {format(parseISO(s.date), 'd MMMM yyyy, EEEE', { locale: tr })}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {assignment?.isCompleted ? 'Görev Tamamlandı' : 'Planlandı / Beklemede'}
-                              </div>
-                            </div>
-                          </div>
-                          {assignment?.isCompleted && (
-                            <CheckCircle2 className="w-5 h-5 text-green-500" />
-                          )}
+                        <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                          Henüz tamamlanmış bir görev kaydı bulunmuyor.
                         </div>
                       );
-                    })
-                  )}
+                    }
+
+                    // Group by date for UI display
+                    const grouped: Record<string, typeof completedList> = {};
+                    completedList.forEach(a => {
+                      if (!grouped[a.date]) grouped[a.date] = [];
+                      grouped[a.date].push(a);
+                    });
+
+                    return Object.keys(grouped).sort((a, b) => b.localeCompare(a)).map(date => (
+                      <div key={date} className="space-y-3">
+                        <div className="text-sm font-bold text-gray-600 px-2 flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          {format(parseISO(date), 'd MMMM yyyy, EEEE', { locale: tr })}
+                        </div>
+                        <div className="space-y-2">
+                          {grouped[date].map((a, idx) => {
+                            const applicant = applicants.find(ap => ap.id === a.applicantId);
+                            const teammateIds = a.staffIds.filter(id => id !== staff.id);
+                            const teammateNames = teammateIds.map(id => {
+                              const s = allStaff.find(st => st.id === id);
+                              return s ? `${s.name} ${s.surname}` : 'Bilinmiyor';
+                            }).join(', ');
+                            const approval = a.approvals?.find(apr => apr.staffId === staff.id);
+                            const timeStr = approval?.startTime ? `${approval.startTime} - ${approval.endTime || '...'}` : '';
+
+                            return (
+                              <div key={idx} className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm text-blue-600 text-xs font-bold shrink-0">
+                                    {timeStr || <Clock className="w-4 h-4 opacity-30" />}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-gray-900">
+                                      {applicant ? `${applicant.name} ${applicant.surname}` : 'Bilinmiyor'}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      {applicant?.address} / {applicant?.neighborhood}
+                                    </div>
+                                    {teammateNames && (
+                                      <div className="text-[10px] text-blue-600 font-medium mt-1">
+                                        Takım Arkadaşı: {teammateNames}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 self-end sm:self-center">
+                                  <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">TAMAMLANDI</span>
+                                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
 
