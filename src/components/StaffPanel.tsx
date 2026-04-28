@@ -669,26 +669,14 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 mt-4">
-                    <button
-                      onClick={() => {
-                        const sched = schedules.find(s => s.date === selectedDate);
-                        if (sched) generateActivityChecklist(sched, a);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-3 rounded-2xl text-xs font-bold border border-slate-200 hover:bg-slate-200 transition-all uppercase tracking-widest"
+                  {canStart && (
+                    <button 
+                      onClick={() => handleStartVisit(applicant.id!)}
+                      className="mt-4 w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-3 rounded-2xl text-xs font-bold border border-blue-100 hover:bg-blue-100 transition-all uppercase tracking-widest"
                     >
-                      <FileText className="w-4 h-4" /> Faaliyet Listesi
+                      <Play className="w-4 h-4 fill-current" /> {isStartedByMe ? 'Devam Et' : 'Başlat'}
                     </button>
-
-                    {canStart && (
-                      <button 
-                        onClick={() => handleStartVisit(applicant.id!)}
-                        className="flex-1 flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-3 rounded-2xl text-xs font-bold border border-blue-100 hover:bg-blue-100 transition-all uppercase tracking-widest"
-                      >
-                        <Play className="w-4 h-4 fill-current" /> {isStartedByMe ? 'Devam Et' : 'Başlat'}
-                      </button>
-                    )}
-                  </div>
+                  )}
 
                   {(isSelected || isStartedByMe) && (
                     <div className="mt-4 p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-100">
