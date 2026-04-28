@@ -333,10 +333,32 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
       const element = document.getElementById(id);
       if (!element) return null;
       try {
+        // Ensure element is visible and has dimensions before capture
+        const originalStyle = element.getAttribute('style') || '';
+        
+        // Force standard colors to avoid oklch issues with html2canvas
         const canvas = await html2canvas(element, {
           scale: 2,
           backgroundColor: '#ffffff',
-          logging: false
+          logging: false,
+          useCORS: true,
+          onclone: (clonedDoc) => {
+            const clonedElement = clonedDoc.getElementById(id);
+            if (clonedElement) {
+              // Remove oklch-based tailwind classes and force hex colors in the clone
+              clonedElement.style.backgroundColor = '#ffffff';
+              clonedElement.style.color = '#000000';
+              // Find all elements with likely oklch colors and overwrite them
+              const all = clonedElement.getElementsByTagName('*');
+              for (let i = 0; i < all.length; i++) {
+                const el = all[i] as HTMLElement;
+                const style = window.getComputedStyle(el);
+                if (style.color.includes('oklch')) el.style.color = '#64748b';
+                if (style.backgroundColor.includes('oklch')) el.style.backgroundColor = '#ffffff';
+                if (style.borderColor.includes('oklch')) el.style.borderColor = '#f1f5f9';
+              }
+            }
+          }
         });
         return canvas.toDataURL('image/png');
       } catch (e) {
@@ -637,7 +659,7 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
               Mahalle Bazlı Dağılım
             </h3>
           </div>
-          <div id="neighborhood-chart" className="h-[300px] w-full relative bg-white">
+          <div id="neighborhood-chart" className="h-[300px] w-full relative" style={{ backgroundColor: '#ffffff', minHeight: '300px' }}>
             {stats.neighborhoodData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%" debounce={1}>
                 <BarChart data={stats.neighborhoodData.slice(0, 8)}>
@@ -672,7 +694,7 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
               Personel İş Yükü
             </h3>
           </div>
-          <div id="staff-chart" className="h-[300px] w-full relative bg-white">
+          <div id="staff-chart" className="h-[300px] w-full relative" style={{ backgroundColor: '#ffffff', minHeight: '300px' }}>
             {stats.staffData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%" debounce={1}>
                 <PieChart>
