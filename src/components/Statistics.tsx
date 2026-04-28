@@ -478,9 +478,9 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
               Mahalle Bazlı Dağılım
             </h3>
           </div>
-          <div className="h-[300px] w-full min-w-[0] min-h-[0]">
+          <div className="h-[300px] w-full relative">
             {stats.neighborhoodData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+              <ResponsiveContainer width="100%" height="100%" debounce={1}>
                 <BarChart data={stats.neighborhoodData.slice(0, 8)}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis 
@@ -513,9 +513,9 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
               Personel İş Yükü
             </h3>
           </div>
-          <div className="h-[300px] w-full min-w-[0] min-h-[0]">
+          <div className="h-[300px] w-full relative">
             {stats.staffData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+              <ResponsiveContainer width="100%" height="100%" debounce={1}>
                 <PieChart>
                   <Pie
                     data={stats.staffData.slice(0, 5)}

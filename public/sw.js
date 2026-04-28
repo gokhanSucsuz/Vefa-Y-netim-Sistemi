@@ -36,27 +36,32 @@ self.addEventListener('fetch', (event) => {
   // Only cache GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip chrome-extension requests
-  if (event.request.url.startsWith('chrome-extension')) return;
+  // Skip chrome-extension and external map tiles (CORS issues)
+  if (event.request.url.startsWith('chrome-extension') || 
+      event.request.url.includes('basemaps.cartocdn.com')) return;
   
   // Stale-while-revalidate for assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {
-        // Cache the new response
-        if (networkResponse && networkResponse.status === 200) {
+        // Cache the new response if it's valid and from our origin/allowed
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           const cacheCopy = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, cacheCopy);
           });
         }
         return networkResponse;
-      }).catch(() => {
-        // If fetch fails, we just return the cached response (or undefined)
-        return cachedResponse;
+      }).catch((err) => {
+        // Return a valid empty response or the cached one to avoid SW crash
+        if (cachedResponse) return cachedResponse;
+        throw err;
       });
 
       return cachedResponse || fetchPromise;
+    }).catch(() => {
+        // Fallback for fatal errors
+        return new Response('Network error occurred', { status: 408, headers: { 'Content-Type': 'text/plain' } });
     })
   );
 });

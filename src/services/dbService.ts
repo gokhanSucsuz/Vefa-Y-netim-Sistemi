@@ -45,7 +45,7 @@ async function apiFetch(path: string, options?: RequestInit) {
     if (user.role) headers['x-user-role'] = user.role;
   }
 
-  console.log(`fetching: ${API_BASE}${path}`);
+  // console.log(`fetching: ${API_BASE}${path}`);
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       ...options,
