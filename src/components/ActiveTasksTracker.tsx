@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
 import { format } from 'date-fns';
@@ -16,13 +16,66 @@ export default function ActiveTasksTracker() {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todaySchedule = schedules.find(s => s.date === todayStr);
 
+  // Auto-fix inconsistent active tasks (multiple active tasks for same person or team mismatch)
+  useEffect(() => {
+    if (!todaySchedule || !todaySchedule.assignments) return;
+
+    let modified = false;
+    const assignments = [...todaySchedule.assignments];
+
+    // Find the primary active task per team (first one that has a started but not ended approval)
+    const teamActiveAssignmentIds: Record<string, string> = {};
+
+    assignments.forEach(a => {
+      const teamKey = [...(a.staffIds || [])].sort().join(',');
+      const isActive = a.approvals?.some(apr => apr.startTime && !apr.endTime);
+      
+      if (isActive) {
+        if (!teamActiveAssignmentIds[teamKey]) {
+          teamActiveAssignmentIds[teamKey] = a.applicantId;
+        } else if (teamActiveAssignmentIds[teamKey] !== a.applicantId) {
+          // Team is already active on another task. We must cancel this one's active status.
+          a.approvals = a.approvals?.map(apr => {
+            if (apr.startTime && !apr.endTime) {
+              modified = true;
+              return { ...apr, startTime: undefined } as any; // Revert start
+            }
+            return apr;
+          }).filter(apr => apr.startTime || apr.endTime || apr.date); // clean empty
+        }
+      }
+    });
+
+    if (modified && todaySchedule.id) {
+      dbLocal.schedules.update(todaySchedule.id, { assignments }).catch(console.error);
+    }
+  }, [todaySchedule]);
+
   const activeAssignments = useMemo(() => {
     if (!todaySchedule) return [];
     
+    // Calculate timing labels (Sabah / Öğleden Sonra) based on team's tasks
+    const teamTasksCount: Record<string, number> = {};
+    const teamTasksIndex: Record<string, number> = {};
+    
+    todaySchedule.assignments.forEach(a => {
+      const teamKey = [...(a.staffIds || [])].sort().join(',');
+      teamTasksCount[teamKey] = (teamTasksCount[teamKey] || 0) + 1;
+    });
+
     return todaySchedule.assignments.map(a => {
       const applicant = applicants.find(app => app.id === a.applicantId);
       const staffMembers = (a.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[];
       
+      const teamKey = [...(a.staffIds || [])].sort().join(',');
+      const tIndex = teamTasksIndex[teamKey] || 0;
+      teamTasksIndex[teamKey] = tIndex + 1;
+
+      let timingLabel = '';
+      if (teamTasksCount[teamKey] === 2) {
+        timingLabel = tIndex === 0 ? 'Sabah' : 'Öğleden Sonra';
+      }
+
       // Calculate overall status
       const totalStaffCount = staffMembers.length;
       const startedCount = a.approvals?.filter(apr => apr.startTime && !apr.endTime).length || 0;
@@ -49,6 +102,7 @@ export default function ActiveTasksTracker() {
         approvals: activeStaffApprovals,
         lat,
         lng,
+        timingLabel,
       };
     });
   }, [todaySchedule, applicants, staff]);
@@ -83,7 +137,14 @@ export default function ActiveTasksTracker() {
             <div key={idx} className="bg-white rounded-3xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 className="font-bold text-slate-900">{task.applicant?.name} {task.applicant?.surname}</h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-slate-900">{task.applicant?.name} {task.applicant?.surname}</h3>
+                    {task.timingLabel && (
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest ${task.timingLabel === 'Sabah' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                        {task.timingLabel}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1 mt-1">
                     <MapPin className="w-3 h-3" /> {task.applicant?.neighborhood || task.applicant?.address}
                   </p>

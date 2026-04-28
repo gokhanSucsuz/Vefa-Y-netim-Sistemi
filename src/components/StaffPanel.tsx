@@ -137,6 +137,16 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
       return;
     }
 
+    const myAssignments = schedule.assignments.filter(a => a.staffIds.includes(myStaffRecord?.id || ''));
+    const teamActiveTask = myAssignments.find(a => {
+      return a.approvals?.some(apr => apr.staffId !== myStaffRecord?.id && apr.startTime && !apr.endTime);
+    });
+
+    if (teamActiveTask && teamActiveTask.applicantId !== applicantId) {
+      alert('Ekip arkadaşınız başka bir temizlik işine başlamış. Lütfen sadece ekip arkadaşınızın başladığı temizlik işine başlayın.');
+      return;
+    }
+
     try {
       const updatedAssignments = schedule.assignments.map(a => {
         if (a.applicantId === applicantId) {
@@ -378,7 +388,11 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                         {idx + 1}
                       </div>
                       <div>
-                        <h4 className="font-bold text-slate-900 text-sm leading-none mb-1">{applicant.name} {applicant.surname}</h4>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-bold text-slate-900 text-sm leading-none">{applicant.name} {applicant.surname}</h4>
+                          {currentAssignments.length === 2 && idx === 0 && <span className="bg-amber-100 text-amber-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest">Sabah</span>}
+                          {currentAssignments.length === 2 && idx === 1 && <span className="bg-indigo-100 text-indigo-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest">Öğleden S.</span>}
+                        </div>
                         <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">{applicant.neighborhood}</p>
                       </div>
                     </div>
