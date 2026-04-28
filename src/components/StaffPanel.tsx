@@ -127,6 +127,16 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
     const schedule = schedules.find(s => s.date === selectedDate);
     if (!schedule) return;
 
+    const hasActiveTask = schedule.assignments.some(a => {
+      const myApproval = a.approvals?.find(apr => apr.staffId === myStaffRecord?.id);
+      return myApproval && myApproval.startTime && !myApproval.endTime;
+    });
+
+    if (hasActiveTask) {
+      alert('Lütfen yeni bir işe başlamadan önce devam eden temizlik işinizi bitirin.');
+      return;
+    }
+
     try {
       const updatedAssignments = schedule.assignments.map(a => {
         if (a.applicantId === applicantId) {
