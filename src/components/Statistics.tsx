@@ -14,7 +14,6 @@ import {
   Download, Filter, UserCheck, Building2, ChevronRight 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
 
@@ -291,6 +290,9 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
       },
       pageMargins: [40, 40, 40, 60]
     };
+
+    const pdfMakeModule = await import('pdfmake/build/pdfmake');
+    const pdfMake = pdfMakeModule.default || pdfMakeModule;
 
     pdfMake.createPdf(docDefinition).download(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
     logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'PDF İstatistik İndirme', `${startDate} - ${endDate} dönemi için PDF raporu alındı.`);

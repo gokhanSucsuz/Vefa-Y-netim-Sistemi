@@ -5,7 +5,6 @@ import { X, Calendar, CheckCircle2, Clock, BarChart3, TrendingUp, Download, User
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { motion } from 'motion/react';
-import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
 import { formatPhone, formatTC } from '../lib/format';
@@ -157,6 +156,9 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
       },
       pageMargins: [40, 40, 40, 60]
     };
+
+    const pdfMakeModule = await import('pdfmake/build/pdfmake');
+    const pdfMake = pdfMakeModule.default || pdfMakeModule;
 
     pdfMake.createPdf(docDefinition).download(`Personel_Raporu_${staff.name}_${staff.surname}.pdf`);
   };

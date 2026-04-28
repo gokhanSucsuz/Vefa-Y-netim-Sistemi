@@ -117,26 +117,37 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
       const fileContent = JSON.stringify(backupData, null, 2);
       const fileName = `vefa_yedek_${new Date().toISOString().split('T')[0]}.json`;
 
-      // 3. Upload to Google Drive
+      // 3. Upload to Google Drive using multipart/related
       const metadata = {
         name: fileName,
         mimeType: 'application/json',
       };
 
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      form.append('file', new Blob([fileContent], { type: 'application/json' }));
+      const boundary = '-------314159265358979323846';
+      const delimiter = '\r\n--' + boundary + '\r\n';
+      const closeDelim = '\r\n--' + boundary + '--';
+
+      const multipartRequestBody =
+        delimiter +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        JSON.stringify(metadata) +
+        delimiter +
+        'Content-Type: application/json\r\n\r\n' +
+        fileContent +
+        closeDelim;
 
       const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`,
         },
-        body: form,
+        body: multipartRequestBody,
       });
 
       if (!response.ok) {
-        throw new Error('Google Drive\'a yükleme başarısız oldu.');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Google Drive yükleme hatası: ${errorData.error?.message || response.statusText}`);
       }
 
       const now = new Date().toISOString();

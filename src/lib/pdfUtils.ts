@@ -1,7 +1,5 @@
-import pdfMake from 'pdfmake/build/pdfmake';
 import { Applicant, Staff, SystemUser } from '../types';
 import { format, parseISO } from 'date-fns';
-import { tr } from 'date-fns/locale';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from './pdfFonts';
 

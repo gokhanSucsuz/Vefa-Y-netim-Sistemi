@@ -50,11 +50,18 @@ export default function InstallPrompt() {
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowPrompt(false);
+      }
+    } catch (error) {
+      console.error('PWA Kurulum Hatası:', error);
+      alert('Uygulama yüklenirken bir hata oluştu. Lütfen tarayıcı menüsünden manuel olarak "Ana Ekrana Ekle" seçeneğini kullanın.');
+    } finally {
+      // Prompt can only be used once
       setDeferredPrompt(null);
-      setShowPrompt(false);
     }
   };
 

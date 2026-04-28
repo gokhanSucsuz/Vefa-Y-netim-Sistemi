@@ -5,7 +5,6 @@ import { X, Calendar, CheckCircle2, Clock, BarChart3, TrendingUp, Download, File
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
-import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
 import { formatPhone, formatTC } from '../lib/format';
@@ -155,6 +154,9 @@ export default function ApplicantStatsModal({ applicant, currentUser, onClose }:
       },
       pageMargins: [40, 40, 40, 60]
     };
+
+    const pdfMakeModule = await import('pdfmake/build/pdfmake');
+    const pdfMake = pdfMakeModule.default || pdfMakeModule;
 
     pdfMake.createPdf(docDefinition).download(`Rapor_${applicant.name}_${applicant.surname}.pdf`);
   };

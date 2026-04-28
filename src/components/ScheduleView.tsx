@@ -6,7 +6,6 @@ import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays, 
 import { tr } from 'date-fns/locale';
 import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import pdfMake from 'pdfmake/build/pdfmake';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
 import { formatPhone, formatTC } from '../lib/format';
@@ -1165,6 +1164,9 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       },
       pageMargins: [40, 40, 40, 60]
     };
+
+    const pdfMakeModule = await import('pdfmake/build/pdfmake');
+    const pdfMake = pdfMakeModule.default || pdfMakeModule;
 
     pdfMake.createPdf(docDefinition).download(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
   };
