@@ -515,7 +515,7 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-6">
       {/* Hidden Report for PDF Generation */}
       <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '25mm', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.5' }}>
         <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '20px', color: '#000000' }}>
@@ -699,20 +699,24 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
           <div id="neighborhood-chart" className="h-[300px] w-full relative" style={{ backgroundColor: '#ffffff', minHeight: '300px' }}>
             {stats.neighborhoodData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%" debounce={1}>
-                <BarChart data={stats.neighborhoodData.slice(0, 8)}>
+                <BarChart data={stats.neighborhoodData.slice(0, 10)}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    tick={{ fontSize: 9, fill: '#64748b' }}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={70}
                   />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
                     cursor={{ fill: '#f8fafc' }}
                   />
-                  <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={32} />
+                  <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={24} name="Ziyaret" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -736,20 +740,29 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
               <ResponsiveContainer width="100%" height="100%" debounce={1}>
                 <PieChart>
                   <Pie
-                    data={stats.staffData.slice(0, 5)}
+                    data={stats.staffData.slice(0, 8)}
                     cx="50%"
-                    cy="50%"
+                    cy="45%"
                     innerRadius={60}
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="jobCount"
+                    nameKey="name"
                   >
-                    {stats.staffData.map((entry, index) => (
+                    {stats.staffData.slice(0, 8).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" height={36}/>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                  />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    align="center"
+                    iconType="circle"
+                    wrapperStyle={{ paddingTop: '20px', fontSize: '10px' }}
+                    formatter={(value) => <span className="text-slate-600 font-medium">{value}</span>}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -762,37 +775,38 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
       </div>
 
       {/* Detailed Staff Table */}
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-50 bg-gray-50/30">
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mb-8">
+        <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex items-center justify-between">
           <h3 className="font-bold text-gray-900">Personel Detaylı İstatistikleri</h3>
+          <span className="text-[10px] text-gray-400 font-medium lg:hidden">Kaydır {'>'}</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
+        <div className="overflow-x-auto scrollbar-hide">
+          <table className="w-full text-left min-w-[500px]">
             <thead>
               <tr className="border-b border-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                 <th className="px-6 py-4">Personel</th>
                 <th className="px-6 py-4">Toplam İş</th>
-                <th className="px-6 py-4">Farklı Hane</th>
-                <th className="px-6 py-4">Son İşler</th>
+                <th className="px-6 py-4 text-center">Farklı Hane</th>
+                <th className="px-6 py-4">Son Operasyonlar</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {stats.staffData.map(s => (
-                <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={s.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="font-bold text-gray-900">{s.name}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold">
+                    <span className="inline-flex items-center px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">
                       {s.jobCount} İş
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{s.uniqueApplicantsCount} Hane</td>
+                  <td className="px-6 py-4 text-center text-sm text-gray-600 font-medium">{s.uniqueApplicantsCount}</td>
                   <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {s.details.slice(-2).map((d, i) => (
-                        <span key={i} className="text-[9px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                          {d.applicantName} ({format(parseISO(d.date), 'dd.MM')})
+                    <div className="flex flex-wrap gap-1.5">
+                      {s.details.slice(-3).map((d, i) => (
+                        <span key={i} className="text-[10px] bg-slate-50 text-slate-500 border border-slate-100 px-2 py-0.5 rounded-md">
+                          {d.applicantName}
                         </span>
                       ))}
                     </div>
@@ -809,21 +823,25 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
 
 function StatCard({ icon, label, value, color }: { icon: ReactNode, label: string, value: number | string, color: string }) {
   const colorClasses: Record<string, string> = {
-    blue: 'bg-blue-50',
-    orange: 'bg-orange-50',
-    green: 'bg-green-50',
-    purple: 'bg-purple-50'
+    blue: 'bg-blue-50/50 text-blue-600 ring-blue-100',
+    orange: 'bg-orange-50/50 text-orange-600 ring-orange-100',
+    green: 'bg-green-50/50 text-green-600 ring-green-100',
+    purple: 'bg-purple-50/50 text-purple-600 ring-purple-100'
   };
 
   return (
-    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4 hover:scale-[1.02] transition-transform">
-      <div className={`p-3 rounded-2xl ${colorClasses[color]}`}>
-        {icon}
-      </div>
-      <div>
-        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</div>
-        <div className="text-2xl font-black text-gray-900">{value}</div>
+    <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+      <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-10 ${colorClasses[color].split(' ')[0]}`} />
+      <div className="flex items-center gap-4 relative z-10">
+        <div className={`p-3 rounded-2xl ring-1 ${colorClasses[color]}`}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{label}</p>
+          <p className="text-2xl font-black text-gray-900 tabular-nums">{value}</p>
+        </div>
       </div>
     </div>
   );
 }
+
