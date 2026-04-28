@@ -1,4 +1,6 @@
 import express from "express";
+import { createServer as createHttpServer } from "http";
+import { Server as SocketServer } from "socket.io";
 import path from "path";
 import fs from "fs";
 import fetch from "node-fetch";
@@ -74,6 +76,13 @@ function decrypt(text: string | undefined): string | undefined {
 }
 
 const app = express();
+const httpServer = createHttpServer(app);
+const io = new SocketServer(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 const PORT = 3000;
 
 app.use(cors());
@@ -243,6 +252,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       const items = (Array.isArray(req.body) ? req.body : []).map(prepareForDB);
       if (items.length > 0) {
         await model.insertMany(items);
+        io.emit('db_update', { collection: name, action: 'bulk-create' });
       }
       res.json({ success: true, count: items.length });
     } catch (err: any) {
@@ -263,6 +273,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
             return model.findByIdAndUpdate(update.id, data);
           })
         );
+        io.emit('db_update', { collection: name, action: 'bulk-update' });
       }
       res.json({ success: true, count: updates?.length || 0 });
     } catch (err: any) {
@@ -277,6 +288,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       const { ids } = req.body;
       if (Array.isArray(ids) && ids.length > 0) {
         await model.deleteMany({ _id: { $in: ids } });
+        io.emit('db_update', { collection: name, action: 'bulk-delete' });
       }
       res.json({ success: true, count: ids?.length || 0 });
     } catch (err: any) {
@@ -365,6 +377,10 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       const item = new model(data);
       await item.save();
       console.log(`[POST /api/${name}] Saved successfully`);
+      
+      // Notify all clients that data changed
+      io.emit('db_update', { collection: name, action: 'create' });
+      
       res.json(prepareFromDB(item));
     } catch (err: any) {
       console.error(`[POST /api/${name}] API Error:`, err);
@@ -384,6 +400,10 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       const data = prepareForDB(req.body);
       const item = await model.findByIdAndUpdate(req.params.id, data, { new: true });
       if (!item) return res.status(404).json({ error: "Not found" });
+
+      // Notify all clients that data changed
+      io.emit('db_update', { collection: name, action: 'update', id: req.params.id });
+
       res.json(prepareFromDB(item));
     } catch (err: any) {
       console.error(`[PUT /api/${name}] Error:`, err);
@@ -395,6 +415,10 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     try {
       await connectDB();
       await model.findByIdAndDelete(req.params.id);
+      
+      // Notify all clients
+      io.emit('db_update', { collection: name, action: 'delete', id: req.params.id });
+      
       res.json({ success: true });
     } catch (err: any) {
       console.error(`[DELETE /api/${name}] Error:`, err);
@@ -752,7 +776,7 @@ async function setupVite() {
 // Start server or handle Vercel deployment
 if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
   setupVite().then(() => {
-    app.listen(PORT, "0.0.0.0", () => {
+    httpServer.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   });

@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import { io } from 'socket.io-client';
 import { Applicant, Staff, WorkDay, Schedule, Program, Admin } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -137,8 +138,22 @@ export async function syncWithServer() {
 }
 
 // Start sync period
-setInterval(syncWithServer, 30000); // Sync every 30s
+setInterval(syncWithServer, 5000); // More frequent sync (5s) as backup
 window.addEventListener('online', syncWithServer);
+window.addEventListener('focus', syncWithServer); // Sync when user comes back to the tab
+
+// Real-time socket connection
+const socket = io(window.location.origin);
+socket.on('connect', () => {
+  console.log('Real-time connection established');
+});
+socket.on('db_update', (data) => {
+  console.log('Remote data change detected:', data);
+  syncWithServer();
+});
+socket.on('disconnect', () => {
+  console.log('Real-time connection lost');
+});
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
