@@ -276,11 +276,21 @@ export default function StaffList({ staff, currentUser }: Props) {
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">Durum</label>
               <select
-                value={formData.isActive !== false ? 'active' : 'passive'}
-                onChange={e => setFormData({ ...formData, isActive: e.target.value === 'active' })}
+                value={formData.isActive !== false ? (formData.isBackup ? 'backup' : 'active') : 'passive'}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === 'passive') {
+                    setFormData({ ...formData, isActive: false, isBackup: false });
+                  } else if (val === 'backup') {
+                    setFormData({ ...formData, isActive: true, isBackup: true });
+                  } else {
+                    setFormData({ ...formData, isActive: true, isBackup: false });
+                  }
+                }}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               >
-                <option value="active">Aktif (Sahada)</option>
+                <option value="active">Aktif (Sahada / Ekip)</option>
+                <option value="backup">Yedek (Görev Atanmamış)</option>
                 <option value="passive">Pasif (Farklı Görevde)</option>
               </select>
             </div>
@@ -431,11 +441,15 @@ export default function StaffList({ staff, currentUser }: Props) {
                               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
                                 Vefa Saha Personeli
                               </span>
-                              {s.isActive === false && (
+                              {s.isActive === false ? (
                                 <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-amber-100">
                                   Pasif - {s.dutyLocation}
                                 </span>
-                              )}
+                              ) : s.isBackup ? (
+                                <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-blue-100">
+                                  Yedek
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                         </div>

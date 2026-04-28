@@ -59,6 +59,7 @@ export interface Staff {
   isApproved?: boolean; // Management approval for staff access
   partnerId?: string; // ID of the other staff member in the team
   isActive?: boolean;
+  isBackup?: boolean; // Yedek personel
   dutyLocation?: string; // Görev yeri
   leaves?: { startDate: string; endDate: string; reason?: string }[];
 }

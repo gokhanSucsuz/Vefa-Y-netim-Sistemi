@@ -79,6 +79,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [rescheduleModal, setRescheduleModal] = useState<{ date: string } | null>(null);
   const [targetRescheduleDate, setTargetRescheduleDate] = useState('');
+  const [shiftAssignmentModal, setShiftAssignmentModal] = useState<{ date: string; applicantId: string; name: string } | null>(null);
+  const [targetAssignmentDate, setTargetAssignmentDate] = useState('');
   const [dailyLimit, setDailyLimit] = useState(() => {
     const saved = localStorage.getItem('dailyLimit');
     return saved ? parseInt(saved) : 6;
@@ -209,11 +211,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     alert('Haneler başarıyla yer değiştirildi.');
   };
 
-  const handleCancelAssignment = async (date: string, applicantId: string) => {
-    const confirmCancel = confirm('Bu ziyareti iptal edip bir sonraki iş gününe kaydırmak istediğinize emin misiniz?');
-    if (!confirmCancel) return;
-
+  const performShiftAssignment = async (date: string, applicantId: string, targetDateStr?: string) => {
     setIsRescheduling(true);
+    setShiftAssignmentModal(null);
+    setTargetAssignmentDate('');
     try {
       await dbLocal.transaction('rw', [dbLocal.schedules, dbLocal.workDays], async () => {
         const allSchedules = await dbLocal.schedules.toArray();
@@ -235,25 +236,31 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
           return;
         }
 
-        // 1. Get all uncompleted assignments from today onwards
         let uncompletedPool: any[] = [];
         for (const s of futureSchedules) {
           const uncompletedInDay = s.assignments.filter(a => !a.isCompleted);
           uncompletedPool.push(...uncompletedInDay);
         }
 
-        // 2. Find the canceled item in the pool
         const poolIdx = uncompletedPool.findIndex(a => a.applicantId === applicantId);
         if (poolIdx === -1) return;
 
-        // 3. Remove it from its current position
         const [item] = uncompletedPool.splice(poolIdx, 1);
         
-        // 4. Calculate how many uncompleted were left for today (excluding the canceled one)
-        const uncompletedTodayCount = currentDaySchedule.assignments.filter(a => !a.isCompleted).length - 1;
+        let insertIndex = 0;
+        if (targetDateStr) {
+          for (const s of futureSchedules) {
+            if (s.date >= targetDateStr) break;
+            insertIndex += s.assignments.filter(a => !a.isCompleted).length;
+          }
+          if (targetDateStr > date) {
+            insertIndex = Math.max(0, insertIndex - 1);
+          }
+        } else {
+          insertIndex = currentDaySchedule.assignments.filter(a => !a.isCompleted).length - 1;
+        }
         
-        // 5. Move the item to the start of tomorrow's assignments (which is after today's remaining uncompleted)
-        uncompletedPool.splice(uncompletedTodayCount, 0, item);
+        uncompletedPool.splice(insertIndex, 0, item);
 
         // 6. Redistribute back to schedules using greedy logic to respect 14-day rule
         let poolOffset = 0;
@@ -664,7 +671,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       // 6. Function to get teams for a specific date (ignoring staff on leave)
       const getTeamsForDate = (dateStr: string) => {
         const activeStaff = staff.filter(s => {
-          if (s.isActive === false) return false;
+          if (s.isActive === false || s.isBackup === true) return false;
           // Check if on leave
           if (s.leaves && s.leaves.length > 0) {
             const onLeave = s.leaves.some(leave => dateStr >= leave.startDate && dateStr <= leave.endDate);
@@ -1347,6 +1354,58 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
         </div>
       )}
 
+      {/* Shift Single Assignment Modal */}
+      {shiftAssignmentModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in duration-300">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Hanenin Gününü Değiştir</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              <strong className="text-gray-800">{shiftAssignmentModal.name}</strong> hanesine ait {formatSafe(shiftAssignmentModal.date, 'dd MMMM yyyy', { locale: tr })} tarihindeki temizlik işi iptal edilecektir. Sıra düzeni bozulmadan bu haneyi nereye yerleştirmek istersiniz?
+            </p>
+            
+            <div className="space-y-3 mb-6">
+              <button
+                onClick={() => performShiftAssignment(shiftAssignmentModal.date, shiftAssignmentModal.applicantId)}
+                className="w-full py-3 px-4 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-100 transition-all text-left flex items-center justify-between"
+              >
+                <span>Sıradaki İlk Boşluğa (Veya Sonraki Güne) Kaydır</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Belirli Bir Tarihe Kaydır</label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    min={format(addDays(parseISO(shiftAssignmentModal.date), 1), 'yyyy-MM-dd')}
+                    value={targetAssignmentDate}
+                    onChange={(e) => setTargetAssignmentDate(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    disabled={!targetAssignmentDate}
+                    onClick={() => performShiftAssignment(shiftAssignmentModal.date, shiftAssignmentModal.applicantId, targetAssignmentDate)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
+                  >
+                    Uygula
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => {
+                setShiftAssignmentModal(null);
+                setTargetAssignmentDate('');
+              }}
+              className="w-full py-3 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-all"
+            >
+              Vazgeç
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Completion Note Modal */}
       {completionModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
@@ -1667,10 +1726,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
                               {!isCompleted && (
                                 <button
-                                  onClick={() => handleCancelAssignment(a.date, item.applicant.id!)}
+                                  onClick={() => setShiftAssignmentModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` })}
                                   disabled={isPast}
                                   className="p-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl hover:bg-rose-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                  title="İptal Et ve Kaydır"
+                                  title="Günü Değiştir ve Kaydır"
                                 >
                                   <Clock className="w-3.5 h-3.5" />
                                 </button>
@@ -1772,7 +1831,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                                             value={s.id} 
                                             disabled={isAlreadyInThisApp || isAssignedElsewhere}
                                           >
-                                            {s.name} {s.surname}
+                                            {s.name} {s.surname} {s.isBackup ? '(Yedek)' : ''}
                                           </option>
                                         );
                                       })}
