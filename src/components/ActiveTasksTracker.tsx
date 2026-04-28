@@ -197,11 +197,24 @@ export default function ActiveTasksTracker() {
       return [
         {
           columns: [
-            logoBase64Left ? { image: logoBase64Left, width: 140, alignment: 'left' } : { text: '', width: 140 },
+            {
+              width: 'auto',
+              columns: [
+                logoBase64Left ? { image: logoBase64Left, width: 45 } : { text: '', width: 45 },
+                {
+                  stack: [
+                    { text: 'T.C. AİLE VE SOSYAL', color: '#C8102E', bold: true, fontSize: 8 },
+                    { text: 'HİZMETLER BAKANLIĞI', color: '#C8102E', bold: true, fontSize: 8 },
+                    { text: 'Sosyal Yardımlar Genel Müdürlüğü', color: '#C8102E', fontSize: 6.5, margin: [0, 1, 0, 0] }
+                  ],
+                  margin: [5, 2, 0, 0]
+                }
+              ]
+            },
             { text: '', width: '*' },
             logoBase64Right ? { image: logoBase64Right, width: 45, alignment: 'right' } : { text: '', width: 45 }
           ],
-          margin: [0, 0, 0, 5]
+          margin: [0, 0, 0, 15]
         },
         { 
           text: 'VEFA (YAŞLI EVDE BAKIM) YARDIM PROGRAMI FAALİYET KONTROL LİSTESİ', 
