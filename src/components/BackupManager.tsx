@@ -43,9 +43,8 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      // Add Drive scope for backup
-      provider.addScope('https://www.googleapis.com/auth/drive.file');
-      provider.addScope('https://www.googleapis.com/auth/drive.appdata');
+      // Add full Drive scope for backup to access existing folders
+      provider.addScope('https://www.googleapis.com/auth/drive');
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       console.error('Login error:', error);
@@ -84,10 +83,9 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
     setMessage({ type: 'success', text: 'Yedekleme hazırlanıyor...' });
 
     try {
-      // 1. Get fresh token with Drive scope
+      // 1. Get fresh token with full Drive scope
       const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/drive.file');
-      provider.addScope('https://www.googleapis.com/auth/drive.appdata');
+      provider.addScope('https://www.googleapis.com/auth/drive');
       
       provider.setCustomParameters({ 
         login_hint: 'edirnesydv@gmail.com',
