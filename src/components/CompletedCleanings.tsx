@@ -37,7 +37,8 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
               date: assignment.completionDate || schedule.date,
               originalDate: schedule.date,
               isCompleted: assignment.isCompleted,
-              note: assignment.completionNote
+              note: assignment.completionNote,
+              approvals: assignment.approvals
             });
           }
         } else {
@@ -59,7 +60,8 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
                 date: schedule.date,
                 originalDate: schedule.date,
                 isCompleted: false,
-                note: assignment.completionNote
+                note: assignment.completionNote,
+                approvals: assignment.approvals
               });
             }
           }
@@ -145,11 +147,25 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
                   <div>
                     <span className="font-medium block mb-1">Görevli Personel:</span>
                     <div className="flex flex-wrap gap-1">
-                      {item.staffMembers.map(s => (
-                        <span key={s.id} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[10px] font-bold">
-                          {s.name} {s.surname}
-                        </span>
-                      ))}
+                      {item.staffMembers.map(s => {
+                        const approval = item.approvals?.find((a: any) => a.staffId === s.id);
+                        return (
+                          <div key={s.id} className="flex flex-col bg-gray-100 rounded-md p-1.5 min-w-[120px]">
+                            <span className="text-[10px] text-gray-700 font-bold mb-0.5">
+                              {s.name} {s.surname}
+                            </span>
+                            {(approval?.startTime || approval?.endTime) ? (
+                              <span className="text-[9px] text-gray-500 font-medium">
+                                {approval.startTime ? new Date(approval.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}) : '--:--'} 
+                                {' - '}
+                                {approval.endTime ? new Date(approval.endTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}) : '--:--'}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-gray-400 italic">Zaman bilgisi yok</span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

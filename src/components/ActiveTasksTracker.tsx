@@ -110,13 +110,29 @@ export default function ActiveTasksTracker() {
                       <span className="text-xs font-bold text-slate-700">{staffMember.name} {staffMember.surname}</span>
                       <div className="flex items-center gap-1">
                         {isFinished ? (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg w-fit">
-                            <CheckCircle2 className="w-3 h-3" /> BİTİRDİ
-                          </span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg w-fit">
+                              <CheckCircle2 className="w-3 h-3" /> BİTİRDİ
+                            </span>
+                            {(staffApproval?.startTime || staffApproval?.endTime) && (
+                              <span className="text-[9px] text-emerald-700 font-medium">
+                                {staffApproval.startTime ? new Date(staffApproval.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}) : '--:--'} 
+                                {' - '}
+                                {staffApproval.endTime ? new Date(staffApproval.endTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}) : '--:--'}
+                              </span>
+                            )}
+                          </div>
                         ) : isStarted ? (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg w-fit animate-pulse">
-                            <Play className="w-3 h-3" /> İŞLEMDE
-                          </span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg w-fit animate-pulse">
+                              <Play className="w-3 h-3" /> İŞLEMDE
+                            </span>
+                            {staffApproval?.startTime && (
+                              <span className="text-[9px] text-blue-700 font-medium">
+                                Başlangıç: {new Date(staffApproval.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg w-fit">
                             <Clock className="w-3 h-3" /> BEKLİYOR
