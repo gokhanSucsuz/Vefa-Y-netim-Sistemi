@@ -45,6 +45,7 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
       provider.setCustomParameters({ prompt: 'select_account' });
       // Add Drive scope for backup
       provider.addScope('https://www.googleapis.com/auth/drive.file');
+      provider.addScope('https://www.googleapis.com/auth/drive.appdata');
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       console.error('Login error:', error);
@@ -86,6 +87,7 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
       // 1. Get fresh token with Drive scope
       const provider = new GoogleAuthProvider();
       provider.addScope('https://www.googleapis.com/auth/drive.file');
+      provider.addScope('https://www.googleapis.com/auth/drive.appdata');
       
       provider.setCustomParameters({ 
         login_hint: 'edirnesydv@gmail.com',
@@ -117,10 +119,52 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
       const fileContent = JSON.stringify(backupData, null, 2);
       const fileName = `vefa_yedek_${new Date().toISOString().split('T')[0]}.json`;
 
-      // 3. Upload to Google Drive using multipart/related
+      // 3. Find or create the "vefa-yonetim-sistemi" folder
+      const folderName = 'vefa-yonetim-sistemi';
+      let folderId = null;
+
+      const searchResponse = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false&spaces=drive`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (!searchResponse.ok) {
+        throw new Error('Klasör aranırken hata oluştu.');
+      }
+
+      const searchData = await searchResponse.json();
+      
+      if (searchData.files && searchData.files.length > 0) {
+        folderId = searchData.files[0].id;
+      } else {
+        // Create the folder
+        const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: folderName,
+            mimeType: 'application/vnd.google-apps.folder'
+          })
+        });
+
+        if (!createResponse.ok) {
+          throw new Error('Klasör oluşturulamadı.');
+        }
+
+        const createData = await createResponse.json();
+        folderId = createData.id;
+      }
+
+      // 4. Upload to Google Drive using multipart/related
       const metadata = {
         name: fileName,
         mimeType: 'application/json',
+        parents: [folderId],
       };
 
       const boundary = '-------314159265358979323846';
