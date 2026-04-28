@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Staff, Schedule, SystemUser } from '../types';
+import { Applicant, Staff, Schedule, SystemUser } from '../types';
 import { dbLocal } from '../db';
 import { X, Calendar, CheckCircle2, Clock, BarChart3, TrendingUp, Download, User } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -475,7 +475,7 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
                                       {applicant ? `${applicant.name} ${applicant.surname}` : 'Bilinmiyor'}
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                      {applicant?.address} / {applicant?.neighborhood}
+                                      {applicant?.address || '-'} / {applicant?.neighborhood || '-'}
                                     </div>
                                     {teammateNames && (
                                       <div className="text-[10px] text-blue-600 font-medium mt-1">

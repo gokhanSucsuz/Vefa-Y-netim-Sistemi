@@ -43,9 +43,19 @@ interface Props {
 
 export default function StaffPanel({ currentUser, onLogout }: Props) {
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [activeVisitId, setActiveVisitId] = useState<string | null>(null);
-  const [visitNotes, setVisitNotes] = useState<string>('');
+  const [activeVisitId, setActiveVisitId] = useState<string | null>(() => localStorage.getItem('vefa_active_visit_id'));
+  const [visitNotes, setVisitNotes] = useState<string>(() => localStorage.getItem('vefa_visit_notes') || '');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Sync state to localStorage
+  useEffect(() => {
+    if (activeVisitId) localStorage.setItem('vefa_active_visit_id', activeVisitId);
+    else localStorage.removeItem('vefa_active_visit_id');
+  }, [activeVisitId]);
+
+  useEffect(() => {
+    localStorage.setItem('vefa_visit_notes', visitNotes);
+  }, [visitNotes]);
   const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
   const [showLocationMap, setShowLocationMap] = useState<{ lat: number, lng: number, name: string } | null>(null);
   const [showRouteMap, setShowRouteMap] = useState(false);
@@ -56,6 +66,19 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
   
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
   const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
+  const pendingSyncCount = useLiveQuery(() => dbLocal.syncQueue.count()) || 0;
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const isTodayDate = useMemo(() => {
     try {
@@ -232,9 +255,16 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ziyaret Onayı', 
         `${applicant?.name} ${applicant?.surname} ziyareti onaylandı. ${isVisitFullyCompleted ? 'Tamamlandı' : 'Beklemede'}`);
 
-      alert(isVisitFullyCompleted ? 'Ziyaret her iki personel tarafından onaylandı ve tamamlandı.' : 'Onayınız kaydedildi. Partnerinizin onayı bekleniyor.');
+      if (!navigator.onLine) {
+        alert('İnternet bağlantınız zayıf. İşleminiz cihazınıza kaydedildi ve internet geldiğinde otomatik olarak merkeze gönderilecektir.');
+      } else {
+        alert(isVisitFullyCompleted ? 'Ziyaret her iki personel tarafından onaylandı ve tamamlandı.' : 'Onayınız kaydedildi. Partnerinizin onayı bekleniyor.');
+      }
+      
       setActiveVisitId(null);
       setVisitNotes('');
+      localStorage.removeItem('vefa_active_visit_id');
+      localStorage.removeItem('vefa_visit_notes');
     } catch (err) {
       console.error(err);
       alert('Bir hata oluştu.');
@@ -295,7 +325,20 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
             </div>
             <div>
               <h1 className="text-sm font-bold text-slate-900 leading-none mb-1">{myStaffRecord.name} {myStaffRecord.surname}</h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Saha Personeli Paneli</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Saha Personeli</p>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+                  <span className={`text-[9px] font-bold ${isOnline ? 'text-emerald-600' : 'text-rose-600'} uppercase`}>
+                    {isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
+                  </span>
+                  {pendingSyncCount > 0 && (
+                    <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-black animate-bounce">
+                      {pendingSyncCount} VERİ BEKLİYOR
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">

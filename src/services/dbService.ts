@@ -68,7 +68,11 @@ async function apiFetch(path: string, options?: RequestInit) {
 // Background sync process
 let isSyncing = false;
 export async function syncWithServer() {
-  if (isSyncing || !navigator.onLine) return;
+  if (isSyncing) return;
+  
+  // Real check for internet: try to fetch a health endpoint or just check online status
+  if (!navigator.onLine) return;
+  
   isSyncing = true;
   
   try {
@@ -81,7 +85,6 @@ export async function syncWithServer() {
             method: 'POST',
             body: JSON.stringify(item.data.item),
           });
-          // Update local ID that was generated
           const table = (dexieDb as any)[item.collection === 'workdays' ? 'workDays' : item.collection === 'auditlogs' ? 'auditLogs' : item.collection === 'users' ? 'systemUsers' : item.collection];
           if (table) {
              await table.update(item.data.localId, { id: res.id });
@@ -98,22 +101,34 @@ export async function syncWithServer() {
         }
         await dexieDb.syncQueue.delete(item.id!);
       } catch (e) {
+        // If it's a server error (4xx, 5xx), maybe we should keep it in queue but for now skip and try next
         console.warn(`Failed to process sync item for ${item.collection}:`, e);
+        // Break to avoid hammering the server if it's a network issue
+        break; 
       }
     }
 
-    // 2. Pull latest data from server to refresh local
-    const collections = ['applicants', 'staff', 'workdays', 'schedules', 'programs', 'admins', 'auditlogs', 'users'];
-    for (const col of collections) {
-      try {
-        const data = await apiFetch(`/${col}`);
-        const dexieCol = col === 'workdays' ? 'workDays' : col === 'auditlogs' ? 'auditLogs' : col === 'users' ? 'systemUsers' : col === 'schedules' ? 'schedules' : col;
-        await (dexieDb as any)[dexieCol].clear();
-        await (dexieDb as any)[dexieCol].bulkPut(data);
-      } catch (e) {
-        console.warn(`Could not sync collection ${col}:`, e);
+    // 2. Only pull if queue is empty to avoid overwriting unpushed changes
+    const remainingQueue = await dexieDb.syncQueue.count();
+    if (remainingQueue === 0) {
+      const collections = ['applicants', 'staff', 'workdays', 'schedules', 'programs', 'admins', 'auditlogs', 'users'];
+      for (const col of collections) {
+        try {
+          const data = await apiFetch(`/${col}`);
+          const dexieCol = col === 'workdays' ? 'workDays' : col === 'auditlogs' ? 'auditLogs' : col === 'users' ? 'systemUsers' : col === 'schedules' ? 'schedules' : col;
+          // Use bulkPut to update existing and add new without clearing everything first
+          // This is safer than clear() + bulkPut()
+          const table = (dexieDb as any)[dexieCol];
+          if (table) {
+            await table.bulkPut(data);
+          }
+        } catch (e) {
+          console.warn(`Could not sync collection ${col}:`, e);
+        }
       }
     }
+  } catch (error) {
+    console.error("Critical sync error:", error);
   } finally {
     isSyncing = false;
     notifyListeners();
