@@ -172,9 +172,10 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
   };
 
   const exportToPDF = async () => {
-    const fontsLoaded = await setupPdfMakeFonts();
-    if (!fontsLoaded) {
+    const pdfMake = await setupPdfMakeFonts();
+    if (!pdfMake) {
       console.error("Fonts could not be loaded for pdfmake");
+      return;
     }
 
     let logoBase64 = '';
@@ -290,9 +291,6 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
       },
       pageMargins: [40, 40, 40, 60]
     };
-
-    const pdfMakeModule = await import('pdfmake/build/pdfmake');
-    const pdfMake = pdfMakeModule.default || pdfMakeModule;
 
     pdfMake.createPdf(docDefinition).download(`Vefa_Istatistik_Raporu_${startDate}_${endDate}.pdf`);
     logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'PDF İstatistik İndirme', `${startDate} - ${endDate} dönemi için PDF raporu alındı.`);

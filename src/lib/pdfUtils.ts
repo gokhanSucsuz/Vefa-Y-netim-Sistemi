@@ -22,9 +22,10 @@ const getBase64ImageFromURL = (url: string): Promise<string> => {
 };
 
 export const generateMassCleaningReport = async (items: any[], periodName: string, currentUser: SystemUser | null) => {
-  const fontsLoaded = await setupPdfMakeFonts();
-  if (!fontsLoaded) {
+  const pdfMake = await setupPdfMakeFonts();
+  if (!pdfMake) {
     console.error("Fonts could not be loaded for pdfmake");
+    return;
   }
 
   let logoBase64 = '';
@@ -121,25 +122,14 @@ export const generateMassCleaningReport = async (items: any[], periodName: strin
     pageOrientation: 'landscape'
   };
 
-  let pdfMakeModule: any;
-  try {
-    pdfMakeModule = await import('pdfmake/build/pdfmake');
-  } catch (e) {
-    if (e instanceof TypeError && e.message.includes('Failed to fetch dynamically imported module')) {
-      alert("Sistem güncellendi. Rapor alabilmek için sayfanın yenilenmesi gerekiyor.");
-      window.location.reload();
-      return;
-    }
-    throw e;
-  }
-  const pdfMake = pdfMakeModule.default || pdfMakeModule;
   pdfMake.createPdf(docDefinition).download(`Toplu_Temizlik_Raporu_${periodName.replace(/\s+/g, '_')}.pdf`);
 };
 
 export const generateCleaningReport = async (applicant: Applicant, staffMembers: Staff[], date: string, currentUser: SystemUser | null) => {
-  const fontsLoaded = await setupPdfMakeFonts();
-  if (!fontsLoaded) {
+  const pdfMake = await setupPdfMakeFonts();
+  if (!pdfMake) {
     console.error("Fonts could not be loaded for pdfmake");
+    return;
   }
 
   const formattedDate = format(parseISO(date), 'dd.MM.yyyy');
@@ -286,17 +276,5 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
     pageMargins: [40, 40, 40, 60]
   };
 
-  let pdfMakeModule: any;
-  try {
-    pdfMakeModule = await import('pdfmake/build/pdfmake');
-  } catch (e) {
-    if (e instanceof TypeError && e.message.includes('Failed to fetch dynamically imported module')) {
-      alert("Sistem güncellendi. Rapor alabilmek için sayfanın yenilenmesi gerekiyor.");
-      window.location.reload();
-      return;
-    }
-    throw e;
-  }
-  const pdfMake = pdfMakeModule.default || pdfMakeModule;
   pdfMake.createPdf(docDefinition).download(`Temizlik_Raporu_${applicant.name}_${applicant.surname}_${date}.pdf`);
 };

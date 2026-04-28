@@ -1091,9 +1091,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   };
 
   const exportToPDF = async () => {
-    const fontsLoaded = await setupPdfMakeFonts();
-    if (!fontsLoaded) {
+    const pdfMake = await setupPdfMakeFonts();
+    if (!pdfMake) {
       console.error("Fonts could not be loaded for pdfmake");
+      return;
     }
     
     let logoBase64 = '';
@@ -1191,19 +1192,6 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       },
       pageMargins: [40, 40, 40, 60]
     };
-
-    let pdfMakeModule: any;
-    try {
-      pdfMakeModule = await import('pdfmake/build/pdfmake');
-    } catch (e) {
-      if (e instanceof TypeError && e.message.includes('Failed to fetch dynamically imported module')) {
-        alert("Sistem güncellendi. Rapor alabilmek için sayfanın yenilenmesi gerekiyor.");
-        window.location.reload();
-        return;
-      }
-      throw e;
-    }
-    const pdfMake = pdfMakeModule.default || pdfMakeModule;
 
     pdfMake.createPdf(docDefinition).download(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
   };
