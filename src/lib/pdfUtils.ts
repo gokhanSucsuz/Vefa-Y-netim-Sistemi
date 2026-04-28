@@ -171,5 +171,7 @@ export const generateCleaningReport = async (applicant: Applicant, staffMembers:
     pageMargins: [40, 40, 40, 60]
   };
 
+  const pdfMakeModule = await import('pdfmake/build/pdfmake');
+  const pdfMake = pdfMakeModule.default || pdfMakeModule;
   pdfMake.createPdf(docDefinition).download(`Temizlik_Raporu_${applicant.name}_${applicant.surname}_${date}.pdf`);
 };

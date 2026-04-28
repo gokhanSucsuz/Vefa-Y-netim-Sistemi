@@ -79,12 +79,20 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
               Bugünkü Saha Görevleri
             </h3>
             {todaySchedule && (
-              <button 
-                onClick={() => onNavigate('schedule')}
-                className="text-institution-blue text-xs lg:text-sm font-bold bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-1.5"
-              >
-                Tüm Detaylar <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => onNavigate('active_tasks')}
+                  className="text-emerald-600 text-xs lg:text-sm font-bold bg-emerald-50 px-3 py-1.5 rounded-xl hover:bg-emerald-100 transition-all flex items-center gap-1.5"
+                >
+                  Canlı Takip <MapPin className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => onNavigate('schedule')}
+                  className="text-institution-blue text-xs lg:text-sm font-bold bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-1.5"
+                >
+                  Tüm Detaylar <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </div>
           

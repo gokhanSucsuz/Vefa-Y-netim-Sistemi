@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from './hooks/useLiveQuery';
 import { dbLocal } from './db';
-import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp, Menu, X as CloseIcon, LogOut, History, Shield } from 'lucide-react';
+import { Users, Calendar, ClipboardList, BookOpen, Briefcase, Building2, LayoutDashboard, CheckCircle2, Loader2, AlertCircle, TrendingUp, Menu, X as CloseIcon, LogOut, History, Shield, MapPin } from 'lucide-react';
 import ApplicantList from './components/ApplicantList';
 import StaffList from './components/StaffList';
 import WorkDayCalendar from './components/WorkDayCalendar';
@@ -16,6 +16,7 @@ import Dashboard from './components/Dashboard';
 import BackupManager from './components/BackupManager';
 import ProgramManagement from './components/ProgramManagement';
 import CompletedCleanings from './components/CompletedCleanings';
+import ActiveTasksTracker from './components/ActiveTasksTracker';
 import Statistics from './components/Statistics';
 import StaffLogin from './components/StaffLogin';
 import GoogleLogin from './components/GoogleLogin';
@@ -31,7 +32,7 @@ import { APP_LOGO_URL } from './constants/logo';
 import { Download } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'priority' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'completed' | 'docs' | 'stats' | 'audit' | 'users' | 'backup'>(() => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'priority' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'active_tasks' | 'completed' | 'docs' | 'stats' | 'audit' | 'users' | 'backup'>(() => {
     return (localStorage.getItem('vefaActiveTab') as any) || 'dashboard';
   });
 
@@ -107,6 +108,7 @@ export default function App() {
     { id: 'workdays', label: 'İş Günleri', icon: Calendar },
     { id: 'schedule', label: 'Program Planlama', icon: ClipboardList },
     { id: 'programs', label: 'Yapılan Programlar', icon: Calendar },
+    { id: 'active_tasks', label: 'Bugünkü Aktif Görevler', icon: MapPin },
     { id: 'completed', label: 'Tamamlanan Temizlikler', icon: CheckCircle2 },
     { id: 'stats', label: 'İstatistik ve Raporlar', icon: TrendingUp },
     { id: 'audit', label: 'İşlem Geçmişi', icon: History },
@@ -255,6 +257,7 @@ export default function App() {
           {activeTab === 'workdays' && <WorkDayCalendar workDays={workDays} currentUser={currentStaffUser!} />}
           {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} programs={programs} currentUser={currentStaffUser!} initialDate={selectedScheduleDate} />}
           {activeTab === 'programs' && <ProgramManagement programs={programs} schedules={schedules} currentUser={currentStaffUser!} />}
+          {activeTab === 'active_tasks' && <ActiveTasksTracker />}
           {activeTab === 'completed' && <CompletedCleanings applicants={applicants} staff={staff} schedules={schedules} currentUser={currentStaffUser!} />}
           {activeTab === 'stats' && <Statistics currentUser={currentStaffUser!} onNavigate={navigateToSchedule} />}
           {activeTab === 'audit' && <AuditLogView />}

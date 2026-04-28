@@ -72,7 +72,37 @@ export async function syncWithServer() {
   isSyncing = true;
   
   try {
-    // 1. Pull latest data from server to refresh local
+    // 1. Process sync queue (push local changes)
+    const queue = await dexieDb.syncQueue.orderBy('timestamp').toArray();
+    for (const item of queue) {
+      try {
+        if (item.action === 'add') {
+          const res = await apiFetch(`/${item.collection}`, {
+            method: 'POST',
+            body: JSON.stringify(item.data.item),
+          });
+          // Update local ID that was generated
+          const table = (dexieDb as any)[item.collection === 'workdays' ? 'workDays' : item.collection === 'auditlogs' ? 'auditLogs' : item.collection === 'users' ? 'systemUsers' : item.collection];
+          if (table) {
+             await table.update(item.data.localId, { id: res.id });
+          }
+        } else if (item.action === 'update') {
+          await apiFetch(`/${item.collection}/${item.data.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(item.data.changes),
+          });
+        } else if (item.action === 'delete') {
+          await apiFetch(`/${item.collection}/${item.data.id}`, {
+            method: 'DELETE',
+          });
+        }
+        await dexieDb.syncQueue.delete(item.id!);
+      } catch (e) {
+        console.warn(`Failed to process sync item for ${item.collection}:`, e);
+      }
+    }
+
+    // 2. Pull latest data from server to refresh local
     const collections = ['applicants', 'staff', 'workdays', 'schedules', 'programs', 'admins', 'auditlogs', 'users'];
     for (const col of collections) {
       try {
@@ -84,11 +114,6 @@ export async function syncWithServer() {
         console.warn(`Could not sync collection ${col}:`, e);
       }
     }
-
-    // 2. Push local changes (simplified: we just pull for now as the server is source of truth in this architecture, 
-    // but in a real app we'd push queued changes)
-    // For this applet, the server is the primary DB. Dexie is for fast reads and offline access.
-    
   } finally {
     isSyncing = false;
     notifyListeners();
@@ -153,8 +178,11 @@ class ApiTable<T extends { id?: string }> {
         notifyListeners();
         return res.id;
       } catch (e) {
-        console.warn("Add to server failed, will sync later", e);
+        console.warn("Add to server failed, queuing for sync", e);
+        await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'add', data: { localId, item }, timestamp: Date.now() });
       }
+    } else {
+      await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'add', data: { localId, item }, timestamp: Date.now() });
     }
     notifyListeners();
     return localId.toString();
@@ -178,8 +206,11 @@ class ApiTable<T extends { id?: string }> {
           body: JSON.stringify(changes),
         });
       } catch (e) {
-        console.warn("Update to server failed", e);
+        console.warn("Update to server failed, queuing for sync", e);
+        await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'update', data: { id, changes }, timestamp: Date.now() });
       }
+    } else {
+      await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'update', data: { id, changes }, timestamp: Date.now() });
     }
     notifyListeners();
   }
@@ -192,8 +223,11 @@ class ApiTable<T extends { id?: string }> {
           method: 'DELETE',
         });
       } catch (e) {
-        console.warn("Delete from server failed", e);
+        console.warn("Delete from server failed, queuing for sync", e);
+        await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'delete', data: { id }, timestamp: Date.now() });
       }
+    } else {
+      await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'delete', data: { id }, timestamp: Date.now() });
     }
     notifyListeners();
   }
