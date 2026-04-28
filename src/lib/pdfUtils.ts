@@ -21,6 +21,111 @@ const getBase64ImageFromURL = (url: string): Promise<string> => {
   });
 };
 
+export const generateMassCleaningReport = async (items: any[], periodName: string, currentUser: SystemUser | null) => {
+  const fontsLoaded = await setupPdfMakeFonts();
+  if (!fontsLoaded) {
+    console.error("Fonts could not be loaded for pdfmake");
+  }
+
+  let logoBase64 = '';
+  try {
+    logoBase64 = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`);
+  } catch (e) {
+    console.error("Logo could not be loaded", e);
+  }
+
+  const tableBody = [
+    [
+      { text: 'Sıra', style: 'tableHeader' },
+      { text: 'Tarih', style: 'tableHeader' },
+      { text: 'Hane Adı Soyadı', style: 'tableHeader' },
+      { text: 'Mahalle/Köy', style: 'tableHeader' },
+      { text: 'Görevli Personel', style: 'tableHeader' },
+      { text: 'Durum', style: 'tableHeader' }
+    ],
+    ...items.map((item, idx) => {
+      const staffNames = item.staffMembers.map((s: Staff) => `${s.name} ${s.surname}`).join(', ');
+      return [
+        { text: (idx + 1).toString(), alignment: 'center' },
+        { text: format(new Date(item.originalDate), 'dd.MM.yyyy'), alignment: 'center' },
+        `${item.applicant.name} ${item.applicant.surname}`,
+        item.applicant.neighborhood || '-',
+        staffNames,
+        { text: item.isCompleted ? 'Tamamlandı' : 'Tamamlanmadı', color: item.isCompleted ? 'green' : 'red', alignment: 'center' }
+      ];
+    })
+  ];
+
+  const docDefinition: any = {
+    content: [
+      logoBase64 ? {
+        image: logoBase64,
+        width: 60,
+        alignment: 'center',
+        margin: [0, 0, 0, 10]
+      } : null,
+      { text: 'T.C.', style: 'header', alignment: 'center' },
+      { text: 'EDİRNE VALİLİĞİ', style: 'header', alignment: 'center' },
+      { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
+      { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
+      { text: `VEFA PROJESİ TOPLU HİZMET HEDEF VE GERÇEKLEŞME RAPORU`, style: 'title', alignment: 'center', margin: [0, 15, 0, 5] },
+      { text: `Dönem: ${periodName}`, alignment: 'center', fontSize: 11, bold: true, margin: [0, 0, 0, 15] },
+      { text: `Rapor Oluşturma Tarihi: ${format(new Date(), 'dd.MM.yyyy HH:mm')}`, alignment: 'right', fontSize: 8, color: '#666', margin: [0, 0, 0, 10] },
+      
+      {
+        table: {
+          headerRows: 1,
+          widths: ['auto', 'auto', '*', '*', '*', 'auto'],
+          body: tableBody
+        },
+        margin: [0, 5, 0, 15]
+      },
+      {
+        columns: [
+          {
+            text: `Toplam Kayıt: ${items.length} | Tamamlanan: ${items.filter(i => i.isCompleted).length} | Tamamlanmayan: ${items.filter(i => !i.isCompleted).length}`,
+            bold: true,
+            fontSize: 10
+          }
+        ]
+      }
+    ],
+    watermark: { 
+      text: 'Edirne Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', 
+      color: '#666', 
+      opacity: 0.05, 
+      bold: true, 
+      fontSize: 25
+    },
+    footer: (currentPage: number, pageCount: number) => {
+      return {
+        text: `Bu rapor ${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde raporlanmıştır. Sayfa ${currentPage} / ${pageCount}`,
+        alignment: 'center',
+        fontSize: 8,
+        color: '#666',
+        margin: [0, 10, 0, 0]
+      };
+    },
+    styles: {
+      header: { fontSize: 14, bold: true, margin: [0, 2, 0, 2] },
+      subheader: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
+      title: { fontSize: 13, bold: true },
+      sectionHeader: { fontSize: 11, bold: true, margin: [0, 10, 0, 5] },
+      tableHeader: { bold: true, fontSize: 10, fillColor: '#f2f2f2', alignment: 'center' }
+    },
+    defaultStyle: {
+      font: 'Roboto',
+      fontSize: 8
+    },
+    pageMargins: [40, 40, 40, 60],
+    pageOrientation: 'landscape'
+  };
+
+  const pdfMakeModule = await import('pdfmake/build/pdfmake');
+  const pdfMake = pdfMakeModule.default || pdfMakeModule;
+  pdfMake.createPdf(docDefinition).download(`Toplu_Temizlik_Raporu_${periodName.replace(/\s+/g, '_')}.pdf`);
+};
+
 export const generateCleaningReport = async (applicant: Applicant, staffMembers: Staff[], date: string, currentUser: SystemUser | null) => {
   const fontsLoaded = await setupPdfMakeFonts();
   if (!fontsLoaded) {
