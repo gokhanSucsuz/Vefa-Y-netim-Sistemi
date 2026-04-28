@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Cloud, Loader2, CheckCircle2, AlertCircle, LogIn, LogOut, DownloadCloud, UploadCloud, Trash2 } from 'lucide-react';
-import { auth } from '../firebase';
-import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { Cloud, Loader2, CheckCircle2, AlertCircle, DownloadCloud, UploadCloud, FileJson, FileSpreadsheet } from 'lucide-react';
 import { dbLocal } from '../db';
+import * as XLSX from 'xlsx';
 
 interface BackupManagerProps {
   user: any;
@@ -14,13 +13,12 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [lastBackupDate, setLastBackupDate] = useState<string | null>(localStorage.getItem('lastBackupDate'));
 
-  // Check for auto-backup every time user logs in or app loads
+  // Check for auto-backup every time app loads
   useEffect(() => {
     if (user && user.email === 'edirnesydv@gmail.com') {
       const checkAutoBackup = async () => {
         const lastBackup = localStorage.getItem('lastBackupDate');
         if (!lastBackup) {
-          // No backup ever, let's wait for manual trigger or we can trigger it.
           return;
         }
         const lastBackupTime = new Date(lastBackup).getTime();
@@ -28,8 +26,6 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
         const daysSinceLastBackup = (now - lastBackupTime) / (1000 * 3600 * 24);
 
         if (daysSinceLastBackup >= 10) {
-          // We need a fresh token for Drive API. We can't automatically get it without user interaction
-          // if the scopes weren't granted recently. We'll prompt the user or just show a warning.
           setMessage({ type: 'error', text: 'Son yedeklemenin üzerinden 10 günden fazla geçti. Lütfen manuel yedekleme yapın.' });
         }
       };
@@ -37,36 +33,7 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
     }
   }, [user]);
 
-  const handleLogin = async () => {
-    setIsSyncing(true);
-    setMessage(null);
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      // Add full Drive scope for backup to access existing folders
-      provider.addScope('https://www.googleapis.com/auth/drive');
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      console.error('Login error:', error);
-      setMessage({ type: 'error', text: 'Giriş yapılamadı: ' + error.message });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    setIsSyncing(true);
-    try {
-      await signOut(auth);
-    } catch (error: any) {
-      console.error('Logout error:', error);
-      setMessage({ type: 'error', text: 'Çıkış yapılamadı.' });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleManualBackup = async () => {
+  const handleManualBackup = async (format: 'json' | 'excel') => {
     if (!user) return;
     
     // STRICT SECURITY CHECK: Only edirnesydv@gmail.com can initiate backup
@@ -75,7 +42,7 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
       return;
     }
 
-    if (!window.confirm('Veritabanını Google Drive\'a yedeklemek istediğinize emin misiniz? Verileriniz güvenli bir şekilde JSON formatında kaydedilecektir.')) {
+    if (!window.confirm(`Veritabanını bilgisayarınıza ${format.toUpperCase()} formatında yedeklemek istediğinize emin misiniz?`)) {
       return;
     }
 
@@ -83,29 +50,7 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
     setMessage({ type: 'success', text: 'Yedekleme hazırlanıyor...' });
 
     try {
-      // 1. Get fresh token with full Drive scope
-      const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/drive');
-      
-      provider.setCustomParameters({ 
-        login_hint: 'edirnesydv@gmail.com',
-        prompt: 'select_account'
-      });
-      
-      const result = await signInWithPopup(auth, provider);
-      
-      if (result.user.email !== 'edirnesydv@gmail.com') {
-        throw new Error('Güvenlik İhlali: Seçilen hesap yetkisiz.');
-      }
-
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const token = credential?.accessToken;
-
-      if (!token) {
-        throw new Error('Google Drive erişim izni alınamadı.');
-      }
-
-      // 2. Fetch all data from Firestore (Decrypted via dbLocal)
+      // Fetch all data from dbLocal
       const backupData: Record<string, any[]> = {
         applicants: await dbLocal.applicants.toArray(),
         staff: await dbLocal.staff.toArray(),
@@ -114,88 +59,44 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
         programs: await dbLocal.programs.toArray()
       };
 
-      const fileContent = JSON.stringify(backupData, null, 2);
-      const fileName = `vefa_yedek_${new Date().toISOString().split('T')[0]}.json`;
+      const dateStr = new Date().toISOString().split('T')[0];
 
-      // 3. Find or create the "vefa-yonetim-sistemi" folder
-      const folderName = 'vefa-yonetim-sistemi';
-      let folderId = null;
-
-      const searchResponse = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false&spaces=drive`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
+      if (format === 'json') {
+        const fileContent = JSON.stringify(backupData, null, 2);
+        const fileName = `vefa_yedek_${dateStr}.json`;
+        
+        const blob = new Blob([fileContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else if (format === 'excel') {
+        const wb = XLSX.utils.book_new();
+        for (const [key, dataArray] of Object.entries(backupData)) {
+          // Exclude complex nested objects or stringify them if needed, but standard JSON array is usually fine
+          const cleanData = dataArray.map(item => {
+            const cleanItem: any = {};
+            for (const [k, v] of Object.entries(item)) {
+              if (typeof v === 'object' && v !== null) {
+                cleanItem[k] = JSON.stringify(v);
+              } else {
+                cleanItem[k] = v;
+              }
+            }
+            return cleanItem;
+          });
+          const ws = XLSX.utils.json_to_sheet(cleanData.length > 0 ? cleanData : [{}]);
+          XLSX.utils.book_append_sheet(wb, ws, key);
         }
-      );
-
-      if (!searchResponse.ok) {
-        throw new Error('Klasör aranırken hata oluştu.');
-      }
-
-      const searchData = await searchResponse.json();
-      
-      if (searchData.files && searchData.files.length > 0) {
-        folderId = searchData.files[0].id;
-      } else {
-        // Create the folder
-        const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            name: folderName,
-            mimeType: 'application/vnd.google-apps.folder'
-          })
-        });
-
-        if (!createResponse.ok) {
-          throw new Error('Klasör oluşturulamadı.');
-        }
-
-        const createData = await createResponse.json();
-        folderId = createData.id;
-      }
-
-      // 4. Upload to Google Drive using multipart/related
-      const metadata = {
-        name: fileName,
-        mimeType: 'application/json',
-        parents: [folderId],
-      };
-
-      const boundary = '-------314159265358979323846';
-      const delimiter = '\r\n--' + boundary + '\r\n';
-      const closeDelim = '\r\n--' + boundary + '--';
-
-      const multipartRequestBody =
-        delimiter +
-        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-        JSON.stringify(metadata) +
-        delimiter +
-        'Content-Type: application/json\r\n\r\n' +
-        fileContent +
-        closeDelim;
-
-      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': `multipart/related; boundary=${boundary}`,
-        },
-        body: multipartRequestBody,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Google Drive yükleme hatası: ${errorData.error?.message || response.statusText}`);
+        XLSX.writeFile(wb, `vefa_yedek_${dateStr}.xlsx`);
       }
 
       const now = new Date().toISOString();
       localStorage.setItem('lastBackupDate', now);
       setLastBackupDate(now);
-      setMessage({ type: 'success', text: 'Yedekleme Google Drive\'a başarıyla kaydedildi.' });
+      setMessage({ type: 'success', text: `Yedekleme bilgisayarınıza başarıyla indirildi (${format.toUpperCase()}).` });
 
     } catch (error: any) {
       console.error('Backup error:', error);
@@ -233,14 +134,12 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
         const hasAllKeys = requiredKeys.every(key => Array.isArray(backupData[key]));
 
         if (!hasAllKeys) {
-          throw new Error('Geçersiz yedek dosyası formatı.');
+          throw new Error('Geçersiz yedek dosyası formatı. Yalnızca geçerli bir JSON yedeği kullanılabilir.');
         }
 
         // Restore process
         for (const key of requiredKeys) {
-          // Clear collection
           await (dbLocal as any)[key].clear();
-          // Bulk add
           const items = backupData[key].map((item: any) => {
             const { id, ...rest } = item;
             return rest;
@@ -262,24 +161,16 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
     reader.readAsText(file);
   };
 
-  if (!user) {
+  if (!user || user.email !== 'edirnesydv@gmail.com') {
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-center">
-        <div className="flex justify-center mb-3">
-          <div className="bg-blue-100 p-2 rounded-lg">
-            <Cloud className="w-5 h-5 text-blue-600" />
+      <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm text-center max-w-2xl mx-auto mt-10">
+        <div className="flex justify-center mb-4">
+          <div className="bg-red-50 p-3 rounded-2xl">
+            <AlertCircle className="w-8 h-8 text-red-500" />
           </div>
         </div>
-        <h3 className="text-xs font-bold text-gray-900 mb-2">Veri Yedekleme</h3>
-        <p className="text-[10px] text-gray-500 mb-3">İşlem yapabilmek için Google Drive erişimi gereklidir.</p>
-        <button
-          onClick={handleLogin}
-          disabled={isSyncing}
-          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-[10px] font-bold transition-colors disabled:opacity-50"
-        >
-          {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />}
-          Google ile Bağlan
-        </button>
+        <h3 className="text-lg font-bold text-gray-900 mb-2">Yetkisiz Erişim</h3>
+        <p className="text-sm text-gray-500">Yedekleme ve geri yükleme işlemleri yalnızca sistem yöneticisi (edirnesydv@gmail.com) tarafından yapılabilir.</p>
       </div>
     );
   }
@@ -293,103 +184,87 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
           </div>
           <div>
             <h2 className="text-xl md:text-2xl font-bold text-gray-900">Sistem Veri Yedekleme</h2>
-            <p className="text-sm text-gray-500 font-medium">Sistem verilerini Google Drive'a güvenle yedekleyin.</p>
+            <p className="text-sm text-gray-500 font-medium">Sistem verilerini bilgisayarınıza güvenle yedekleyin.</p>
           </div>
         </div>
       </div>
 
-      <div className="space-y-6">
-        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full shrink-0 ${user ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-sm text-gray-700 font-medium whitespace-nowrap">
-              Google Drive Bağlantısı: {user ? user.email : 'Bağlı Değil'}
-            </span>
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            onClick={() => handleManualBackup('json')}
+            disabled={isSyncing}
+            className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-4 rounded-2xl text-sm font-bold transition-all shadow-md shadow-blue-100 disabled:opacity-50"
+          >
+            {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileJson className="w-5 h-5" />}
+            JSON İndir (Geri Yüklenebilir)
+          </button>
+
+          <button
+            onClick={() => handleManualBackup('excel')}
+            disabled={isSyncing}
+            className="w-full flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-4 rounded-2xl text-sm font-bold transition-all shadow-md shadow-emerald-100 disabled:opacity-50"
+          >
+            {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileSpreadsheet className="w-5 h-5" />}
+            Excel Olarak İndir
+          </button>
+          
+          <div className="relative md:col-span-2">
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleRestore}
+              disabled={isSyncing}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              title="Yedekten Geri Yükle"
+            />
+            <button
+              disabled={isSyncing}
+              className="w-full flex items-center justify-center gap-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-4 py-4 rounded-2xl text-sm font-bold transition-all disabled:opacity-50"
+            >
+              {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
+              Dosyadan Geri Yükle (.json)
+            </button>
           </div>
         </div>
 
-        {user ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button
-                onClick={handleManualBackup}
-                disabled={isSyncing}
-                className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-md shadow-blue-100 disabled:opacity-50"
-              >
-                {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <DownloadCloud className="w-5 h-5" />}
-                Drive'a Yedekle
-              </button>
-              
-              <div className="relative">
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleRestore}
-                  disabled={isSyncing}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                  title="Yedekten Geri Yükle"
-                />
-                <button
-                  disabled={isSyncing}
-                  className="w-full flex items-center justify-center gap-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-4 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-                >
-                  {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
-                  Dosyadan Geri Yükle
-                </button>
-              </div>
-            </div>
-
-            {lastBackupDate && (
-              <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100 text-center">
-                <p className="text-sm text-gray-500 font-medium">
-                  Son Yedekleme Tarihi: <span className="font-bold text-gray-800">{new Date(lastBackupDate).toLocaleDateString('tr-TR')}</span>
-                </p>
-                {(() => {
-                  const days = Math.floor((new Date().getTime() - new Date(lastBackupDate).getTime()) / (1000 * 3600 * 24));
-                  if (days >= 10) {
-                    return (
-                      <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100 text-red-600 text-sm font-bold flex items-center justify-center gap-2">
-                        <AlertCircle className="w-4 h-4" />
-                        DİKKAT: YEDEKLEME SÜRESİ GEÇTİ ({days} GÜN). LÜTFEN BİR YEDEK ALIN!
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <div className="mt-3 text-xs text-green-600 font-medium">
-                        Sistem yedeği güncel. Yeniden yedek almak için kalan süre: {10 - days} gün.
-                      </div>
-                    );
-                  }
-                })()}
-              </div>
-            )}
-            
-            {!lastBackupDate && (
-              <div className="mt-6 p-4 bg-orange-50 rounded-xl border border-orange-100 text-center">
-                 <div className="mt-1 text-sm text-orange-700 font-bold flex items-center justify-center gap-2">
+        {lastBackupDate && (
+          <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
+            <p className="text-sm text-gray-500 font-medium">
+              Son Yedekleme Tarihi: <span className="font-bold text-gray-800">{new Date(lastBackupDate).toLocaleDateString('tr-TR')}</span>
+            </p>
+            {(() => {
+              const days = Math.floor((new Date().getTime() - new Date(lastBackupDate).getTime()) / (1000 * 3600 * 24));
+              if (days >= 10) {
+                return (
+                  <div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-100 text-red-600 text-sm font-bold flex items-center justify-center gap-2">
                     <AlertCircle className="w-4 h-4" />
-                    Henüz hiç yedek alınmamış. Lütfen güvenliğiniz için yedek alın.
-                 </div>
-              </div>
-            )}
+                    DİKKAT: YEDEKLEME SÜRESİ GEÇTİ ({days} GÜN). LÜTFEN BİR YEDEK ALIN!
+                  </div>
+                );
+              } else {
+                return (
+                  <div className="mt-3 text-xs text-green-600 font-medium">
+                    Sistem yedeği güncel. Yeniden yedek almak için kalan süre: {10 - days} gün.
+                  </div>
+                );
+              }
+            })()}
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center space-y-4 p-8 bg-gray-50 rounded-2xl border border-gray-100">
-            <LogIn className="w-8 h-8 text-gray-400" />
-            <p className="text-sm text-gray-500 text-center">Yedekleme yapabilmek için Google hesabınızla giriş yapmalısınız.</p>
-            <button
-               onClick={handleLogin}
-               className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50 transition-all flex items-center gap-2"
-            >
-              <LogIn className="w-4 h-4" />
-              Google ile Giriş Yap
-            </button>
+        )}
+        
+        {!lastBackupDate && (
+          <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 text-center">
+             <div className="text-sm text-orange-700 font-bold flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                Henüz hiç yedek alınmamış. Lütfen güvenliğiniz için yedek alın.
+             </div>
           </div>
         )}
       </div>
 
       {message && (
-        <div className={`mt-6 flex items-center gap-2 p-3 rounded-xl text-sm font-bold ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+        <div className={`mt-6 flex items-center gap-2 p-4 rounded-2xl text-sm font-bold ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
           {message.text}
         </div>
