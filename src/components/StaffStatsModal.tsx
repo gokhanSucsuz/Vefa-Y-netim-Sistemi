@@ -22,6 +22,24 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
   const [loading, setLoading] = useState(true);
   const reportRef = useRef<HTMLDivElement>(null);
 
+  const formatDateTime = (isoString?: string) => {
+    if (!isoString) return '';
+    try {
+      return format(parseISO(isoString), 'dd.MM.yyyy HH:mm');
+    } catch (e) {
+      return isoString || '';
+    }
+  };
+
+  const formatTimeOnly = (isoString?: string) => {
+    if (!isoString) return '';
+    try {
+      return format(parseISO(isoString), 'HH:mm');
+    } catch (e) {
+      return isoString || '';
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       const [schedulesData, applicantsData, staffData] = await Promise.all([
@@ -156,6 +174,7 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
                     ],
                     ...dayAssignments.map(a => {
                       const applicant = applicants.find(ap => ap.id === a.applicantId);
+                      const applicantName = applicant ? [applicant.name, applicant.surname].filter(Boolean).join(' ') : 'Bilinmiyor';
                       const teammateIds = a.staffIds.filter(id => id !== staff.id);
                       const teammateNames = teammateIds.map(id => {
                         const s = allStaff.find(st => st.id === id);
@@ -163,13 +182,15 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
                       }).join(', ');
 
                       const approval = a.approvals?.find(apr => apr.staffId === staff.id);
-                      const timeStr = approval?.startTime ? `${approval.startTime} - ${approval.endTime || '...'}` : '-';
+                      const timeStr = approval?.startTime 
+                        ? `${formatDateTime(approval.startTime)} - ${approval.endTime ? formatDateTime(approval.endTime) : '...'}` 
+                        : '-';
 
                       return [
                         timeStr,
                         {
                           stack: [
-                            { text: applicant ? `${applicant.name} ${applicant.surname}` : 'Bilinmiyor', bold: true },
+                            { text: applicantName, bold: true },
                             { text: applicant?.address || '-', fontSize: 8, color: '#666' }
                           ]
                         },
@@ -309,22 +330,25 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
 
                 return completedList.map((a, idx) => {
                   const applicant = applicants.find(ap => ap.id === a.applicantId);
+                  const applicantName = applicant ? [applicant.name, applicant.surname].filter(Boolean).join(' ') : 'Bilinmiyor';
                   const teammateIds = a.staffIds.filter(id => id !== staff.id);
                   const teammateNames = teammateIds.map(id => {
                     const s = allStaff.find(st => st.id === id);
                     return s ? `${s.name} ${s.surname}` : 'Bilinmiyor';
                   }).join(', ');
                   const approval = a.approvals?.find(apr => apr.staffId === staff.id);
-                  const timeStr = approval?.startTime ? `${approval.startTime} - ${approval.endTime || '...'}` : '';
+                  const timeRange = approval?.startTime 
+                    ? `${formatDateTime(approval.startTime)} - ${approval.endTime ? formatDateTime(approval.endTime) : '...'}` 
+                    : '';
 
                   return (
                     <tr key={idx}>
                       <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>
                         <div>{format(parseISO(a.date), 'dd.MM.yyyy')}</div>
-                        <div style={{ fontSize: '8pt', color: '#64748b' }}>{timeStr}</div>
+                        <div style={{ fontSize: '8pt', color: '#64748b' }}>{timeRange}</div>
                       </td>
                       <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontWeight: '500' }}>{applicant ? `${applicant.name} ${applicant.surname}` : 'Bilinmiyor'}</div>
+                        <div style={{ fontWeight: '500' }}>{applicantName}</div>
                         <div style={{ fontSize: '8pt', color: '#64748b' }}>{applicant?.address || '-'}</div>
                       </td>
                       <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{teammateNames || '-'}</td>
@@ -456,27 +480,45 @@ export default function StaffStatsModal({ staff, currentUser, onClose }: Props) 
                         <div className="space-y-2">
                           {grouped[date].map((a, idx) => {
                             const applicant = applicants.find(ap => ap.id === a.applicantId);
+                            const applicantName = applicant ? [applicant.name, applicant.surname].filter(Boolean).join(' ') : 'Bilinmiyor';
                             const teammateIds = a.staffIds.filter(id => id !== staff.id);
                             const teammateNames = teammateIds.map(id => {
                               const s = allStaff.find(st => st.id === id);
                               return s ? `${s.name} ${s.surname}` : 'Bilinmiyor';
                             }).join(', ');
                             const approval = a.approvals?.find(apr => apr.staffId === staff.id);
-                            const timeStr = approval?.startTime ? `${approval.startTime} - ${approval.endTime || '...'}` : '';
+                            const startTimeStr = approval?.startTime ? formatTimeOnly(approval.startTime) : '';
+                            const endTimeStr = approval?.endTime ? formatTimeOnly(approval.endTime) : '';
+                            const fullTimeRange = approval?.startTime 
+                              ? `${formatDateTime(approval.startTime)} - ${approval.endTime ? formatDateTime(approval.endTime) : '...'}` 
+                              : '';
 
                             return (
                               <div key={idx} className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
-                                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm text-blue-600 text-xs font-bold shrink-0">
-                                    {timeStr || <Clock className="w-4 h-4 opacity-30" />}
+                                  <div className="px-2 py-1 bg-white rounded-lg flex flex-col items-center justify-center shadow-sm text-blue-600 text-[10px] font-bold shrink-0 min-w-[60px]">
+                                    {startTimeStr ? (
+                                      <>
+                                        <span>{startTimeStr}</span>
+                                        <span className="text-[8px] opacity-50">↓</span>
+                                        <span>{endTimeStr || '...'}</span>
+                                      </>
+                                    ) : (
+                                      <Clock className="w-4 h-4 opacity-30" />
+                                    )}
                                   </div>
-                                  <div>
-                                    <div className="font-medium text-gray-900">
-                                      {applicant ? `${applicant.name} ${applicant.surname}` : 'Bilinmiyor'}
+                                  <div className="min-w-0">
+                                    <div className="font-medium text-gray-900 truncate">
+                                      {applicantName}
                                     </div>
-                                    <div className="text-xs text-gray-500">
+                                    <div className="text-xs text-gray-500 line-clamp-1">
                                       {applicant?.address || '-'} / {applicant?.neighborhood || '-'}
                                     </div>
+                                    {fullTimeRange && (
+                                      <div className="text-[9px] text-gray-400 font-mono mt-0.5">
+                                        {fullTimeRange}
+                                      </div>
+                                    )}
                                     {teammateNames && (
                                       <div className="text-[10px] text-blue-600 font-medium mt-1">
                                         Takım Arkadaşı: {teammateNames}
