@@ -1813,22 +1813,28 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                             </div>
 
                             <button
-                              disabled={isFuture && !isCompleted}
+                              disabled={(isFuture && !isCompleted) || (isPast && isCompleted)}
                               onClick={() => {
                                 if (!isCompleted) {
                                   setCompletionModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
                                 } else {
-                                  toggleCompletion(a.date, item.applicant.id!);
+                                  if (a.date === todayStr) {
+                                    if (window.confirm('Bu ziyareti tamamlanmamış olarak işaretleyip geri almak istediğinize emin misiniz?')) {
+                                      toggleCompletion(a.date, item.applicant.id!);
+                                    }
+                                  } else {
+                                    toggleCompletion(a.date, item.applicant.id!);
+                                  }
                                 }
                               }}
                               className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
                                 isCompleted 
-                                  ? 'bg-slate-100 text-slate-400 hover:bg-slate-200' 
+                                  ? (isPast ? 'bg-gray-100 text-gray-300' : 'bg-slate-100 text-slate-400 hover:bg-slate-200') 
                                   : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm shadow-emerald-100'
                               } disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed`}
                             >
                               {isCompleted ? <RefreshCw className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                              {isCompleted ? 'Geri Al' : (isFuture ? 'Zamanı Bekleniyor' : 'Ziyareti Tamamla')}
+                              {isCompleted ? (isPast ? 'Geri Alınamaz' : 'Geri Al') : (isFuture ? 'Zamanı Bekleniyor' : 'Ziyareti Tamamla')}
                             </button>
 
                             <div className="space-y-4 pt-2 border-t border-slate-50">

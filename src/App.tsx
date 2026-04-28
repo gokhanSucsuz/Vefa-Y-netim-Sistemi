@@ -250,7 +250,18 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-10 w-full">
         <div className="max-w-7xl mx-auto pb-20 w-full animate-in fade-in duration-500">
-          {activeTab === 'dashboard' && <Dashboard onNavigate={navigateToSchedule} currentUser={currentStaffUser!} />}
+          {activeTab === 'dashboard' && (
+            <Dashboard 
+              onNavigate={(tab, date) => {
+                if (tab === 'schedule') {
+                  navigateToSchedule(date);
+                } else {
+                  setActiveTab(tab);
+                }
+              }} 
+              currentUser={currentStaffUser!} 
+            />
+          )}
           {activeTab === 'applicants' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} />}
           {activeTab === 'priority' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} isPriorityMode={true} />}
           {activeTab === 'staff' && <StaffList staff={staff} currentUser={currentStaffUser!} />}
