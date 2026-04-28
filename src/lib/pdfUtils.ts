@@ -1,5 +1,6 @@
 import { Applicant, Staff, SystemUser } from '../types';
 import { format, parseISO } from 'date-fns';
+// Empty comment to trigger HMR
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from './pdfFonts';
 

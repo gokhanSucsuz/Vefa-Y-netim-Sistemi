@@ -35,7 +35,15 @@ export async function setupPdfMakeFonts() {
     // Quick check if the vfs object contains our standard font
     if (vfs && vfs['Roboto-Medium.ttf']) {
       (pdfMake as any).vfs = vfs;
+      if (typeof (pdfMake as any).addVirtualFileSystem === 'function') {
+        (pdfMake as any).addVirtualFileSystem(vfs);
+      }
       (pdfMake as any).fonts = ROBOTO_FONTS;
+      if (typeof window !== 'undefined') {
+        (window as any).pdfMake = (window as any).pdfMake || {};
+        (window as any).pdfMake.vfs = vfs;
+        (window as any).pdfMake.fonts = ROBOTO_FONTS;
+      }
       configuredPdfMake = pdfMake;
       return pdfMake;
     }

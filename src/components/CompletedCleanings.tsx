@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Applicant, Staff, Schedule, SystemUser } from '../types';
+// HMR comment
 import { logAction } from '../services/auditService';
 import { Search, FileText, CheckCircle2, Calendar, User, MapPin, Download } from 'lucide-react';
 import { generateCleaningReport, generateMassCleaningReport } from '../lib/pdfUtils';
