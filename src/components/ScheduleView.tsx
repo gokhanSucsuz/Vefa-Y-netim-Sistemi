@@ -881,11 +881,48 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
         const isCompleted = !a.isCompleted;
         const applicant = applicants.find(p => p.id === applicantId);
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, isCompleted ? 'Ziyaret Tamamlama' : 'Ziyaret Geri Alma', `${date} tarihindeki ${applicant?.name} ziyareti ${isCompleted ? 'tamamlandı' : 'tamamlanmadı olarak işaretlendi'}.${note ? ` Not: ${note}` : ''}`);
+
+        const teamKey = [...(a.staffIds || [])].sort().join(',');
+        const teamTasks = schedule.assignments.filter(sa => [...(sa.staffIds || [])].sort().join(',') === teamKey);
+        const tIndex = teamTasks.findIndex(ta => ta.applicantId === applicantId);
+        const isMorning = tIndex === 0;
+
+        const targetDateObj = parseISO(date);
+        const startDate = new Date(targetDateObj);
+        const endDate = new Date(targetDateObj);
+        
+        if (isMorning) {
+          startDate.setHours(9, 30, 0, 0);
+          endDate.setHours(11, 30, 0, 0);
+        } else {
+          startDate.setHours(13, 30, 0, 0);
+          endDate.setHours(16, 0, 0, 0);
+        }
+
+        let approvals = a.approvals || [];
+        if (isCompleted) {
+          approvals = (a.staffIds || []).map(staffId => {
+            const existing = approvals.find(apr => apr.staffId === staffId) || { staffId, date };
+            return {
+              ...existing,
+              startTime: startDate.toISOString(),
+              endTime: endDate.toISOString()
+            };
+          });
+        } else {
+          approvals = approvals.map(apr => ({
+            ...apr,
+            startTime: undefined,
+            endTime: undefined
+          }));
+        }
+
         return { 
           ...a, 
           isCompleted, 
           completionDate: isCompleted ? new Date().toISOString() : undefined,
-          completionNote: isCompleted ? note : undefined
+          completionNote: isCompleted ? note : undefined,
+          approvals
         };
       }
       return a;

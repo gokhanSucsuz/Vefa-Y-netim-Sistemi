@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect } from 'react';
 import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Applicant, Staff, Schedule, SystemUser } from '../types';
 import { Users, Clock, CheckCircle2, Play, AlertCircle, MapPin, Navigation, FileText, CheckSquare } from 'lucide-react';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
@@ -59,11 +59,39 @@ export default function ActiveTasksTracker({ currentUser }: Props) {
         const autoCompletedAssignments = assignments.map(a => {
           if (!a.isCompleted) {
             needsCompletion = true;
+            
+            const teamKey = [...(a.staffIds || [])].sort().join(',');
+            const teamTasks = assignments.filter(sa => [...(sa.staffIds || [])].sort().join(',') === teamKey);
+            const tIndex = teamTasks.findIndex(ta => ta.applicantId === a.applicantId);
+            const isMorning = tIndex === 0;
+
+            const targetDateObj = parseISO(todayStr);
+            const startDate = new Date(targetDateObj);
+            const endDate = new Date(targetDateObj);
+            
+            if (isMorning) {
+              startDate.setHours(9, 30, 0, 0);
+              endDate.setHours(11, 30, 0, 0);
+            } else {
+              startDate.setHours(13, 30, 0, 0);
+              endDate.setHours(16, 0, 0, 0);
+            }
+
+            const approvals = (a.staffIds || []).map(staffId => {
+              const existing = a.approvals?.find(apr => apr.staffId === staffId) || { staffId, date: todayStr };
+              return {
+                ...existing,
+                startTime: startDate.toISOString(),
+                endTime: endDate.toISOString()
+              };
+            });
+
             return {
               ...a,
               isCompleted: true,
               completionDate: new Date().toISOString(),
-              completionNote: 'Sistem tarafından otomatik olarak tamamlandı (17:20).'
+              completionNote: 'Sistem tarafından otomatik olarak tamamlandı (17:20).',
+              approvals
             };
           }
           return a;
@@ -148,15 +176,40 @@ export default function ActiveTasksTracker({ currentUser }: Props) {
     if (!confirm('Bu ziyareti tamamlandı olarak işaretlemek istediğinize emin misiniz? (Personellerin listesinden de tamamlanmış olarak düşecektir.)')) return;
 
     try {
+      const taskData = activeAssignments.find(a => a.applicant?.id === applicantId);
+      const isMorning = taskData?.timingLabel !== 'Öğleden Sonra';
+
       const updatedAssignments = todaySchedule.assignments.map(a => {
         if (a.applicantId === applicantId) {
           const applicant = applicants.find(p => p.id === applicantId);
           logAction(currentUser?.id || 'admin', `${currentUser?.name || 'Sistem'} ${currentUser?.surname || ''}`, 'Yönetici Tamamlama', `${todayStr} tarihindeki ${applicant?.name} ziyareti yönetici tarafından tamamlandı olarak işaretlendi.`);
+          
+          const startDate = new Date();
+          const endDate = new Date();
+          
+          if (isMorning) {
+            startDate.setHours(9, 30, 0, 0);
+            endDate.setHours(11, 30, 0, 0);
+          } else {
+            startDate.setHours(13, 30, 0, 0);
+            endDate.setHours(16, 0, 0, 0);
+          }
+
+          const approvals = (a.staffIds || []).map(staffId => {
+            const existing = a.approvals?.find(apr => apr.staffId === staffId) || { staffId, date: todayStr };
+            return {
+              ...existing,
+              startTime: startDate.toISOString(),
+              endTime: endDate.toISOString()
+            };
+          });
+
           return {
             ...a,
             isCompleted: true,
             completionDate: new Date().toISOString(),
             completionNote: 'Yönetici tarafından tamamlandı olarak işaretlendi.',
+            approvals,
           };
         }
         return a;
