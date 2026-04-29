@@ -260,7 +260,7 @@ export default function App() {
           {activeTab === 'workdays' && <WorkDayCalendar workDays={workDays} currentUser={currentStaffUser!} />}
           {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} programs={programs} currentUser={currentStaffUser!} initialDate={selectedScheduleDate} />}
           {activeTab === 'programs' && <ProgramManagement programs={programs} schedules={schedules} currentUser={currentStaffUser!} />}
-          {activeTab === 'active_tasks' && <ActiveTasksTracker />}
+          {activeTab === 'active_tasks' && <ActiveTasksTracker currentUser={currentStaffUser!} />}
           {activeTab === 'completed' && <CompletedCleanings applicants={applicants} staff={staff} schedules={schedules} currentUser={currentStaffUser!} />}
           {activeTab === 'stats' && <Statistics currentUser={currentStaffUser!} onNavigate={navigateToSchedule} />}
           {activeTab === 'audit' && <AuditLogView />}

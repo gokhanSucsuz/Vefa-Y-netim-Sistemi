@@ -2,14 +2,19 @@ import React, { useMemo, useEffect } from 'react';
 import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
 import { format } from 'date-fns';
-import { Applicant, Staff, Schedule } from '../types';
-import { Users, Clock, CheckCircle2, Play, AlertCircle, MapPin, Navigation, FileText } from 'lucide-react';
+import { Applicant, Staff, Schedule, SystemUser } from '../types';
+import { Users, Clock, CheckCircle2, Play, AlertCircle, MapPin, Navigation, FileText, CheckSquare } from 'lucide-react';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
 import { Map, Marker, NavigationControl } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { logAction } from '../services/auditService';
 
-export default function ActiveTasksTracker() {
+interface Props {
+  currentUser: SystemUser;
+}
+
+export default function ActiveTasksTracker({ currentUser }: Props) {
   const staff = useLiveQuery(() => dbLocal.staff.toArray()) || [];
   const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
@@ -137,6 +142,32 @@ export default function ActiveTasksTracker() {
       };
     });
   }, [todaySchedule, applicants, staff]);
+
+  const handleAdminComplete = async (applicantId: string) => {
+    if (!todaySchedule || !todaySchedule.id) return;
+    if (!confirm('Bu ziyareti tamamlandı olarak işaretlemek istediğinize emin misiniz? (Personellerin listesinden de tamamlanmış olarak düşecektir.)')) return;
+
+    try {
+      const updatedAssignments = todaySchedule.assignments.map(a => {
+        if (a.applicantId === applicantId) {
+          const applicant = applicants.find(p => p.id === applicantId);
+          logAction(currentUser?.id || 'admin', `${currentUser?.name || 'Sistem'} ${currentUser?.surname || ''}`, 'Yönetici Tamamlama', `${todayStr} tarihindeki ${applicant?.name} ziyareti yönetici tarafından tamamlandı olarak işaretlendi.`);
+          return {
+            ...a,
+            isCompleted: true,
+            completionDate: new Date().toISOString(),
+            completionNote: 'Yönetici tarafından tamamlandı olarak işaretlendi.',
+          };
+        }
+        return a;
+      });
+
+      await dbLocal.schedules.update(todaySchedule.id, { assignments: updatedAssignments });
+    } catch (error) {
+      console.error('Tamamlama hatası:', error);
+      alert('İşlem sırasında bir hata oluştu');
+    }
+  };
 
   const mapMarkers = activeAssignments
     .filter(a => a.lat && a.lng && a.applicant)
@@ -460,6 +491,15 @@ export default function ActiveTasksTracker() {
                   );
                 })}
               </div>
+              {task.status !== 'completed' && currentUser?.role !== 'staff' && (
+                <button
+                  onClick={() => handleAdminComplete(task.applicant!.id!)}
+                  className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 bg-slate-800 text-white hover:bg-slate-900 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+                >
+                  <CheckSquare className="w-4 h-4" />
+                  Yönetici Olarak Tamamla
+                </button>
+              )}
             </div>
           ))}
         </div>

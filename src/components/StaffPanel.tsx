@@ -630,10 +630,10 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
             const isFutureDate = selectedDate > format(new Date(), 'yyyy-MM-dd');
             
             const myApproval = a.approvals?.find(apr => apr.staffId === myStaffRecord.id);
-            const isApprovedByMe = !!(myApproval && myApproval.endTime);
-            const isStartedByMe = !!(myApproval && myApproval.startTime && !myApproval.endTime);
-            
             const isCompleted = a.isCompleted;
+            const isApprovedByMe = !!(myApproval && myApproval.endTime) || isCompleted;
+            const isStartedByMe = !!(myApproval && myApproval.startTime && !myApproval.endTime) && !isCompleted;
+            
             const canStart = !isApprovedByMe && !isPast && !isFutureDate && !isSelected && !isStartedByMe;
 
             return (
