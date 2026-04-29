@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, EDIRNE_NEIGHBORHOODS, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3, Eye, EyeOff, GripVertical, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -233,6 +233,40 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
       }
     }
     alert(`${fixedCount} hanenin mahalle bilgisi düzeltildi.`);
+  };
+
+  const exportTemplate = () => {
+    // If we have current applicants, create a template with their data.
+    // Otherwise, create an empty template.
+    const active = applicants.filter(a => !a.isDeleted);
+    
+    let data;
+    if (active.length > 0) {
+      data = active.map(a => ({
+        'İsim Soyisim': `${a.name} ${a.surname}`,
+        'TC Kimlik No': a.tcNo || '',
+        'Hane No': a.haneNo || '',
+        'Telefon': a.phone || '',
+        'Mahalle': a.neighborhood || '',
+        'Adres': a.address || '',
+        'Hane Birey Sayısı': a.householdSize || 1
+      }));
+    } else {
+      data = [{
+        'İsim Soyisim': 'Örnek İsim',
+        'TC Kimlik No': '11111111111',
+        'Hane No': '12345',
+        'Telefon': '05555555555',
+        'Mahalle': 'Şükrüpaşa Mahallesi',
+        'Adres': 'Test Sokak No:1 İç Kapı:2',
+        'Hane Birey Sayısı': 1
+      }];
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Haneler Şablonu");
+    XLSX.writeFile(wb, "Hane_Yukleme_Sablonu.xlsx");
   };
 
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -527,13 +561,22 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
             className="hidden"
           />
           {!isAdding && !isImporting && !isPriorityMode && (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200 text-sm"
-            >
-              <FileSpreadsheet className="w-5 h-5" />
-              Excel'den Yükle
-            </button>
+            <>
+              <button
+                onClick={exportTemplate}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-50 text-slate-700 px-4 py-2 rounded-xl hover:bg-slate-100 transition-all font-semibold border border-slate-200 text-sm"
+              >
+                <Download className="w-5 h-5" />
+                Şablon İndir
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200 text-sm"
+              >
+                <FileSpreadsheet className="w-5 h-5" />
+                Excel'den Yükle
+              </button>
+            </>
           )}
           {activeApplicants.length > 0 && !isAdding && !isImporting && !isPriorityMode && (
             <button

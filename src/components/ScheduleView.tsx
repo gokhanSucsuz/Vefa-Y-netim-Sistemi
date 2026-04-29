@@ -4,7 +4,7 @@ import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHO
 import { logAction } from '../services/auditService';
 import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays, isWeekend } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye } from 'lucide-react';
+import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye, Settings2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { APP_LOGO_URL } from '../constants/logo';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
@@ -14,6 +14,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { geocodeAddress } from '../services/geocoding';
 import { EDIRNE_NEIGHBORHOOD_COORDS } from '../constants/edirne_data';
+import ManualSchedulePlanner from './ManualSchedulePlanner';
 
 // MapLibre GL JS doesn't need the Leaflet icon fix
 
@@ -51,6 +52,7 @@ function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
 
 export default function ScheduleView({ applicants, staff, workDays, schedules, programs, currentUser, initialDate }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showManualPlanner, setShowManualPlanner] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     if (initialDate) {
@@ -596,6 +598,11 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     let actualPlanningStartDate = planningStartDate;
     
     if (activeProgram) {
+      const daysLeft = differenceInDays(parseISO(activeProgram.endDate), now);
+      if (daysLeft > 7) {
+        alert(`Mevcut programın bitimine ${daysLeft} gün var. Yeni program ancak program bitimine 7 gün kala oluşturulabilir.`);
+        return;
+      }
       actualPlanningStartDate = format(addDays(parseISO(activeProgram.endDate), 1), 'yyyy-MM-dd');
       // Otomatik yeni program olarak devam et
     } else {
@@ -1266,6 +1273,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       .filter(m => !isNaN(m.pos[0]) && !isNaN(m.pos[1]));
   }, [expandedDay, assignments]);
 
+  const isManualPlanDisabled = useMemo(() => {
+    const activeProgram = programs.find(p => p.status === 'active');
+    if (activeProgram) {
+      const daysLeft = differenceInDays(parseISO(activeProgram.endDate), new Date());
+      return daysLeft > 7;
+    }
+    return false;
+  }, [programs]);
+
   return (
     <div className="space-y-6 relative">
       {/* Loading Overlay for Rescheduling */}
@@ -1524,12 +1540,25 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
             </div>
           </div>
           <button
+            onClick={() => {
+              if (isManualPlanDisabled) {
+                alert('Mevcut programın bitimine 7 günden fazla var. Yeni manuel program ancak program bitimine 7 gün kala oluşturulabilir.');
+                return;
+              }
+              setShowManualPlanner(true);
+            }}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 text-sm font-bold"
+          >
+            <Settings2 className="w-4 h-4 lg:w-5 lg:h-5" />
+            <span>Manuel Planla</span>
+          </button>
+          <button
             onClick={generateSchedule}
             disabled={isGenerating}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:opacity-50 text-sm font-bold"
           >
             <Wand2 className={`w-4 h-4 lg:w-5 lg:h-5 ${isGenerating ? 'animate-spin' : ''}`} />
-            <span>Planla</span>
+            <span>Otomatik Planla</span>
           </button>
           {hasOrphanedSchedules && (
             <button
@@ -1647,13 +1676,28 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
               <p className="text-sm text-gray-500 max-w-xs mx-auto mb-6">
                 Sistemde planlanmış aktif bir program bulunmamaktadır. Lütfen yukarıdaki "Planla" butonunu kullanarak yeni bir program oluşturun.
               </p>
-              <button
-                onClick={generateSchedule}
-                className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all font-bold shadow-lg shadow-blue-100"
-              >
-                <Wand2 className="w-5 h-5" />
-                Hemen Planla
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={() => {
+                    if (isManualPlanDisabled) {
+                      alert('Mevcut programın bitimine 7 günden fazla var. Yeni manuel program ancak program bitimine 7 gün kala oluşturulabilir.');
+                      return;
+                    }
+                    setShowManualPlanner(true);
+                  }}
+                  className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-100 min-w-[200px]"
+                >
+                  <Settings2 className="w-5 h-5" />
+                  Manuel Planla
+                </button>
+                <button
+                  onClick={generateSchedule}
+                  className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all font-bold shadow-lg shadow-blue-100 min-w-[200px]"
+                >
+                  <Wand2 className="w-5 h-5" />
+                  Otomatik Planla
+                </button>
+              </div>
             </div>
           ) : assignments.length === 0 ? (
             <div className="px-6 py-12 text-center text-gray-500">Bu ay için henüz iş günü belirlenmemiş.</div>
@@ -1930,6 +1974,16 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
           )}
         </div>
       </div>
+      
+      {showManualPlanner && (
+        <ManualSchedulePlanner 
+          applicants={applicants}
+          workDays={workDays}
+          schedules={schedules}
+          currentUser={currentUser}
+          onClose={() => setShowManualPlanner(false)}
+        />
+      )}
     </div>
   );
 }

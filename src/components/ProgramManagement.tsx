@@ -30,7 +30,7 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
 
   const handleDelete = async (id: string) => {
     const program = programs.find(p => p.id === id);
-    if (!confirm('Bu programı ve buna bağlı tüm planlamaları silmek istediğinize emin misiniz?')) return;
+    if (!confirm('Bu programı silmek istediğinize emin misiniz? Tamamlanmış temizlik kayıtları geçmişten silinmeyecek, ancak henüz tamamlanmamış kayıtlar silinecektir.')) return;
     
     try {
       await dbLocal.transaction("rw", [dbLocal.programs, dbLocal.schedules], async () => {
@@ -38,11 +38,21 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
         const tempScheds = await dbLocal.schedules.toArray();
         const programSchedules = tempScheds.filter(s => s.programId === id);
         for (const s of programSchedules) {
-          await dbLocal.schedules.delete(s.id!);
+          const completedAssignments = (s.assignments || []).filter(a => a.isCompleted);
+          if (completedAssignments.length > 0) {
+            // Keep the schedule but only with completed assignments, and detach from program
+            await dbLocal.schedules.update(s.id!, { 
+              assignments: completedAssignments,
+              programId: 'history' // A dummy or empty id so it's not orphaned, or just undefined
+            });
+          } else {
+            // No completed assignments, safe to delete entirely
+            await dbLocal.schedules.delete(s.id!);
+          }
         }
       });
       if (program) {
-        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Program Silme', `${program.name} silindi.`);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Program Silme', `${program.name} silindi. Tamamlanmış işlemler korundu.`);
       }
     } catch (error) {
       console.error('Program deletion failed:', error);
