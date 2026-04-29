@@ -1319,6 +1319,32 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     return false;
   }, [programs]);
 
+  const checkShiftDisabled = (date: string, applicantId: string) => {
+    const schedule = schedules.find(s => s.date === date);
+    if (!schedule) return { disabled: false, reason: '' };
+
+    const assignment = schedule.assignments.find(a => a.applicantId === applicantId);
+    if (!assignment) return { disabled: false, reason: '' };
+
+    if (assignment.isCompleted) return { disabled: true, reason: 'Görev çoktan tamamlanmış.' };
+
+    const isStarted = assignment.approvals?.some((apr: any) => apr.startTime);
+    if (isStarted) return { disabled: true, reason: 'Personel bu göreve başlamış. Önce yönetici müdahalesiyle iptal edilmeli veya bitirilmeli.' };
+
+    const teamKey = [...(assignment.staffIds || [])].sort().join(',');
+    const teamTasks = schedule.assignments.filter(a => [...(a.staffIds || [])].sort().join(',') === teamKey);
+    const myIndex = teamTasks.findIndex(a => a.applicantId === applicantId);
+    
+    if (myIndex === 1) { // Afternoon task
+      const morningTask = teamTasks[0];
+      if (morningTask?.isCompleted) {
+        return { disabled: true, reason: 'Sabah görevi tamamlandığı için bu takımın öğleden sonra görevi kaydırılamaz.' };
+      }
+    }
+
+    return { disabled: false, reason: '' };
+  };
+
   return (
     <div className="space-y-6 relative">
       {/* Loading Overlay for Rescheduling */}
@@ -1739,7 +1765,17 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
           ) : assignments.length === 0 ? (
             <div className="px-6 py-12 text-center text-gray-500">Bu ay için henüz iş günü belirlenmemiş.</div>
           ) : (
-            assignments.map(a => (
+            assignments.map(a => {
+              const currentDaySchedule = schedules.find(sc => sc.date === a.date);
+              const uncompletedItems = a.items.filter(i => {
+                const ass = currentDaySchedule?.assignments.find(as => as.applicantId === i.applicant.id);
+                return !ass?.isCompleted;
+              });
+              const shiftStati = uncompletedItems.map(i => checkShiftDisabled(a.date, i.applicant.id!));
+              const hasUnshiftableUncompletedTask = shiftStati.some(s => s.disabled);
+              const dayShiftReason = shiftStati.find(s => s.disabled)?.reason;
+
+              return (
               <div key={a.date} className={`transition-all ${expandedDay === a.date ? 'bg-blue-50/30' : ''}`}>
                 <div 
                   className="px-4 lg:px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
@@ -1767,10 +1803,14 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (hasUnshiftableUncompletedTask) {
+                            alert(dayShiftReason || 'Gün içindeki bazı ziyaretlere başlandığı veya atamalarına engel olan durumlar bulunduğu için gün tamamen kaydırılamaz.');
+                            return;
+                          }
                           setRescheduleModal({ date: a.date });
                         }}
-                        className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-1"
-                        title="Günü İptal Et ve Kaydır"
+                        className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${hasUnshiftableUncompletedTask ? 'text-gray-400 opacity-50 cursor-not-allowed hidden sm:flex' : 'text-orange-600 hover:bg-orange-50'}`}
+                        title={hasUnshiftableUncompletedTask ? dayShiftReason : "Günü İptal Et ve Kaydır"}
                       >
                         <AlertTriangle className="w-4 h-4" />
                         <span className="text-[10px] font-bold hidden sm:inline">GÜNÜ KAYDIR</span>
@@ -1799,6 +1839,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                         const todayStr = format(new Date(), 'yyyy-MM-dd');
                         const isFuture = a.date > todayStr;
                         const isPast = a.date < todayStr;
+                        const shiftStatus = checkShiftDisabled(a.date, item.applicant.id!);
 
                         return (
                           <div key={idx} className={`official-card p-4 flex flex-col gap-3 relative transition-all ${
@@ -1852,13 +1893,20 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                             
                             <div className="flex gap-2">
                               <button
-                                onClick={() => handleSwap(a.date, item.applicant.id!)}
-                                disabled={isCompleted || isPast}
+                                onClick={() => {
+                                  if (shiftStatus.disabled && !isSelectedForSwap) {
+                                    alert(shiftStatus.reason);
+                                    return;
+                                  }
+                                  handleSwap(a.date, item.applicant.id!);
+                                }}
+                                disabled={isCompleted || isPast || (shiftStatus.disabled && !isSelectedForSwap)}
                                 className={`flex-1 py-1 text-[10px] font-bold rounded-xl border transition-all flex items-center justify-center gap-1 ${
                                   isSelectedForSwap 
                                     ? 'bg-amber-500 text-white border-amber-500 shadow-sm' 
                                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                                 } disabled:opacity-30 disabled:cursor-not-allowed`}
+                                title={shiftStatus.disabled && !isSelectedForSwap ? shiftStatus.reason : (isSelectedForSwap ? "Hedef" : "Değiştir")}
                               >
                                 <RefreshCw className={`w-3 h-3 ${isSelectedForSwap ? 'animate-spin' : ''}`} />
                                 {isSelectedForSwap ? 'Hedef' : 'Değiştir'}
@@ -1866,10 +1914,16 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
                               {!isCompleted && (
                                 <button
-                                  onClick={() => setShiftAssignmentModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` })}
-                                  disabled={isPast}
-                                  className="p-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl hover:bg-rose-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                  title="Günü Değiştir ve Kaydır"
+                                  onClick={() => {
+                                    if (shiftStatus.disabled) {
+                                      alert(shiftStatus.reason);
+                                      return;
+                                    }
+                                    setShiftAssignmentModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
+                                  }}
+                                  disabled={isPast || shiftStatus.disabled}
+                                  className="p-1.5 rounded-xl transition-all flex items-center justify-center border disabled:opacity-30 disabled:cursor-not-allowed bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100"
+                                  title={shiftStatus.disabled ? shiftStatus.reason : "Günü Değiştir ve Kaydır"}
                                 >
                                   <Clock className="w-3.5 h-3.5" />
                                 </button>
@@ -1877,17 +1931,17 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                               
                               <button
                                 onClick={() => moveAssignment(a.date, idx, 'up')}
-                                disabled={isCompleted || idx === 0}
+                                disabled={isCompleted || idx === 0 || shiftStatus.disabled}
                                 className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                title="Sırayı Yukarı Taşı (Sabah)"
+                                title={shiftStatus.disabled ? shiftStatus.reason : "Sırayı Yukarı Taşı (Sabah)"}
                               >
                                 <ChevronUp className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => moveAssignment(a.date, idx, 'down')}
-                                disabled={isCompleted || idx === a.items.length - 1}
+                                disabled={isCompleted || idx === a.items.length - 1 || shiftStatus.disabled}
                                 className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                title="Sırayı Aşağı Taşı (Öğleden Sonra)"
+                                title={shiftStatus.disabled ? shiftStatus.reason : "Sırayı Aşağı Taşı (Öğleden Sonra)"}
                               >
                                 <ChevronDown className="w-3.5 h-3.5" />
                               </button>
@@ -2007,7 +2061,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                   </div>
                 )}
               </div>
-            ))
+            );
+            })
           )}
         </div>
       </div>
