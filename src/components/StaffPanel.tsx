@@ -192,7 +192,6 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
       });
 
       await dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
-      setActiveVisitId(applicantId);
       setVisitNotes('');
     } catch (err) {
       console.error(err);
@@ -635,7 +634,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
             const isStartedByMe = !!(myApproval && myApproval.startTime && !myApproval.endTime);
             
             const isCompleted = a.isCompleted;
-            const canStart = !isApprovedByMe && !isPast && !isFutureDate && !isSelected;
+            const canStart = !isApprovedByMe && !isPast && !isFutureDate && !isSelected && !isStartedByMe;
 
             return (
               <div key={idx} className={`bg-white rounded-3xl border border-slate-100 overflow-hidden transition-all shadow-sm ${isSelected || isStartedByMe ? 'ring-2 ring-blue-500 ring-offset-2 scale-[1.02]' : ''}`}>
@@ -699,11 +698,52 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                       onClick={() => handleStartVisit(applicant.id!)}
                       className="mt-4 w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-3 rounded-2xl text-xs font-bold border border-blue-100 hover:bg-blue-100 transition-all uppercase tracking-widest"
                     >
-                      <Play className="w-4 h-4 fill-current" /> {isStartedByMe ? 'Devam Et' : 'Başlat'}
+                      <Play className="w-4 h-4 fill-current" /> Başlat
                     </button>
                   )}
 
-                  {(isSelected || isStartedByMe) && (
+                  {isStartedByMe && !isSelected && (
+                    <div className="mt-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex flex-col gap-3">
+                      <div className="flex items-center gap-2 text-amber-700 font-bold text-xs uppercase tracking-widest justify-center">
+                        <Clock className="w-4 h-4 animate-pulse" />
+                        Temizlik Devam Ediyor
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={async () => {
+                            if (confirm('Temizliğe başlamayı iptal etmek istediğinize emin misiniz?')) {
+                              try {
+                                const schedule = schedules.find(s => s.date === selectedDate);
+                                if (!schedule) return;
+                                const updatedAssignments = schedule.assignments.map(a => {
+                                  if (a.applicantId === applicant.id) {
+                                    return {
+                                      ...a,
+                                      approvals: (a.approvals || []).filter(apr => apr.staffId !== myStaffRecord.id)
+                                    };
+                                  }
+                                  return a;
+                                });
+                                await dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
+                              } catch (err) {}
+                            }
+                          }}
+                          className="flex-1 py-3 text-[10px] font-bold text-rose-500 bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 rounded-xl transition-all uppercase tracking-widest"
+                        >
+                          İptal Et
+                        </button>
+                        <button 
+                          onClick={() => setActiveVisitId(applicant.id!)}
+                          className="flex-[2] flex items-center justify-center gap-2 bg-amber-500 text-white py-3 rounded-xl text-[11px] font-bold shadow-lg shadow-amber-200 active:scale-95 transition-all uppercase tracking-widest"
+                        >
+                          <Square className="w-4 h-4 fill-current" />
+                          Temizliği Bitir
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {isSelected && (
                     <div className="mt-4 p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-100">
                       <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Temizlik Notları / Açıklama</label>
@@ -715,47 +755,19 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                         />
                       </div>
                       <div className="flex gap-2">
-                        {isStartedByMe ? (
-                          <button 
-                            onClick={async () => {
-                              if (confirm('Temizliğe başlamayı iptal etmek istediğinize emin misiniz?')) {
-                                try {
-                                  const schedule = schedules.find(s => s.date === selectedDate);
-                                  if (!schedule) return;
-                                  const updatedAssignments = schedule.assignments.map(a => {
-                                    if (a.applicantId === applicant.id) {
-                                      return {
-                                        ...a,
-                                        approvals: (a.approvals || []).filter(apr => apr.staffId !== myStaffRecord.id)
-                                      };
-                                    }
-                                    return a;
-                                  });
-                                  await dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
-                                  setActiveVisitId(null);
-                                  setVisitNotes('');
-                                } catch (err) {}
-                              }
-                            }}
-                            className="flex-1 py-3 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-all uppercase tracking-widest"
-                          >
-                            Başlangıcı İptal Et
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={() => setActiveVisitId(null)}
-                            className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase tracking-widest"
-                          >
-                            İptal
-                          </button>
-                        )}
+                        <button 
+                          onClick={() => setActiveVisitId(null)}
+                          className="flex-1 py-3 text-xs font-bold text-slate-500 uppercase tracking-widest bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+                        >
+                          Vazgeç
+                        </button>
                         <button 
                           onClick={() => handleFinishVisit(applicant.id!)}
                           disabled={isProcessing}
                           className="flex-[2] flex items-center justify-center gap-2 bg-emerald-500 text-white py-3 rounded-xl text-xs font-bold shadow-lg shadow-emerald-100 active:scale-95 transition-all uppercase tracking-widest"
                         >
-                          {isProcessing ? <Clock className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4 fill-current" />}
-                          Temizliği Bitir ve Onayla
+                          {isProcessing ? <Clock className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                          Onayla ve Bitir
                         </button>
                       </div>
                       <div className="flex items-center gap-2 text-[9px] text-amber-600 font-bold justify-center">
