@@ -1321,28 +1321,48 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
   const checkShiftDisabled = (date: string, applicantId: string) => {
     const schedule = schedules.find(s => s.date === date);
-    if (!schedule) return { disabled: false, reason: '' };
+    if (!schedule) return { shiftDateDisabled: false, shiftWithinDayDisabled: false, swapDisabled: false, reason: '' };
 
     const assignment = schedule.assignments.find(a => a.applicantId === applicantId);
-    if (!assignment) return { disabled: false, reason: '' };
+    if (!assignment) return { shiftDateDisabled: false, shiftWithinDayDisabled: false, swapDisabled: false, reason: '' };
 
-    if (assignment.isCompleted) return { disabled: true, reason: 'Görev çoktan tamamlanmış.' };
+    const isTaskCompleted = assignment.isCompleted;
+    const isTaskStarted = assignment.approvals?.some((apr: any) => apr.startTime);
 
-    const isStarted = assignment.approvals?.some((apr: any) => apr.startTime);
-    if (isStarted) return { disabled: true, reason: 'Personel bu göreve başlamış. Önce yönetici müdahalesiyle iptal edilmeli veya bitirilmeli.' };
+    if (isTaskCompleted) return { shiftDateDisabled: true, shiftWithinDayDisabled: true, swapDisabled: true, reason: 'Görev çoktan tamamlanmış.' };
+    if (isTaskStarted) return { shiftDateDisabled: true, shiftWithinDayDisabled: true, swapDisabled: true, reason: 'Personel bu göreve başlamış. Önce yönetici müdahalesiyle iptal edilmeli veya bitirilmeli.' };
 
     const teamKey = [...(assignment.staffIds || [])].sort().join(',');
     const teamTasks = schedule.assignments.filter(a => [...(a.staffIds || [])].sort().join(',') === teamKey);
     const myIndex = teamTasks.findIndex(a => a.applicantId === applicantId);
     
+    // Default disabled states
+    let shiftDateDisabled = false;
+    let shiftWithinDayDisabled = false;
+    let swapDisabled = false;
+    let reason = '';
+
     if (myIndex === 1) { // Afternoon task
       const morningTask = teamTasks[0];
-      if (morningTask?.isCompleted) {
-        return { disabled: true, reason: 'Sabah görevi tamamlandığı için bu takımın öğleden sonra görevi kaydırılamaz.' };
+      const morningStarted = morningTask?.approvals?.some((apr: any) => apr.startTime);
+      const morningCompleted = morningTask?.isCompleted;
+
+      if (morningCompleted) {
+        shiftDateDisabled = true; // "sabah veya öğleden sonra için kaydırma işlemi sabah temizlik işi tamamlandıysa yapılamaz."
+        shiftWithinDayDisabled = true;
+        // Swap shouldn't be disabled? "ekipler arası değişim işlemi mümkün olabilir."
+        reason = 'Sabah görevi tamamlandığı için bu takımın öğleden sonra görevi başka güne veya saate kaydırılamaz. (Sadece personeller arası değişime izin verilir.)';
+      } else if (morningStarted) {
+        // "ancak bir ekip üyesinin sabah temizlik işini başlatması sonrası gün içi kaydırma mümkün olmamalı"
+        shiftWithinDayDisabled = true;
+        // "ayrıca bir temizlik işi temizlik personeli tarafından başlatıldıysa yönetici iptal etmeden kaydırma işlemi yapılmaması gerekiyor"
+        // (this already caught by `isTaskStarted` for the task itself, but does morning start block afternoon date shift? The prompt initially said: "sabah temizlik işi *tamamlandıysa* yapılamaz". But we'll block it to be safe or not?)
+        // Let's block shiftWithinDay (Up/Down) if morning is started.
+        reason = 'Sabah görevi başlatıldığı için bu takımın öğleden sonra görevinin sırası değiştirilemez.';
       }
     }
 
-    return { disabled: false, reason: '' };
+    return { shiftDateDisabled, shiftWithinDayDisabled, swapDisabled, reason };
   };
 
   return (
@@ -1772,8 +1792,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                 return !ass?.isCompleted;
               });
               const shiftStati = uncompletedItems.map(i => checkShiftDisabled(a.date, i.applicant.id!));
-              const hasUnshiftableUncompletedTask = shiftStati.some(s => s.disabled);
-              const dayShiftReason = shiftStati.find(s => s.disabled)?.reason;
+              const hasUnshiftableUncompletedTask = shiftStati.some(s => s.shiftDateDisabled);
+              const dayShiftReason = shiftStati.find(s => s.shiftDateDisabled)?.reason;
 
               return (
               <div key={a.date} className={`transition-all ${expandedDay === a.date ? 'bg-blue-50/30' : ''}`}>
@@ -1894,19 +1914,19 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                             <div className="flex gap-2">
                               <button
                                 onClick={() => {
-                                  if (shiftStatus.disabled && !isSelectedForSwap) {
+                                  if (shiftStatus.swapDisabled && !isSelectedForSwap) {
                                     alert(shiftStatus.reason);
                                     return;
                                   }
                                   handleSwap(a.date, item.applicant.id!);
                                 }}
-                                disabled={isCompleted || isPast || (shiftStatus.disabled && !isSelectedForSwap)}
+                                disabled={isCompleted || isPast || (shiftStatus.swapDisabled && !isSelectedForSwap)}
                                 className={`flex-1 py-1 text-[10px] font-bold rounded-xl border transition-all flex items-center justify-center gap-1 ${
                                   isSelectedForSwap 
                                     ? 'bg-amber-500 text-white border-amber-500 shadow-sm' 
                                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                                 } disabled:opacity-30 disabled:cursor-not-allowed`}
-                                title={shiftStatus.disabled && !isSelectedForSwap ? shiftStatus.reason : (isSelectedForSwap ? "Hedef" : "Değiştir")}
+                                title={shiftStatus.swapDisabled && !isSelectedForSwap ? shiftStatus.reason : (isSelectedForSwap ? "Hedef" : "Değiştir")}
                               >
                                 <RefreshCw className={`w-3 h-3 ${isSelectedForSwap ? 'animate-spin' : ''}`} />
                                 {isSelectedForSwap ? 'Hedef' : 'Değiştir'}
@@ -1915,15 +1935,15 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                               {!isCompleted && (
                                 <button
                                   onClick={() => {
-                                    if (shiftStatus.disabled) {
+                                    if (shiftStatus.shiftDateDisabled) {
                                       alert(shiftStatus.reason);
                                       return;
                                     }
                                     setShiftAssignmentModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
                                   }}
-                                  disabled={isPast || shiftStatus.disabled}
+                                  disabled={isPast || shiftStatus.shiftDateDisabled}
                                   className="p-1.5 rounded-xl transition-all flex items-center justify-center border disabled:opacity-30 disabled:cursor-not-allowed bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100"
-                                  title={shiftStatus.disabled ? shiftStatus.reason : "Günü Değiştir ve Kaydır"}
+                                  title={shiftStatus.shiftDateDisabled ? shiftStatus.reason : "Günü Değiştir ve Kaydır"}
                                 >
                                   <Clock className="w-3.5 h-3.5" />
                                 </button>
@@ -1931,17 +1951,17 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                               
                               <button
                                 onClick={() => moveAssignment(a.date, idx, 'up')}
-                                disabled={isCompleted || idx === 0 || shiftStatus.disabled}
+                                disabled={isCompleted || idx === 0 || shiftStatus.shiftWithinDayDisabled}
                                 className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                title={shiftStatus.disabled ? shiftStatus.reason : "Sırayı Yukarı Taşı (Sabah)"}
+                                title={shiftStatus.shiftWithinDayDisabled ? shiftStatus.reason : "Sırayı Yukarı Taşı (Sabah)"}
                               >
                                 <ChevronUp className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => moveAssignment(a.date, idx, 'down')}
-                                disabled={isCompleted || idx === a.items.length - 1 || shiftStatus.disabled}
+                                disabled={isCompleted || idx === a.items.length - 1 || shiftStatus.shiftWithinDayDisabled}
                                 className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                title={shiftStatus.disabled ? shiftStatus.reason : "Sırayı Aşağı Taşı (Öğleden Sonra)"}
+                                title={shiftStatus.shiftWithinDayDisabled ? shiftStatus.reason : "Sırayı Aşağı Taşı (Öğleden Sonra)"}
                               >
                                 <ChevronDown className="w-3.5 h-3.5" />
                               </button>
