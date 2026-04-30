@@ -1003,40 +1003,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     setTimeout(() => setLastSavedDay(null), 3000);
   };
 
-  // On-demand geocoding when a day is expanded
-  useEffect(() => {
-    const geocodeMissingAddresses = async () => {
-      if (!expandedDay) return;
-      
-      const day = assignments.find(a => a.date === expandedDay);
-      if (!day) return;
-
-      const itemsWithMissingCoords = day.items.filter(item => !item.applicant.lat || !item.applicant.lng);
-      
-      if (itemsWithMissingCoords.length > 0) {
-        setIsGeocodingDay(true);
-        try {
-          for (let i = 0; i < itemsWithMissingCoords.length; i++) {
-            const item = itemsWithMissingCoords[i];
-            const result = await geocodeAddress(item.applicant.address, item.applicant.neighborhood);
-            
-            if (result) {
-              await dbLocal.applicants.update(item.applicant.id!, {
-                lat: result.lat,
-                lng: result.lng
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error geocoding day addresses:", error);
-        } finally {
-          setIsGeocodingDay(false);
-        }
-      }
-    };
-
-    geocodeMissingAddresses();
-  }, [expandedDay, assignments]);
+  // Geocoding logic removed to prevent unauthorized backend updates on render.
 
   const reflowSchedules = async () => {
     if (!confirm('İş günleri değiştiği için programı kaydırmak istiyor musunuz? Bu işlem mevcut atamaları yeni iş günlerine sırasıyla dağıtacaktır.')) return;
