@@ -50,6 +50,7 @@ async function apiFetch(path: string, options?: RequestInit) {
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       ...options,
+      credentials: 'include', // Ensure secure cookies are sent to the backend
       headers: {
         ...headers,
         ...options?.headers,
@@ -138,7 +139,8 @@ export async function syncWithServer() {
 }
 
 // Start sync period
-setInterval(syncWithServer, 5000); // More frequent sync (5s) as backup
+// setInterval(syncWithServer, 5000); // 🚨 REMOVED: 5-second polling causes DDoS risk. Socket.io handles real-time updates!
+setInterval(syncWithServer, 1000 * 60 * 5); // Fallback sync every 5 minutes
 window.addEventListener('online', syncWithServer);
 window.addEventListener('focus', syncWithServer); // Sync when user comes back to the tab
 

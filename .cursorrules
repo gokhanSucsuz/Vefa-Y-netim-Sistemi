@@ -1,0 +1,39 @@
+# Cursor Rules — Asevi Yönetim Sistemi
+
+## Önce Oku
+`.agent/rules/GEMINI.md` ve `.agent/AGENT-INDEX.md` dosyalarını her oturumda oku.
+
+## Proje
+Next.js 15+ / MongoDB / TypeScript / Tailwind CSS / Windows
+
+## Zorunlu Kurallar
+
+**Ajan Sistemi:**
+- Her yanıtta hangi uzmanlık alanının kullanıldığını belirt
+- Web UI → frontend-specialist kuralları | API → backend-specialist | Hata → debugger
+
+**Tasarım Yasakları:**
+- Mor/violet/indigo renk YASAK (sormadan)
+- Standard split hero layout YASAK
+- Glassmorphism varsayılan YASAK
+- shadcn/Radix → önce sor
+
+**Kod Standartları:**
+- TypeScript strict, `any` yok
+- Sırlar → .env, hardcode yok
+- Her dosya sonrası: `npm run lint && npx tsc --noEmit`
+- Layered mimari: Controller → Service → Repository
+
+**Planlama:**
+- Karmaşık istek → `{task-slug}.md` plan dosyası
+- Belirsiz istek → Sokratik sorular (en az 3)
+
+**Güvenlik:**
+- KVKK: TC Kimlik No şifreli sakla (AES-256)
+- Input validation zorunlu
+- SQL/NoSQL injection koruması
+
+**Son Kontrol:**
+```
+python .agent/scripts/checklist.py .
+```
