@@ -300,7 +300,15 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">İzin Tipi</label>
                 <select 
                   value={formData.type}
-                  onChange={(e) => setFormData({...formData, type: e.target.value as any})}
+                  onChange={(e) => {
+                    const newType = e.target.value as any;
+                    const isHalfDay = newType === 'half_morning' || newType === 'half_afternoon';
+                    setFormData({
+                      ...formData, 
+                      type: newType,
+                      endDate: isHalfDay ? formData.startDate : Math.max(new Date(formData.startDate).getTime(), new Date(formData.endDate).getTime()) === new Date(formData.startDate).getTime() ? formData.startDate : formData.endDate
+                    });
+                  }}
                   className="w-full border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-sm"
                 >
                   {Object.entries(leaveTypes).map(([key, {label}]) => (
@@ -309,26 +317,38 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className={`grid ${['half_morning', 'half_afternoon'].includes(formData.type) ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Başlangıç Tarihi</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    {['half_morning', 'half_afternoon'].includes(formData.type) ? 'İzin Tarihi' : 'Başlangıç Tarihi'}
+                  </label>
                   <input 
                     type="date" 
                     value={formData.startDate}
-                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                    onChange={(e) => {
+                      const newStartDate = e.target.value;
+                      const isHalfDay = formData.type === 'half_morning' || formData.type === 'half_afternoon';
+                      let newEndDate = formData.endDate;
+                      if (isHalfDay || newEndDate < newStartDate) {
+                        newEndDate = newStartDate;
+                      }
+                      setFormData({ ...formData, startDate: newStartDate, endDate: newEndDate });
+                    }}
                     className="w-full border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-sm"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Bitiş Tarihi</label>
-                  <input 
-                    type="date" 
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                    className="w-full border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    min={formData.startDate}
-                  />
-                </div>
+                {!['half_morning', 'half_afternoon'].includes(formData.type) && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Bitiş Tarihi</label>
+                    <input 
+                      type="date" 
+                      value={formData.endDate}
+                      onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                      className="w-full border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      min={formData.startDate}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
