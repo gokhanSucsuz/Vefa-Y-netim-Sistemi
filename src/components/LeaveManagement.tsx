@@ -22,7 +22,8 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
     type: 'annual' as const,
-    reason: ''
+    reason: '',
+    backupStaffId: ''
   });
 
   const currentUser = useAuthStore(state => state.user);
@@ -66,7 +67,8 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
         startDate: leave.startDate,
         endDate: leave.endDate,
         type: leave.type,
-        reason: leave.reason || ''
+        reason: leave.reason || '',
+        backupStaffId: leave.backupStaffId || ''
       });
     } else {
       setEditingLeave(null);
@@ -75,7 +77,8 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
         startDate: format(new Date(), 'yyyy-MM-dd'),
         endDate: format(new Date(), 'yyyy-MM-dd'),
         type: 'annual',
-        reason: ''
+        reason: '',
+        backupStaffId: ''
       });
     }
     setIsModalOpen(true);
@@ -103,7 +106,8 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
           startDate: formData.startDate,
           endDate: formData.endDate,
           type: formData.type as any,
-          reason: formData.reason
+          reason: formData.reason,
+          backupStaffId: formData.backupStaffId || undefined
         });
       }
 
@@ -325,6 +329,21 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
                     min={formData.startDate}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Yerine Geçecek Personel (Opsiyonel)</label>
+                <select 
+                  value={formData.backupStaffId}
+                  onChange={(e) => setFormData({...formData, backupStaffId: e.target.value})}
+                  className="w-full border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-sm"
+                >
+                  <option value="">Seçilmedi (Boş Bırakılacak)</option>
+                  {staffList.filter(s => s.isActive && s.id !== formData.staffId && !s.partnerId).map(s => (
+                    <option key={s.id} value={s.id}>{s.name} {s.surname} (Ekibi Yok)</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">Sadece aktif bir ekibi olmayan personeller yedek olarak seçilebilir.</p>
               </div>
 
               <div>

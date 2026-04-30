@@ -6,8 +6,8 @@ import { Plus, Trash2, Edit2, X, Check, UserPlus, Users, FileSpreadsheet, Search
 import * as XLSX from 'xlsx';
 import { AnimatePresence } from 'motion/react';
 import { formatPhone } from '../lib/format';
+import { format } from 'date-fns';
 import StaffStatsModal from './StaffStatsModal';
-import StaffLeavesModal from './StaffLeavesModal';
 import Pagination from './Pagination';
 
 interface Props {
@@ -37,7 +37,7 @@ export default function StaffList({ staff, currentUser }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 30;
   const [selectedStatsStaff, setSelectedStatsStaff] = useState<Staff | null>(null);
-  const [selectedLeavesStaff, setSelectedLeavesStaff] = useState<Staff | null>(null);
+  const [selectedStatsStaff, setSelectedStatsStaff] = useState<Staff | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -432,6 +432,10 @@ export default function StaffList({ staff, currentUser }: Props) {
               ) : (
                 paginatedStaff.map(s => {
                   const partner = staff.find(p => p.id === s.partnerId);
+                  const todayStr = format(new Date(), 'yyyy-MM-dd');
+                  const activeLeave = partner?.leaves?.find(l => l.startDate <= todayStr && l.endDate >= todayStr);
+                  const backupStaff = activeLeave?.backupStaffId ? staff.find(b => b.id === activeLeave.backupStaffId) : null;
+
                   return (
                     <tr key={s.id} className="hover:bg-slate-50/50 transition-all group">
                       <td className="px-6 py-4">
@@ -468,10 +472,28 @@ export default function StaffList({ staff, currentUser }: Props) {
                       </td>
                       <td className="px-6 py-4">
                         {partner ? (
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-blue-50 text-institution-blue border border-blue-100 uppercase tracking-widest w-fit shadow-sm">
-                            <Users className="w-3 h-3" />
-                            {partner.name} {partner.surname}
-                          </div>
+                          activeLeave ? (
+                            backupStaff ? (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-black bg-amber-50 text-amber-600 px-3 py-1 rounded-xl border border-amber-200 uppercase tracking-widest w-fit">
+                                  PARTNER İZİNLİ
+                                </span>
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-blue-50 text-blue-600 border border-blue-200 uppercase tracking-widest w-fit shadow-sm">
+                                  <Users className="w-3 h-3" />
+                                  YEDEK: {backupStaff.name} {backupStaff.surname}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] font-black bg-amber-50 text-amber-600 px-3 py-1.5 rounded-xl border border-amber-200 uppercase tracking-widest w-fit">
+                                EKİP ARKADAŞI İZİNLİ
+                              </span>
+                            )
+                          ) : (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-blue-50 text-institution-blue border border-blue-100 uppercase tracking-widest w-fit shadow-sm">
+                              <Users className="w-3 h-3" />
+                              {partner.name} {partner.surname}
+                            </div>
+                          )
                         ) : (
                           <span className="text-[10px] font-black bg-slate-100 text-slate-400 px-3 py-1.5 rounded-xl border border-slate-200 uppercase tracking-widest w-fit">
                             BİREYSEL
@@ -498,13 +520,7 @@ export default function StaffList({ staff, currentUser }: Props) {
                           >
                             <BarChart3 className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => setSelectedLeavesStaff(s)}
-                            className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"
-                            title="İzin Yönetimi"
-                          >
-                            <CalendarRange className="w-4 h-4" />
-                          </button>
+
                           <button
                             onClick={() => handleEdit(s)}
                             className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"
@@ -545,20 +561,7 @@ export default function StaffList({ staff, currentUser }: Props) {
             onClose={() => setSelectedStatsStaff(null)} 
           />
         )}
-        {selectedLeavesStaff && (
-          <StaffLeavesModal
-            staff={selectedLeavesStaff}
-            currentUser={currentUser}
-            onClose={() => setSelectedLeavesStaff(null)}
-            onUpdated={() => {
-              // Trigger a re-render or data re-fetch if necessary by updating local state
-              // We can just rely on the parent's subscription to db changes if it has one,
-              // or we can close the modal, wait, let the parent re-fetch.
-              // Since dbService is used with `apiFetch`, we don't have reactive list automatically unless we reload data.
-              window.location.reload(); // Simple solution for forcing update in this custom SPA without much state management
-            }}
-          />
-        )}
+
       </AnimatePresence>
     </div>
   );
