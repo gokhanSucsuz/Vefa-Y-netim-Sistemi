@@ -32,10 +32,12 @@ export default function App() {
   });
 
   const [selectedScheduleDate, setSelectedScheduleDate] = useState<string | null>(null);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const { canInstall, install } = usePWA();
 
-  const navigateToSchedule = (date?: string) => {
+  const navigateToSchedule = (date?: string, programId?: string) => {
     setSelectedScheduleDate(date || null);
+    setSelectedProgramId(programId || null);
     setActiveTab('schedule');
   };
 
@@ -150,6 +152,10 @@ export default function App() {
   ];
 
   const handleTabClick = (id: string) => {
+    if (id === 'schedule' || id === 'programs') {
+      setSelectedScheduleDate(null);
+      setSelectedProgramId(null);
+    }
     setActiveTab(id as any);
     setIsMobileMenuOpen(false);
   };
@@ -406,8 +412,26 @@ export default function App() {
             {activeTab === 'staff' && <StaffList staff={staff} currentUser={currentStaffUser!} />}
             {activeTab === 'leaves' && <LeaveManagement staffList={staff} onStaffUpdate={() => {}} />}
             {activeTab === 'workdays' && <WorkDayCalendar workDays={workDays} currentUser={currentStaffUser!} />}
-            {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} programs={programs} currentUser={currentStaffUser!} initialDate={selectedScheduleDate} />}
-            {activeTab === 'programs' && <ProgramManagement programs={programs} schedules={schedules} currentUser={currentStaffUser!} />}
+            {activeTab === 'schedule' && (
+              <ScheduleView 
+                applicants={applicants} 
+                staff={staff} 
+                workDays={workDays} 
+                schedules={schedules} 
+                programs={programs} 
+                currentUser={currentStaffUser!} 
+                initialDate={selectedScheduleDate}
+                focusedProgramId={selectedProgramId}
+              />
+            )}
+            {activeTab === 'programs' && (
+              <ProgramManagement 
+                programs={programs} 
+                schedules={schedules} 
+                currentUser={currentStaffUser!} 
+                onNavigate={navigateToSchedule}
+              />
+            )}
             {activeTab === 'active_tasks' && <ActiveTasksTracker currentUser={currentStaffUser!} />}
             {activeTab === 'completed' && <CompletedCleanings applicants={applicants} staff={staff} schedules={schedules} currentUser={currentStaffUser!} />}
             {activeTab === 'stats' && <Statistics currentUser={currentStaffUser!} onNavigate={navigateToSchedule} />}

@@ -28,6 +28,7 @@ interface Props {
   programs: Program[]; // Added programs prop
   currentUser: SystemUser;
   initialDate?: string | null;
+  focusedProgramId?: string | null;
 }
 
 function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
@@ -52,7 +53,7 @@ function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
   return null;
 }
 
-export default function ScheduleView({ applicants, staff, workDays, schedules, programs, currentUser, initialDate }: Props) {
+export default function ScheduleView({ applicants, staff, workDays, schedules, programs, currentUser, initialDate, focusedProgramId }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showManualPlanner, setShowManualPlanner] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
@@ -595,6 +596,27 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
   const assignments: DailyAssignment[] = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const result: DailyAssignment[] = [];
+    
+    // If focused on a program (including manual ones), we show ALL dates of that program regardless of currentMonth selection
+    if (focusedProgramId) {
+      const relevantSchedules = schedules
+        .filter(s => (s.programId === focusedProgramId) || (focusedProgramId === 'manual' && (!s.programId || s.programId === 'manual')))
+        .sort((a, b) => a.date.localeCompare(b.date));
+        
+      relevantSchedules.forEach(schedule => {
+        const items = schedule.assignments.map(a => {
+          const applicant = applicants.find(ap => ap.id === a.applicantId);
+          const staffMembers = (a.staffIds || []).map(sid => staff.find(st => st.id === sid)).filter(Boolean) as Staff[];
+          return { applicant: applicant!, staffMembers };
+        }).filter(item => item.applicant);
+
+        if (items.length > 0) {
+          result.push({ date: schedule.date, items });
+        }
+      });
+      return result;
+    }
+
     currentMonthWorkDays.forEach(wd => {
       const schedule = schedules.find(s => s.date === wd.date);
       const items = (schedule && schedule.assignments)
@@ -612,7 +634,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       result.push({ date: wd.date, items });
     });
     return result;
-  }, [currentMonthWorkDays, schedules, applicants, staff]);
+  }, [currentMonthWorkDays, schedules, applicants, staff, focusedProgramId]);
 
   const generateSchedule = async () => {
     if (applicants.length === 0) {
