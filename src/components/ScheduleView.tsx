@@ -1878,17 +1878,32 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                                   <Users className="w-3 h-3" />
                                   Görevli Ekip
                                 </label>
+                                {item.staffMembers.length > 0 && (
+                                  <div className="text-[11px] font-bold text-slate-700 bg-institution-blue/5 border border-institution-blue/20 p-2 rounded-xl text-center mb-2 shadow-sm">
+                                    {item.staffMembers.map(s => s.name + ' ' + s.surname).join(' - ')}
+                                  </div>
+                                )}
                                 <div className="flex gap-2 items-center">
                                   <select
-                                    value={item.staffMembers[0]?.id || ''}
+                                    value={item.staffMembers[0]?.id ? (staff.find(st => st.id === item.staffMembers[0]?.id)?.partnerId ? (item.staffMembers[0].id < staff.find(st => st.id === item.staffMembers[0]?.id)!.partnerId! ? item.staffMembers[0].id : staff.find(st => st.id === item.staffMembers[0]?.id)!.partnerId!) : item.staffMembers[0].id) : ''}
                                     disabled={isCompleted}
                                     onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, 0, e.target.value)}
                                     className="flex-1 text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 outline-none focus:ring-2 focus:ring-institution-blue/20 transition-all disabled:opacity-50 appearance-none text-center"
                                   >
                                     <option value="">Ekip Seç...</option>
-                                    {staff.map(s => (
-                                      <option key={s.id} value={s.id}>
-                                        {s.name} {s.surname} {s.isBackup ? '(Yedek)' : ''}
+                                    {staff.reduce((acc, s) => {
+                                      const teamId = s.partnerId ? (s.id < s.partnerId ? s.id : s.partnerId) : s.id;
+                                      if (!acc.some(t => t.id === teamId)) {
+                                        const partner = staff.find(p => p.id === s.partnerId);
+                                        acc.push({
+                                          id: teamId,
+                                          name: partner ? `${s.name} ${s.surname} - ${partner.name} ${partner.surname}` : `${s.name} ${s.surname}`
+                                        });
+                                      }
+                                      return acc;
+                                    }, [] as {id: string, name: string}[]).map(t => (
+                                      <option key={t.id} value={t.id}>
+                                        {t.name}
                                       </option>
                                     ))}
                                   </select>
