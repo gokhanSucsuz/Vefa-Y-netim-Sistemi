@@ -37,14 +37,12 @@ const API_BASE = window.location.origin + '/api';
 
 async function apiFetch(path: string, options?: RequestInit) {
   const user = useAuthStore.getState().user;
-  let headers: Record<string, string> = {
+  const headers: any = {
     'Content-Type': 'application/json',
   };
-
-  if (user) {
-    if (user.id) headers['x-user-id'] = user.id;
-    if (user.role) headers['x-user-role'] = user.role;
-  }
+  if (user && user.role) headers['x-user-role'] = user.role;
+  if (user && user.id) headers['x-user-id'] = user.id;
+  if (user && user.email) headers['x-user-email'] = user.email;
 
   // console.log(`fetching: ${API_BASE}${path}`);
   try {
