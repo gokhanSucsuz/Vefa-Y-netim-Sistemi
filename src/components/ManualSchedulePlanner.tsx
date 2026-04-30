@@ -20,10 +20,27 @@ export default function ManualSchedulePlanner({ applicants, workDays, schedules,
   
   // Bulunacak sonraki çalışma günleri. 
   const availableDates = useMemo(() => {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-    return workDays
-      .filter(wd => wd.isWorkDay && wd.date > todayStr)
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dates = [];
+    
+    // Look ahead 90 days to find available workdays
+    for (let i = 0; i <= 90; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      
+      const explicitSetting = workDays.find(wd => wd.date === dateStr);
+      const isWeekendDay = d.getDay() === 0 || d.getDay() === 6; // 0 is Sunday, 6 is Saturday
+      
+      const isWorkDay = explicitSetting ? explicitSetting.isWorkDay : !isWeekendDay;
+      
+      if (isWorkDay && dateStr > format(new Date(), 'yyyy-MM-dd')) {
+        dates.push({ date: dateStr });
+      }
+    }
+    
+    return dates;
   }, [workDays]);
 
   const currentDateObj = availableDates[currentDateIndex];
