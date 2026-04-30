@@ -88,7 +88,10 @@ const io = new SocketServer(httpServer, {
 });
 const PORT = 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
 app.use(cookieParser(process.env.COOKIE_SECRET || "edirne-sydv-secret"));
 
@@ -256,7 +259,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     
     if (userRole === 'staff') {
       // Staff can only write to auditlog, schedule, and their own staff record
-      if (['auditlog', 'schedule', 'staff'].includes(name)) {
+      if (['auditlog', 'auditlogs', 'schedule', 'schedules', 'staff'].includes(name)) {
          if (req.method === 'DELETE') {
             return res.status(403).json({ error: "Saha personeli kayıt silemez." });
          }
