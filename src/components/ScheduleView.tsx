@@ -2090,6 +2090,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       {showManualPlanner && (
         <ManualSchedulePlanner 
           applicants={applicants}
+          staff={staff}
           workDays={workDays}
           schedules={schedules}
           currentUser={currentUser}
