@@ -49,4 +49,25 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  
+  /* Modern Custom Scrollbar */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #e2e8f0;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease;
+  }
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+  }
 }

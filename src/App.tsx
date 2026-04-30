@@ -188,7 +188,7 @@ export default function App() {
         </div>
 
         {/* Sidebar Navigation */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 py-4">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar py-4">
           <div className="space-y-6 px-3">
             {menuSections.map((section, sIdx) => (
               <div key={sIdx} className="space-y-1">
