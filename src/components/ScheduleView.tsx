@@ -971,10 +971,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       if (a.applicantId === applicantId) {
         const newStaffIds = [...(a.staffIds || [])];
         
-        if (!staffId) {
-          // Remove staff from this slot
-          newStaffIds[staffIndex] = '';
-        } else {
+        if (!staffId) { return { ...a, staffIds: [] }; } else {
           newStaffIds[staffIndex] = staffId;
           // If this staff has a partner, automatically set the partner in the other slot
           if (selectedStaff?.partnerId) {
@@ -1881,33 +1878,29 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                                   <Users className="w-3 h-3" />
                                   Görevli Ekip
                                 </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {[0, 1].map(sIdx => (
-                                    <select
-                                      key={sIdx}
-                                      value={item.staffMembers[sIdx]?.id || ''}
-                                      disabled={isCompleted}
-                                      onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, sIdx, e.target.value)}
-                                      className="w-full text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 outline-none focus:ring-2 focus:ring-institution-blue/20 transition-all disabled:opacity-50 appearance-none text-center"
+                                <div className="flex gap-2 items-center">
+                                  <select
+                                    value={item.staffMembers[0]?.id || ''}
+                                    disabled={isCompleted}
+                                    onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, 0, e.target.value)}
+                                    className="flex-1 text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 outline-none focus:ring-2 focus:ring-institution-blue/20 transition-all disabled:opacity-50 appearance-none text-center"
+                                  >
+                                    <option value="">Ekip Seç...</option>
+                                    {staff.map(s => (
+                                      <option key={s.id} value={s.id}>
+                                        {s.name} {s.surname} {s.isBackup ? '(Yedek)' : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {item.staffMembers.length > 0 && !isCompleted && (
+                                    <button 
+                                      onClick={() => updateStaffAssignment(a.date, item.applicant.id!, 0, '')}
+                                      className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl border border-slate-100 transition-colors"
+                                      title="Ekibi Bu Görevden Çıkar"
                                     >
-                                      <option value="">Seç...</option>
-                                      {staff.map(s => {
-                                        const isAlreadyInThisApp = item.staffMembers.some((sm, idx) => sm.id === s.id && idx !== sIdx);
-                                        const assignmentsOnSameDay = a.items.filter(i => i.staffMembers.some(sm => sm.id === s.id));
-                                        const isAssignedElsewhere = assignmentsOnSameDay.length >= 2 && !assignmentsOnSameDay.some(i => i.applicant.id === item.applicant.id);
-                                        
-                                        return (
-                                          <option 
-                                            key={s.id} 
-                                            value={s.id} 
-                                            disabled={isAlreadyInThisApp || isAssignedElsewhere}
-                                          >
-                                            {s.name} {s.surname} {s.isBackup ? '(Yedek)' : ''}
-                                          </option>
-                                        );
-                                      })}
-                                    </select>
-                                  ))}
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>
