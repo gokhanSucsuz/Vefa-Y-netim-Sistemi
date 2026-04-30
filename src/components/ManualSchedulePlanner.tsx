@@ -314,11 +314,19 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
                                }}
                              >
                                <option value="">-- Ekip Atanmadı --</option>
-                               {teams.map((team, tIdx) => (
-                                 <option key={tIdx} value={team.map(t => t.id).join(',')}>
-                                   Ekip {tIdx + 1}: {team.map(t => t.name).join(' & ')}
-                                 </option>
-                               ))}
+                               {teams.map((team, tIdx) => {
+                                 const teamIds = team.map(t => t.id);
+                                 const existingCountForTeam = currentDaySchedule?.assignments.filter(a => a.staffIds && a.staffIds.some(id => teamIds.includes(id))).length || 0;
+                                 const newCountForTeam = selectedAssignments.filter(a => a.applicantId !== assignment.applicantId && a.staffIds && a.staffIds.some(id => teamIds.includes(id))).length;
+                                 const totalTasksForTeam = existingCountForTeam + newCountForTeam;
+                                 const isDisabled = totalTasksForTeam >= 2;
+
+                                 return (
+                                   <option key={tIdx} value={teamIds.join(',')} disabled={isDisabled}>
+                                     Ekip {tIdx + 1}: {team.map(t => t.name).join(' & ')} {isDisabled ? '(Dolu)' : ''}
+                                   </option>
+                                 );
+                               })}
                              </select>
                            </div>
                         </div>
