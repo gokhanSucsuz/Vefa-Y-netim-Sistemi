@@ -134,17 +134,17 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 mb-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
           {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map(day => (
-            <div key={day} className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest py-2">
+            <div key={day} className="text-center text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest py-1 sm:py-2">
               {day}
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {Array.from({ length: (monthStart.getDay() + 6) % 7 }).map((_, i) => (
-            <div key={`pad-${i}`} className="aspect-square" />
+            <div key={`pad-${i}`} className="h-14 sm:h-16 md:h-20" />
           ))}
 
           {days.map(day => {
@@ -166,7 +166,7 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
                   return d < today;
                 })()}
                 className={`
-                  aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all relative group
+                  h-14 sm:h-16 md:h-20 rounded-xl flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all relative group
                   ${isActualHoliday ? 'bg-amber-100 text-amber-900 border border-amber-200 shadow-sm shadow-amber-100/50 hover:border-amber-400' : 'bg-white text-slate-900 border border-slate-100 hover:border-blue-200 hover:bg-blue-50'}
                   ${today ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
                   disabled:opacity-40 disabled:cursor-not-allowed

@@ -37,7 +37,6 @@ export default function StaffList({ staff, currentUser }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 30;
   const [selectedStatsStaff, setSelectedStatsStaff] = useState<Staff | null>(null);
-  const [selectedStatsStaff, setSelectedStatsStaff] = useState<Staff | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
