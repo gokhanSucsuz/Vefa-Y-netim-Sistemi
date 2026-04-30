@@ -20,13 +20,14 @@ import UserManager from './components/UserManager';
 import StaffPanel from './components/StaffPanel';
 import { SystemUser } from './types';
 import { logAction } from './services/auditService';
+import LeaveManagement from './components/LeaveManagement';
 import { useAuth } from './hooks/useAuth';
 import { usePWA } from './hooks/usePWA';
 
 import { APP_LOGO_URL } from './constants/logo';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'priority' | 'staff' | 'workdays' | 'schedule' | 'programs' | 'active_tasks' | 'completed' | 'docs' | 'stats' | 'audit' | 'users' | 'backup'>(() => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'priority' | 'staff' | 'leaves' | 'workdays' | 'schedule' | 'programs' | 'active_tasks' | 'completed' | 'docs' | 'stats' | 'audit' | 'users' | 'backup'>(() => {
     return (localStorage.getItem('vefaActiveTab') as any) || 'dashboard';
   });
 
@@ -120,6 +121,7 @@ export default function App() {
       title: "YÖNETİM",
       items: [
         { id: 'staff', label: 'Personel', icon: Briefcase },
+        { id: 'leaves', label: 'İzin Yönetimi', icon: Calendar },
         { id: 'workdays', label: 'İş Günleri', icon: Calendar },
         { id: 'completed', label: 'Tamamlananlar', icon: CheckCircle2 },
       ]
@@ -402,6 +404,7 @@ export default function App() {
             {activeTab === 'applicants' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} />}
             {activeTab === 'priority' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} isPriorityMode={true} />}
             {activeTab === 'staff' && <StaffList staff={staff} currentUser={currentStaffUser!} />}
+            {activeTab === 'leaves' && <LeaveManagement staffList={staff} onStaffUpdate={() => {}} />}
             {activeTab === 'workdays' && <WorkDayCalendar workDays={workDays} currentUser={currentStaffUser!} />}
             {activeTab === 'schedule' && <ScheduleView applicants={applicants} staff={staff} workDays={workDays} schedules={schedules} programs={programs} currentUser={currentStaffUser!} initialDate={selectedScheduleDate} />}
             {activeTab === 'programs' && <ProgramManagement programs={programs} schedules={schedules} currentUser={currentStaffUser!} />}

@@ -61,7 +61,13 @@ export interface Staff {
   isActive?: boolean;
   isBackup?: boolean; // Yedek personel
   dutyLocation?: string; // Görev yeri
-  leaves?: { startDate: string; endDate: string; reason?: string }[];
+  leaves?: { 
+    id: string;
+    startDate: string; 
+    endDate: string; 
+    type: 'annual' | 'sick' | 'half_morning' | 'half_afternoon' | 'unpaid' | 'other';
+    reason?: string; 
+  }[];
 }
 
 export interface WorkDay {
@@ -89,6 +95,14 @@ export interface Schedule {
       startTime?: string;
       endTime?: string;
     }[];
+  }[];
+  customTasks?: {
+    id: string;
+    staffId: string;
+    taskDescription: string;
+    isCompleted?: boolean;
+    completionDate?: string;
+    completionNote?: string;
   }[];
 }
 

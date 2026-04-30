@@ -64,6 +64,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   const [showMap, setShowMap] = useState(true);
   const [expandedDay, setExpandedDay] = useState<string | null>(initialDate || null);
   const [hoveredMarker, setHoveredMarker] = useState<number | null>(null);
+  const [customTaskInputs, setCustomTaskInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (initialDate) {
@@ -211,6 +212,45 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Yer Değiştirme', `${swapSelection.date} ve ${date} tarihlerindeki haneler yer değiştirildi.`);
     setSwapSelection(null);
     alert('Haneler başarıyla yer değiştirildi.');
+  };
+
+  const saveCustomTask = async (date: string, staffId: string, taskDesc: string, existingTaskId?: string) => {
+    if (!taskDesc.trim() && !existingTaskId) return;
+
+    let schedule = schedules.find(s => s.date === date);
+    if (!schedule) {
+      const activeProgram = programs.find(p => p.status === 'active');
+      const newSchedule: Schedule = {
+        date,
+        programId: activeProgram ? activeProgram.id : '',
+        assignments: [],
+        customTasks: []
+      };
+      const id = await dbLocal.schedules.add(newSchedule);
+      schedule = { ...newSchedule, id: id.toString() };
+    }
+
+    const currentTasks = schedule.customTasks || [];
+    let newTasks = [...currentTasks];
+
+    if (existingTaskId && !taskDesc.trim()) {
+      // Delete
+      newTasks = newTasks.filter(t => t.id !== existingTaskId);
+    } else if (existingTaskId) {
+      // Update
+      newTasks = newTasks.map(t => t.id === existingTaskId ? { ...t, taskDescription: taskDesc } : t);
+    } else {
+      // Add
+      newTasks.push({
+        id: Date.now().toString(),
+        staffId,
+        taskDescription: taskDesc
+      });
+    }
+
+    await dbLocal.schedules.update(schedule.id!, { customTasks: newTasks });
+    setCustomTaskInputs(prev => ({ ...prev, [`${date}_${staffId}`]: '' }));
+    logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Özel Görev', `${date} tarihinde personele özel görev atandı/güncellendi.`);
   };
 
   const performShiftAssignment = async (date: string, applicantId: string, targetDateStr?: string) => {
@@ -606,15 +646,11 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       actualPlanningStartDate = format(addDays(parseISO(activeProgram.endDate), 1), 'yyyy-MM-dd');
       // Otomatik yeni program olarak devam et
     } else {
-      // No active program, but maybe some orphaned future schedules?
-      const orphanedSchedules = schedules.filter(s => s.date >= planningStartDate && !s.assignments.some(a => a.isCompleted));
-      if (orphanedSchedules.length > 0) {
-         if (confirm('Gelecek tarihlerde programı olmayan ziyaret planları bulundu. Bunları temizleyip yeniden planlamak ister misiniz?')) {
-            await dbLocal.schedules.bulkDelete(orphanedSchedules.map(s => s.id!));
-         } else {
-            const lastDate = [...orphanedSchedules].sort((a,b) => b.date.localeCompare(a.date))[0].date;
-            actualPlanningStartDate = format(addDays(parseISO(lastDate), 1), 'yyyy-MM-dd');
-         }
+      // No active program, but there might be manual schedules in the future
+      const manualSchedules = schedules.filter(s => s.date >= planningStartDate && (!s.programId || s.programId === ''));
+      if (manualSchedules.length > 0) {
+         const lastDate = [...manualSchedules].sort((a,b) => b.date.localeCompare(a.date))[0].date;
+         actualPlanningStartDate = format(addDays(parseISO(lastDate), 1), 'yyyy-MM-dd');
       }
     }
 
@@ -1750,14 +1786,14 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
         </div>
 
         <div className="divide-y divide-gray-50">
-          {programs.length === 0 ? (
+          {assignments.length === 0 ? (
             <div className="px-6 py-16 text-center">
               <div className="bg-orange-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-orange-100">
                 <CalendarIcon className="w-8 h-8 text-orange-500" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-1">Mevcut Program Bulunamadı</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Mevcut Planlama Bulunamadı</h3>
               <p className="text-sm text-gray-500 max-w-xs mx-auto mb-6">
-                Sistemde planlanmış aktif bir program bulunmamaktadır. Lütfen yukarıdaki "Planla" butonunu kullanarak yeni bir program oluşturun.
+                Sistemde seçili ay için planlanmış herhangi bir ziyaret veya manuel atama bulunmamaktadır. Lütfen yukarıdaki "Planla" butonunu kullanarak yeni bir program oluşturun.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
@@ -1782,8 +1818,6 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                 </button>
               </div>
             </div>
-          ) : assignments.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-500">Bu ay için henüz iş günü belirlenmemiş.</div>
           ) : (
             assignments.map(a => {
               const currentDaySchedule = schedules.find(sc => sc.date === a.date);
@@ -2077,6 +2111,92 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                           </div>
                         );
                       })}
+                    </div>
+
+                    {/* BOŞTAKİ PERSONELLER VE ÖZEL GÖREVLER */}
+                    <div className="mt-8 pt-6 border-t border-slate-200">
+                      <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-slate-500" /> Boşta Kalan Personeller ve Özel Görevler
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {(() => {
+                          const cSchedule = schedules.find(sc => sc.date === a.date);
+                          const assignedStaffIds = new Set(
+                            cSchedule?.assignments.flatMap(as => as.staffIds || []) || []
+                          );
+                          const customTasks = cSchedule?.customTasks || [];
+                          
+                          const idleStaff = staff.filter(s => {
+                            if (!s.isActive) return false;
+                            
+                            // İzinli mi?
+                            if (s.leaves) {
+                               const isOnLeave = s.leaves.some(l => 
+                                 l.startDate <= a.date && l.endDate >= a.date
+                               );
+                               if (isOnLeave) return false;
+                            }
+                            
+                            // Ziyaret ataması var mı?
+                            if (assignedStaffIds.has(s.id!)) return false;
+
+                            return true;
+                          });
+
+                          if (idleStaff.length === 0) {
+                            return <div className="text-xs text-slate-500 col-span-full">Bu gün için tüm aktif personeller bir göreve atanmış veya izinli.</div>;
+                          }
+
+                          return idleStaff.map(s => {
+                            const existingTask = customTasks.find(t => t.staffId === s.id);
+                            const inputKey = `${a.date}_${s.id}`;
+                            const inputValue = customTaskInputs[inputKey] !== undefined ? customTaskInputs[inputKey] : (existingTask?.taskDescription || '');
+
+                            return (
+                              <div key={s.id} className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-3 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[10px]">
+                                      {s.name[0]}{s.surname[0]}
+                                    </div>
+                                    <span className="text-xs font-bold text-slate-700">{s.name} {s.surname}</span>
+                                  </div>
+                                  {existingTask && (
+                                    <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full uppercase">Görevli</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <input 
+                                    type="text" 
+                                    placeholder="Örn: Ofis İşi, Depo Temizliği..."
+                                    value={inputValue}
+                                    onChange={e => setCustomTaskInputs(prev => ({ ...prev, [inputKey]: e.target.value }))}
+                                    className="flex-1 text-xs px-2 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                                  />
+                                  <button 
+                                    onClick={() => saveCustomTask(a.date, s.id!, inputValue, existingTask?.id)}
+                                    className="bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  {existingTask && (
+                                    <button 
+                                      onClick={() => {
+                                        if(confirm('Görevi silmek istediğinize emin misiniz?')) {
+                                          saveCustomTask(a.date, s.id!, '', existingTask.id);
+                                        }
+                                      }}
+                                      className="bg-red-50 text-red-600 p-1.5 rounded-lg hover:bg-red-100 transition-colors"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
                     </div>
                   </div>
                 )}
