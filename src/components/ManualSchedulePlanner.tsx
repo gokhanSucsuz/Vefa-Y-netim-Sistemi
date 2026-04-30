@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Applicant, Schedule, WorkDay, Program, SystemUser, Staff } from '../types';
 import { dbLocal } from '../db';
-import { X, ChevronRight, ChevronLeft, Plus, Trash2, Calendar, Users, MapPin, CheckCircle2 } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Plus, Trash2, Calendar, Users, MapPin, CheckCircle2, Settings2 } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { logAction } from '../services/auditService';
