@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { dbLocal } from '../db';
 import { WorkDay, SystemUser } from '../types';
@@ -32,7 +33,7 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
 
     // Past days check
     if (selectedDate < today) {
-      alert('Geçmiş günlerin ayarlarını değiştiremezsiniz.');
+      toast.error('Geçmiş günlerin ayarlarını değiştiremezsiniz.');
       return;
     }
 

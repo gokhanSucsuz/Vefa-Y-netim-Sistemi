@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import { useState, useMemo, useEffect } from 'react';
 import { Applicant, Staff, Schedule, SystemUser } from '../types';
 // HMR comment
@@ -112,7 +113,7 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
     }
 
     if (itemsToReport.length === 0) {
-      alert('Seçilen dönem için kayıt bulunamadı.');
+      toast.error('Seçilen dönem için kayıt bulunamadı.');
       return;
     }
 

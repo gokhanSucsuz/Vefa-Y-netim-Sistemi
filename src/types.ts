@@ -67,6 +67,7 @@ export interface Staff {
     endDate: string; 
     type: 'annual' | 'sick' | 'half_morning' | 'half_afternoon' | 'unpaid' | 'other';
     reason?: string; 
+    backupStaffId?: string;
   }[];
 }
 

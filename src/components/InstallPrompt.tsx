@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { Download, Smartphone, X, Share } from 'lucide-react';
 
@@ -58,7 +59,7 @@ export default function InstallPrompt() {
       }
     } catch (error) {
       console.error('PWA Kurulum Hatası:', error);
-      alert('Uygulama yüklenirken bir hata oluştu. Lütfen tarayıcı menüsünden manuel olarak "Ana Ekrana Ekle" seçeneğini kullanın.');
+      toast.error('Uygulama yüklenirken bir hata oluştu. Lütfen tarayıcı menüsünden manuel olarak "Ana Ekrana Ekle" seçeneğini kullanın.');
     } finally {
       // Prompt can only be used once
       setDeferredPrompt(null);

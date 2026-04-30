@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useMemo, useEffect } from 'react';
 import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
@@ -218,7 +219,7 @@ export default function ActiveTasksTracker({ currentUser }: Props) {
       await dbLocal.schedules.update(todaySchedule.id, { assignments: updatedAssignments });
     } catch (error) {
       console.error('Tamamlama hatası:', error);
-      alert('İşlem sırasında bir hata oluştu');
+      toast.error('İşlem sırasında bir hata oluştu');
     }
   };
 

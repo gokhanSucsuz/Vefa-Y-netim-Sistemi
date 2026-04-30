@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Shield, CheckCircle, XCircle, Trash2, Loader2, Search, Mail, Phone, CreditCard, Activity, RefreshCw } from 'lucide-react';
 import { dbService } from '../db';
@@ -57,7 +58,7 @@ export default function UserManager({ currentUser }: UserManagerProps) {
 
   const handleDeleteUser = async (user: SystemUser) => {
     if (user.isSuperAdmin) {
-      alert('Süper Admin silinemez!');
+      toast.error('Süper Admin silinemez!');
       return;
     }
     if (!window.confirm(`${user.name} ${user.surname} kullanıcısını silmek istediğinize emin misiniz?`)) return;
@@ -152,13 +153,13 @@ export default function UserManager({ currentUser }: UserManagerProps) {
                     });
                     const data = await response.json();
                     if (data.success) {
-                      alert(data.message);
+                      toast.error(data.message);
                       window.location.reload();
                     } else {
                       alert('Hata: ' + data.error);
                     }
                   } catch (err) {
-                    alert('Sıfırlama sırasında bir hata oluştu.');
+                    toast.error('Sıfırlama sırasında bir hata oluştu.');
                   } finally {
                     setIsProcessing(null);
                   }

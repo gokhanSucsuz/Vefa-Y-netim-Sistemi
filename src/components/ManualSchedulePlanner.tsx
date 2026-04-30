@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import { useState, useMemo } from 'react';
 import { Applicant, Schedule, WorkDay, Program, SystemUser, Staff } from '../types';
 import { dbLocal } from '../db';
@@ -115,7 +116,7 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
 
   const handleSelect = (appId: string) => {
     if (existingCount + selectedAssignments.length >= dailyLimit) {
-      alert(`Günlük limite (${dailyLimit}) ulaştınız.`);
+      toast.error(`Günlük limite (${dailyLimit}) ulaştınız.`);
       return;
     }
     setSelectedAssignments([...selectedAssignments, { applicantId: appId, staffIds: [] }]);
@@ -134,7 +135,7 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
   const handleSaveDay = async () => {
     if (!currentDateObj) return;
     if (selectedAssignments.length === 0) {
-      alert('Hiç hane seçmediniz.');
+      toast.error('Hiç hane seçmediniz.');
       return;
     }
     
@@ -166,13 +167,13 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
        if (currentDateIndex < availableDates.length - 1) {
           setCurrentDateIndex(currentDateIndex + 1);
        } else {
-          alert('Tüm uygun günlere ulaştınız.');
+          toast.error('Tüm uygun günlere ulaştınız.');
           onClose();
        }
        
     } catch(err) {
        console.error(err);
-       alert('Kaydetme hatası.');
+       toast.error('Kaydetme hatası.');
     }
   };
 

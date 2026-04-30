@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useState } from 'react';
 import { Staff, SystemUser } from '../types';
 import { dbLocal } from '../db';
@@ -26,11 +27,17 @@ export default function StaffLeavesModal({ staff, currentUser, onClose, onUpdate
     if (!startDate || !endDate) return;
 
     if (startDate > endDate) {
-      alert('Başlangıç tarihi bitiş tarihinden sonra olamaz.');
+      toast.error('Başlangıç tarihi bitiş tarihinden sonra olamaz.');
       return;
     }
 
-    const newLeave = { startDate, endDate, reason };
+    const newLeave = { 
+      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+      startDate, 
+      endDate, 
+      type: 'annual' as const,
+      reason 
+    };
     const updatedLeaves = [...leaves, newLeave];
 
     try {
@@ -42,7 +49,7 @@ export default function StaffLeavesModal({ staff, currentUser, onClose, onUpdate
       onUpdated();
     } catch (error) {
       console.error('İzin eklenirken hata oluştu:', error);
-      alert('İzin eklenirken bir hata oluştu.');
+      toast.error('İzin eklenirken bir hata oluştu.');
     }
   };
 
@@ -58,7 +65,7 @@ export default function StaffLeavesModal({ staff, currentUser, onClose, onUpdate
       onUpdated();
     } catch (error) {
       console.error('İzin silinirken hata:', error);
-      alert('İzin silinirken bir hata oluştu.');
+      toast.error('İzin silinirken bir hata oluştu.');
     }
   };
 

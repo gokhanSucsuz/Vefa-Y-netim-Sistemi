@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useState, useMemo } from 'react';
 import { Staff } from '../types';
 import { dbLocal } from '../db';
@@ -10,6 +11,18 @@ import { logAction } from '../services/auditService';
 interface LeaveManagementProps {
   staffList: Staff[];
   onStaffUpdate: () => void;
+}
+
+export interface LeaveRecord {
+  id: string;
+  startDate: string;
+  endDate: string;
+  type: 'annual' | 'sick' | 'unpaid' | 'half_morning' | 'half_afternoon' | 'other';
+  reason?: string;
+  backupStaffId?: string;
+  staffId: string;
+  staffName: string;
+  isActive: boolean;
 }
 
 export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManagementProps) {
@@ -38,7 +51,7 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
   };
 
   const allLeaves = useMemo(() => {
-    const leaves: any[] = [];
+    const leaves: LeaveRecord[] = [];
     staffList.forEach(staff => {
       if (staff.leaves) {
         staff.leaves.forEach(leave => {
@@ -124,7 +137,7 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
       onStaffUpdate();
     } catch (error) {
       console.error('Error saving leave:', error);
-      alert('İzin kaydedilirken bir hata oluştu.');
+      toast.error('İzin kaydedilirken bir hata oluştu.');
     }
   };
 

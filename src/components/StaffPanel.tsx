@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from '../hooks/useLiveQuery';
 import { dbLocal } from '../db';
@@ -145,7 +146,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
 
   const handleStartVisit = async (applicantId: string) => {
     if (!isTodayDate) {
-      alert('Sadece bugün için temizlik başlatabilirsiniz.');
+      toast.error('Sadece bugün için temizlik başlatabilirsiniz.');
       return;
     }
     
@@ -158,7 +159,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
     });
 
     if (hasActiveTask) {
-      alert('Lütfen yeni bir işe başlamadan önce devam eden temizlik işinizi bitirin.');
+      toast.error('Lütfen yeni bir işe başlamadan önce devam eden temizlik işinizi bitirin.');
       return;
     }
 
@@ -168,7 +169,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
     });
 
     if (teamActiveTask && teamActiveTask.applicantId !== applicantId) {
-      alert('Ekip arkadaşınız başka bir temizlik işine başlamış. Lütfen sadece ekip arkadaşınızın başladığı temizlik işine başlayın.');
+      toast.error('Ekip arkadaşınız başka bir temizlik işine başlamış. Lütfen sadece ekip arkadaşınızın başladığı temizlik işine başlayın.');
       return;
     }
 
@@ -201,7 +202,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
   const handleFinishVisit = async (visitApplicantId: string) => {
     if (!visitApplicantId || !myStaffRecord) return;
     if (!isTodayDate) {
-      alert('Sadece bugün için işlem yapabilirsiniz.');
+      toast.error('Sadece bugün için işlem yapabilirsiniz.');
       return;
     }
 
@@ -257,9 +258,9 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
         `${applicant?.name} ${applicant?.surname} ziyareti onaylandı. ${isVisitFullyCompleted ? 'Tamamlandı' : 'Beklemede'}`);
 
       if (!navigator.onLine) {
-        alert('İnternet bağlantınız zayıf. İşleminiz cihazınıza kaydedildi ve internet geldiğinde otomatik olarak merkeze gönderilecektir.');
+        toast.success('İnternet bağlantınız zayıf. İşleminiz cihazınıza kaydedildi ve internet geldiğinde otomatik olarak merkeze gönderilecektir.');
       } else {
-        alert(isVisitFullyCompleted ? 'Ziyaret her iki personel tarafından onaylandı ve tamamlandı.' : 'Onayınız kaydedildi. Partnerinizin onayı bekleniyor.');
+        toast.error(isVisitFullyCompleted ? 'Ziyaret her iki personel tarafından onaylandı ve tamamlandı.' : 'Onayınız kaydedildi. Partnerinizin onayı bekleniyor.');
       }
       
       setActiveVisitId(null);
@@ -268,7 +269,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
       localStorage.removeItem('vefa_visit_notes');
     } catch (err) {
       console.error(err);
-      alert('Bir hata oluştu.');
+      toast.error('Bir hata oluştu.');
     } finally {
       setIsProcessing(false);
     }
@@ -805,7 +806,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                <button 
                  onClick={() => {
                    if (markers.length === 0) {
-                     alert('Konum adresleri kayıtlı değil');
+                     toast.error('Konum adresleri kayıtlı değil');
                    } else {
                      setShowRouteMap(true);
                    }

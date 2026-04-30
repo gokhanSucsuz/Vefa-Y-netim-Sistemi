@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import { useMemo, useState, useEffect } from 'react';
 import { Program, Schedule, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
@@ -56,7 +57,7 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
       }
     } catch (error) {
       console.error('Program deletion failed:', error);
-      alert('Program silinemedi.');
+      toast.error('Program silinemedi.');
     }
   };
 
@@ -70,7 +71,7 @@ export default function ProgramManagement({ programs, schedules, currentUser }: 
       }
     } catch (error) {
       console.error('Program cancellation failed:', error);
-      alert('Program iptal edilemedi.');
+      toast.error('Program iptal edilemedi.');
     }
   };
 

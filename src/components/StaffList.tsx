@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useState, useRef, useMemo } from 'react';
 import { dbLocal } from '../db';
 import { Staff, SystemUser } from '../types';
@@ -128,11 +129,11 @@ export default function StaffList({ staff, currentUser }: Props) {
         if (newStaff.length > 0) {
           await dbLocal.staff.bulkAdd(newStaff);
           logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Excel İçe Aktarma (Personel)', `${newStaff.length} personel Excel'den yüklendi.`);
-          alert(`${newStaff.length} personel başarıyla yüklendi.`);
+          toast.success(`${newStaff.length} personel başarıyla yüklendi.`);
         }
       } catch (error) {
         console.error("Excel import error:", error);
-        alert("Excel dosyası okunurken bir hata oluştu. Lütfen sütun başlıklarını kontrol edin.");
+        toast.error("Excel dosyası okunurken bir hata oluştu. Lütfen sütun başlıklarını kontrol edin.");
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     };

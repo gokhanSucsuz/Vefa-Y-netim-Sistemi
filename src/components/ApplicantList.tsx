@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, EDIRNE_NEIGHBORHOODS, SystemUser } from '../types';
@@ -111,7 +112,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
 
   const handleGeocode = async () => {
     if (!formData.neighborhood) {
-      alert('Lütfen önce bir mahalle veya köy seçin.');
+      toast.error('Lütfen önce bir mahalle veya köy seçin.');
       return;
     }
     setIsGeocoding(true);
@@ -127,13 +128,13 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
     
     // Check TC No uniqueness
     if (applicants.some(a => a.tcNo === formData.tcNo && a.id !== editingId)) {
-      alert('Bu TC Kimlik Numarası ile kayıtlı bir hane zaten mevcut.');
+      toast.error('Bu TC Kimlik Numarası ile kayıtlı bir hane zaten mevcut.');
       return;
     }
 
     // Check Hane No uniqueness
     if (formData.haneNo && applicants.some(a => a.haneNo === formData.haneNo && a.id !== editingId)) {
-      alert('Bu Hane Numarası ile kayıtlı bir hane zaten mevcut.');
+      toast.error('Bu Hane Numarası ile kayıtlı bir hane zaten mevcut.');
       return;
     }
 
@@ -141,13 +142,13 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
       if (editingId) {
         await dbLocal.applicants.update(editingId, formData);
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Güncelleme', `${formData.name} ${formData.surname} hanesi güncellendi.`);
-        alert('Hane başarıyla güncellendi.');
+        toast.success('Hane başarıyla güncellendi.');
         setEditingId(null);
       } else {
         const maxPriority = applicants.reduce((max, a) => Math.max(max, a.priority || 0), 0);
         await dbLocal.applicants.add({ ...formData, priority: maxPriority + 1 });
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Ekleme', `${formData.name} ${formData.surname} hanesi eklendi.`);
-        alert('Yeni hane başarıyla eklendi.');
+        toast.success('Yeni hane başarıyla eklendi.');
       }
       setIsAdding(false);
       setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '', lat: 41.675, lng: 26.570, priority: 0 });
@@ -232,7 +233,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
         fixedCount++;
       }
     }
-    alert(`${fixedCount} hanenin mahalle bilgisi düzeltildi.`);
+    toast.error(`${fixedCount} hanenin mahalle bilgisi düzeltildi.`);
   };
 
   const exportTemplate = () => {
@@ -359,11 +360,11 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
           logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Excel İçe Aktarma', `${newApplicants.length} hane Excel'den yüklendi.`);
           await reindexPriorities();
           await reAlignActiveProgramSchedules();
-          alert(`${newApplicants.length} hane başarıyla yüklendi.`);
+          toast.success(`${newApplicants.length} hane başarıyla yüklendi.`);
         }
       } catch (error) {
         console.error("Excel import error:", error);
-        alert("Excel dosyası okunurken bir hata oluştu. Lütfen sütun başlıklarını kontrol edin.");
+        toast.error("Excel dosyası okunurken bir hata oluştu. Lütfen sütun başlıklarını kontrol edin.");
       } finally {
         setIsImporting(false);
         setImportProgress({ current: 0, total: 0 });
@@ -505,14 +506,14 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
       if (hasActiveProgram) {
         await reAlignActiveProgramSchedules();
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi ve program kaydırılarak yeniden düzenlendi.');
-        alert('Sıralama başarıyla kaydedildi ve aktif program yeni sıralamaya göre güncellendi.');
+        toast.success('Sıralama başarıyla kaydedildi ve aktif program yeni sıralamaya göre güncellendi.');
       } else {
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi.');
-        alert('Sıralama başarıyla kaydedildi.');
+        toast.success('Sıralama başarıyla kaydedildi.');
       }
     } catch (e) {
       console.error("Save priority failed:", e);
-      alert('Sıralama kaydedilirken bir hata oluştu.');
+      toast.error('Sıralama kaydedilirken bir hata oluştu.');
     } finally {
       setIsProcessing(false);
     }

@@ -492,7 +492,7 @@ const authMiddleware = async (req: express.Request, res: express.Response, next:
         userId = 'master-admin';
       } else {
         // Users table has AES-encrypted emails with random IV, so we must fetch all and decrypt to find a match
-        const allUsers = await UserModel.find({}).lean();
+        const allUsers = await (UserModel as any).find({}).lean();
         const dbUser = allUsers.find((u: any) => {
           try {
             return decrypt(u.email)?.toLowerCase() === userEmail.toLowerCase() || u.email?.toLowerCase() === userEmail.toLowerCase();
@@ -503,7 +503,7 @@ const authMiddleware = async (req: express.Request, res: express.Response, next:
           role = dbUser.role || 'admin';
           userId = dbUser._id.toString();
         } else {
-          const staffUser = await StaffModel.findOne({ 
+          const staffUser = await (StaffModel as any).findOne({ 
             $or: [
               { googleEmail: new RegExp(`^${userEmail}$`, 'i') },
               { email: new RegExp(`^${userEmail}$`, 'i') }

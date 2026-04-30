@@ -1,12 +1,14 @@
+import toast from 'react-hot-toast';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
 import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays, isWeekend } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye, Settings2 } from 'lucide-react';
+import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye, Settings2, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { APP_LOGO_URL } from '../constants/logo';
+import { exportToExcel, exportToPDF, formatSafe } from '../utils/exportUtils';
 import { setupPdfMakeFonts } from '../lib/pdfFonts';
 import { formatPhone, formatTC } from '../lib/format';
 import { Map as MapGL, Marker, Popup, NavigationControl, useMap } from 'react-map-gl/maplibre';
@@ -89,18 +91,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     return saved ? parseInt(saved) : 6;
   });
 
-  const formatSafe = (dateStr: string, formatStr: string, options?: any) => {
-    if (!dateStr) return '-';
-    try {
-      const d = parseISO(dateStr);
-      if (isNaN(d.getTime())) return '-';
-      return format(d, formatStr, options);
-    } catch {
-      return '-';
-    }
-  };
-
-  const validateAssignment = (applicantId: string, date: string, currentSchedules: Schedule[], excludeScheduleId?: string) => {
+  // formatSafe imported from exportUtils
+const validateAssignment = (applicantId: string, date: string, currentSchedules: Schedule[], excludeScheduleId?: string) => {
     // 1. Single visit per day check
     const daySchedule = currentSchedules.find(s => s.date === date);
     if (daySchedule && daySchedule.id !== excludeScheduleId) {
@@ -175,13 +167,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     // Validation checks for swap
     const check1 = validateAssignment(swapSelection.applicantId, date, schedules, schedule1.id);
     if (!check1.valid) {
-      alert(`Hata (${applicants.find(a => a.id === swapSelection.applicantId)?.name}): ${check1.message}`);
+      toast.error(`Hata (${applicants.find(a => a.id === swapSelection.applicantId)?.name}): ${check1.message}`);
       return;
     }
 
     const check2 = validateAssignment(applicantId, swapSelection.date, schedules, schedule2.id);
     if (!check2.valid) {
-      alert(`Hata (${applicants.find(a => a.id === applicantId)?.name}): ${check2.message}`);
+      toast.error(`Hata (${applicants.find(a => a.id === applicantId)?.name}): ${check2.message}`);
       return;
     }
 
@@ -211,7 +203,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
     logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Yer Değiştirme', `${swapSelection.date} ve ${date} tarihlerindeki haneler yer değiştirildi.`);
     setSwapSelection(null);
-    alert('Haneler başarıyla yer değiştirildi.');
+    toast.success('Haneler başarıyla yer değiştirildi.');
   };
 
   const saveCustomTask = async (date: string, staffId: string, taskDesc: string, existingTaskId?: string) => {
@@ -274,7 +266,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
         const canceledAssignment = currentDaySchedule.assignments[assignmentIndex];
         if (canceledAssignment.isCompleted) {
-          alert('Tamamlanmış bir ziyaret iptal edilemez.');
+          toast.success('Tamamlanmış bir ziyaret iptal edilemez.');
           return;
         }
 
@@ -385,7 +377,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
             // Find next work day
             const nextWd = allWorkDays.find(wd => wd.date > currentDateStr && wd.isWorkDay);
             if (!nextWd) {
-              alert('Kalan ziyaretleri planlamak için yeterli iş günü bulunamadı. Lütfen takvimden yeni iş günleri ekleyin.');
+              toast.error('Kalan ziyaretleri planlamak için yeterli iş günü bulunamadı. Lütfen takvimden yeni iş günleri ekleyin.');
               break;
             }
             currentDateStr = nextWd.date;
@@ -403,10 +395,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
         }
       });
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ziyaret Kaydırma', `${date} tarihindeki ${applicants.find(a => a.id === applicantId)?.name} ziyareti kaydırıldı.`);
-      alert('Ziyaret başarıyla sonraki güne kaydırıldı.');
+      toast.success('Ziyaret başarıyla sonraki güne kaydırıldı.');
     } catch (error) {
       console.error('Rescheduling error:', error);
-      alert('Kaydırma işlemi sırasında bir hata oluştu.');
+      toast.error('Kaydırma işlemi sırasında bir hata oluştu.');
     } finally {
       setIsRescheduling(false);
     }
@@ -418,7 +410,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
     const uncompletedAssignments = schedule.assignments.filter(a => !a.isCompleted);
     if (uncompletedAssignments.length === 0) {
-      alert('Bu günde iptal edilecek tamamlanmamış ziyaret bulunmamaktadır.');
+      toast.success('Bu günde iptal edilecek tamamlanmamış ziyaret bulunmamaktadır.');
       return;
     }
 
@@ -546,7 +538,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
             // Find next work day
             const nextWd = allWorkDays.find(wd => wd.date > currentDateStr && wd.isWorkDay);
             if (!nextWd) {
-              alert('Kalan ziyaretleri planlamak için yeterli iş günü bulunamadı. Kalanlar silinmemesi için lütfen takvimden yeni iş günleri ekleyin.');
+              toast.error('Kalan ziyaretleri planlamak için yeterli iş günü bulunamadı. Kalanlar silinmemesi için lütfen takvimden yeni iş günleri ekleyin.');
               break;
             }
             currentDateStr = nextWd.date;
@@ -564,12 +556,12 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
         }
       });
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Gün İptali ve Kaydırma', `${date} tarihindeki tüm ziyaretler kaydırıldı.`);
-      alert('Ziyaretler başarıyla kaydırıldı.');
+      toast.success('Ziyaretler başarıyla kaydırıldı.');
       setRescheduleModal(null);
       setTargetRescheduleDate('');
     } catch (error) {
       console.error('Rescheduling error:', error);
-      alert('Kaydırma işlemi sırasında bir hata oluştu.');
+      toast.error('Kaydırma işlemi sırasında bir hata oluştu.');
     } finally {
       setIsRescheduling(false);
     }
@@ -624,7 +616,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
   const generateSchedule = async () => {
     if (applicants.length === 0) {
-      alert('Lütfen önce hane ekleyin.');
+      toast.error('Lütfen önce hane ekleyin.');
       return;
     }
 
@@ -640,7 +632,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     if (activeProgram) {
       const daysLeft = differenceInDays(parseISO(activeProgram.endDate), now);
       if (daysLeft > 7) {
-        alert(`Mevcut programın bitimine ${daysLeft} gün var. Yeni program ancak program bitimine 7 gün kala oluşturulabilir.`);
+        toast.error(`Mevcut programın bitimine ${daysLeft} gün var. Yeni program ancak program bitimine 7 gün kala oluşturulabilir.`);
         return;
       }
       actualPlanningStartDate = format(addDays(parseISO(activeProgram.endDate), 1), 'yyyy-MM-dd');
@@ -707,7 +699,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       availableWorkDays.sort((a, b) => a.date.localeCompare(b.date));
 
       if (availableWorkDays.length === 0) {
-        alert('Planlanacak uygun iş günü bulunamadı. Lütfen "İş Günleri" takviminden gelecek günler için iş günü tanımlayın veya tatilleri kontrol edin.');
+        toast.error('Planlanacak uygun iş günü bulunamadı. Lütfen "İş Günleri" takviminden gelecek günler için iş günü tanımlayın veya tatilleri kontrol edin.');
         return;
       }
 
@@ -779,7 +771,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       // Track resource sufficiency
       const totalAvailableCapacity = availableWorkDays.length * dailyLimit;
       if (applicantPool.length > totalAvailableCapacity) {
-          alert(`Uyarı: Seçilen tarihler arasında toplam kapasite (${totalAvailableCapacity}) tüm hanelerin 2 kez ziyaret edilmesi için yeterli değil (${applicantPool.length} ziyaret gerekli). Bazı haneler sadece bir kez veya hiç planlanamayabilir.`);
+          toast.error(`Uyarı: Seçilen tarihler arasında toplam kapasite (${totalAvailableCapacity}) tüm hanelerin 2 kez ziyaret edilmesi için yeterli değil (${applicantPool.length} ziyaret gerekli). Bazı haneler sadece bir kez veya hiç planlanamayabilir.`);
       }
 
       for (let d = 0; d < availableWorkDays.length; d++) {
@@ -892,10 +884,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       await dbLocal.schedules.bulkAdd(payloadSchedules);
 
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Program Oluşturma', `${scheduleEntries.length} günlük yeni program oluşturuldu.`);
-      alert('Planlama başarıyla tamamlandı.');
+      toast.success('Planlama başarıyla tamamlandı.');
     } catch (error) {
       console.error("Error generating schedule:", error);
-      alert('Planlama sırasında bir hata oluştu.');
+      toast.error('Planlama sırasında bir hata oluştu.');
     } finally {
       setIsGenerating(false);
     }
@@ -905,7 +897,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     // Restriction: Cannot mark as completed if date is in the future
     const today = format(new Date(), 'yyyy-MM-dd');
     if (date > today) {
-      alert('Gelecek tarihteki bir ziyaret henüz gerçekleşmediği için tamamlanamaz.');
+      toast.success('Gelecek tarihteki bir ziyaret henüz gerçekleşmediği için tamamlanamaz.');
       return;
     }
 
@@ -1025,7 +1017,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       const nonCompletedAssignments = nonCompletedSchedules.flatMap(s => s.assignments);
       
       if (nonCompletedAssignments.length === 0) {
-        alert('Kaydırılacak (tamamlanmamış) planlama bulunamadı.');
+        toast.success('Kaydırılacak (tamamlanmamış) planlama bulunamadı.');
         return;
       }
 
@@ -1101,13 +1093,13 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       
       // Handle leftovers if any
       if (tempPool.length > 0) {
-        alert(`Uyarı: ${tempPool.length} ziyaret 14 gün kuralı nedeniyle bu aya sığmadı ve planlanamadı.`);
+        toast.error(`Uyarı: ${tempPool.length} ziyaret 14 gün kuralı nedeniyle bu aya sığmadı ve planlanamadı.`);
       }
       
-      alert('Program başarıyla kaydırıldı.');
+      toast.success('Program başarıyla kaydırıldı.');
     } catch (error) {
       console.error("Error reflowing schedule:", error);
-      alert('Program kaydırılırken bir hata oluştu.');
+      toast.error('Program kaydırılırken bir hata oluştu.');
     } finally {
       setIsGenerating(false);
     }
@@ -1121,150 +1113,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     return monthSchedules.some(s => !currentMonthWorkDays.some(wd => wd.date === s.date));
   }, [schedules, currentMonthWorkDays, monthStart, monthEnd]);
 
-  const exportToExcel = () => {
-    const data = assignments.flatMap(a => a.items.map((item, idx) => {
-      const teamKey = item.staffMembers.map(s => s.id).sort().join(',');
-      const teamTasks = a.items.filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey);
-      const teamTasksIndex = a.items.slice(0, idx).filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey).length;
-      let timingLabel = '-';
-      if (teamTasks.length === 2) {
-        timingLabel = teamTasksIndex === 0 ? 'Sabah' : 'Öğleden Sonra';
-      }
-
-      return {
-        'Tarih': formatSafe(a.date, 'dd MMMM yyyy', { locale: tr }),
-        'Zaman': timingLabel,
-        'Mahalle': item.applicant.neighborhood,
-        'Hane': `${item.applicant.name} ${item.applicant.surname}`,
-        'TC No': item.applicant.tcNo,
-        'Hane Kişi Sayısı': item.applicant.householdSize || 1,
-        'Görevli Personeller': item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || 'Atanmamış'
-      };
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Vefa Programı");
-    XLSX.writeFile(wb, `SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.xlsx`);
-  };
-
-  const exportToPDF = async () => {
-    const pdfMake = await setupPdfMakeFonts();
-    if (!pdfMake) {
-      console.error("Fonts could not be loaded for pdfmake");
-      return;
-    }
-    
-    let logoBase64 = '';
-    try {
-      const getBase64ImageFromURL = (url: string): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.setAttribute('crossOrigin', 'anonymous');
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0);
-            const dataURL = canvas.toDataURL('image/png');
-            resolve(dataURL);
-          };
-          img.onerror = (error) => reject(error);
-          img.src = url;
-        });
-      };
-      logoBase64 = await getBase64ImageFromURL(`https://images.weserv.nl/?url=${encodeURIComponent(APP_LOGO_URL)}`);
-    } catch (e) {
-      console.error("Logo could not be added to PDF", e);
-    }
-
-    const tableData = assignments.flatMap(a => a.items.map((item, idx) => {
-      const teamKey = item.staffMembers.map(s => s.id).sort().join(',');
-      const teamTasks = a.items.filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey);
-      const teamTasksIndex = a.items.slice(0, idx).filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey).length;
-      let timingLabel = '-';
-      if (teamTasks.length === 2) {
-        timingLabel = teamTasksIndex === 0 ? 'Sabah' : 'Öğl. Sonra';
-      }
-
-      return [
-        formatSafe(a.date, 'dd.MM.yyyy'),
-        timingLabel,
-        item.applicant.neighborhood || '-',
-        `${item.applicant.name} ${item.applicant.surname}`,
-        item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'
-      ];
-    }));
-
-    const docDefinition: any = {
-      content: [
-        logoBase64 ? {
-          image: logoBase64,
-          width: 50,
-          alignment: 'center',
-          margin: [0, 0, 0, 10]
-        } : null,
-        { text: 'T.C.', style: 'header', alignment: 'center' },
-        { text: 'EDİRNE VALİLİĞİ', style: 'header', alignment: 'center' },
-        { text: 'Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', style: 'subheader', alignment: 'center' },
-        { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1 }] },
-        { 
-          text: `VEFA PROGRAMI ÇİZELGESİ (${format(startOfMonth(selectedMonth), 'dd.MM.yyyy')} - ${format(endOfMonth(selectedMonth), 'dd.MM.yyyy')})`, 
-          style: 'title', 
-          alignment: 'center', 
-          margin: [0, 15, 0, 15] 
-        },
-        { text: `Rapor Tarihi: ${format(new Date(), 'dd.MM.yyyy HH:mm')}`, alignment: 'right', fontSize: 8, color: '#666', margin: [0, 0, 0, 10] },
-        {
-          table: {
-            headerRows: 1,
-            widths: [60, 50, 80, '*', '*'],
-            body: [
-              [
-                { text: 'Tarih', style: 'tableHeader' },
-                { text: 'Zaman', style: 'tableHeader' },
-                { text: 'Mahalle', style: 'tableHeader' },
-                { text: 'Hane', style: 'tableHeader' },
-                { text: 'Görevli Personeller', style: 'tableHeader' }
-              ],
-              ...tableData
-            ]
-          },
-          layout: 'lightHorizontalLines'
-        }
-      ],
-      watermark: { 
-        text: 'Edirne Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı', 
-        color: '#666', 
-        opacity: 0.05, 
-        bold: true, 
-        fontSize: 25
-      },
-      footer: (currentPage: number, pageCount: number) => {
-        return {
-          text: `Bu belge elektronik ortamda ${currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından ${format(new Date(), 'dd.MM.yyyy')} tarihinde oluşturulmuştur. Sayfa ${currentPage} / ${pageCount}`,
-          alignment: 'center',
-          fontSize: 8,
-          color: '#666',
-          margin: [0, 10, 0, 0]
-        };
-      },
-      styles: {
-        header: { fontSize: 14, bold: true, margin: [0, 2, 0, 2] },
-        subheader: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
-        title: { fontSize: 12, bold: true },
-        tableHeader: { bold: true, fontSize: 10, fillColor: '#f8fafc', alignment: 'left' }
-      },
-      defaultStyle: {
-        font: 'Roboto',
-        fontSize: 9
-      },
-      pageMargins: [40, 40, 40, 60]
-    };
-
-    pdfMake.createPdf(docDefinition).download(`SYDV_Vefa_Programi_${format(selectedMonth, 'MMMM_yyyy', { locale: tr })}.pdf`);
-  };
+  const handleExportExcel = () => exportToExcel(assignments, selectedMonth);
+  const handleExportPDF = () => exportToPDF(assignments, selectedMonth, currentUser);
 
   // Expand today or the first day that has items by default when the month changes or assignments load
   useEffect(() => {
@@ -1628,7 +1478,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
           <button
             onClick={() => {
               if (isManualPlanDisabled) {
-                alert('Mevcut programın bitimine 7 günden fazla var. Yeni manuel program ancak program bitimine 7 gün kala oluşturulabilir.');
+                toast.error('Mevcut programın bitimine 7 günden fazla var. Yeni manuel program ancak program bitimine 7 gün kala oluşturulabilir.');
                 return;
               }
               setShowManualPlanner(true);
@@ -1657,10 +1507,10 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
             </button>
           )}
           <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white w-full sm:w-auto">
-            <button onClick={exportToExcel} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-50 text-green-700 border-r border-gray-200 text-sm font-bold">
+            <button onClick={handleExportExcel} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-50 text-green-700 border-r border-gray-200 text-sm font-bold">
               <FileSpreadsheet className="w-4 h-4 lg:w-5 lg:h-5" /> <span>Excel</span>
             </button>
-            <button onClick={exportToPDF} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-50 text-red-700 text-sm font-bold">
+            <button onClick={handleExportPDF} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-50 text-red-700 text-sm font-bold">
               <FileText className="w-4 h-4 lg:w-5 lg:h-5" /> <span>PDF</span>
             </button>
           </div>
@@ -1766,7 +1616,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                 <button
                   onClick={() => {
                     if (isManualPlanDisabled) {
-                      alert('Mevcut programın bitimine 7 günden fazla var. Yeni manuel program ancak program bitimine 7 gün kala oluşturulabilir.');
+                      toast.error('Mevcut programın bitimine 7 günden fazla var. Yeni manuel program ancak program bitimine 7 gün kala oluşturulabilir.');
                       return;
                     }
                     setShowManualPlanner(true);
@@ -1825,7 +1675,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                         onClick={(e) => {
                           e.stopPropagation();
                           if (hasUnshiftableUncompletedTask) {
-                            alert(dayShiftReason || 'Gün içindeki bazı ziyaretlere başlandığı veya atamalarına engel olan durumlar bulunduğu için gün tamamen kaydırılamaz.');
+                            toast.error(dayShiftReason || 'Gün içindeki bazı ziyaretlere başlandığı veya atamalarına engel olan durumlar bulunduğu için gün tamamen kaydırılamaz.');
                             return;
                           }
                           setRescheduleModal({ date: a.date });
@@ -1916,7 +1766,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                               <button
                                 onClick={() => {
                                   if (shiftStatus.swapDisabled && !isSelectedForSwap) {
-                                    alert(shiftStatus.reason);
+                                    toast.error(shiftStatus.reason);
                                     return;
                                   }
                                   handleSwap(a.date, item.applicant.id!);
@@ -1937,7 +1787,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                                 <button
                                   onClick={() => {
                                     if (shiftStatus.shiftDateDisabled) {
-                                      alert(shiftStatus.reason);
+                                      toast.error(shiftStatus.reason);
                                       return;
                                     }
                                     setShiftAssignmentModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
@@ -2007,7 +1857,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
                                     if (schedule) {
                                       const check = validateAssignment(newId, a.date, schedules, schedule.id);
                                       if (!check.valid) {
-                                        alert(check.message);
+                                        toast.error(check.message);
                                         return;
                                       }
                                       const newAssignments = schedule.assignments.map((assignment, i) => 
