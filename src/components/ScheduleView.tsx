@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
+import { tagAssignmentsWithShift } from '../services/scheduleService';
 import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays, isWeekend } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye, Settings2, Trash2 } from 'lucide-react';
@@ -85,6 +86,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [rescheduleModal, setRescheduleModal] = useState<{ date: string } | null>(null);
   const [targetRescheduleDate, setTargetRescheduleDate] = useState('');
+  const [selectedCancelShift, setSelectedCancelShift] = useState<'morning' | 'afternoon' | undefined>(undefined);
   const [shiftAssignmentModal, setShiftAssignmentModal] = useState<{ date: string; applicantId: string; name: string } | null>(null);
   const [targetAssignmentDate, setTargetAssignmentDate] = useState('');
   const [dailyLimit, setDailyLimit] = useState(() => {
@@ -420,19 +422,30 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     }
   };
 
-  const handleCancelDay = async (date: string, targetDateStr?: string) => {
+  const handleCancelDay = async (date: string, targetDateStr?: string, cancelShift?: 'morning' | 'afternoon') => {
     const schedule = schedules.find(s => s.date === date);
     if (!schedule) return;
 
-    const uncompletedAssignments = schedule.assignments.filter(a => !a.isCompleted);
+    // Filter uncompleted assignments based on the shift being cancelled
+    const uncompletedAssignments = schedule.assignments.filter(a => {
+      if (a.isCompleted) return false;
+      // If no shift specified on the cancel call → cancel everything
+      if (!cancelShift) return true;
+      // If the assignment has no shift tag, include it only when cancelling the full day
+      if (!a.shift) return !cancelShift;
+      return a.shift === cancelShift;
+    });
+
     if (uncompletedAssignments.length === 0) {
-      toast.success('Bu günde iptal edilecek tamamlanmamış ziyaret bulunmamaktadır.');
+      const shiftLabel = cancelShift === 'morning' ? 'sabah' : cancelShift === 'afternoon' ? 'öğleden sonra' : '';
+      toast.success(`Bu günde${shiftLabel ? ` (${shiftLabel})` : ''} iptal edilecek tamamlanmamış ziyaret bulunmamaktadır.`);
       return;
     }
 
+    const shiftLabel = cancelShift === 'morning' ? ' (Sabah)' : cancelShift === 'afternoon' ? ' (Öğleden Sonra)' : '';
     const confirmMsg = targetDateStr 
-      ? `Bu gündeki tüm tamamlanmamış (${uncompletedAssignments.length}) ziyaretleri iptal edip ${formatSafe(targetDateStr, 'dd.MM.yyyy')} tarihine ve sonrasına kaydırmak istediğinize emin misiniz?`
-      : `Bu gündeki tüm tamamlanmamış (${uncompletedAssignments.length}) ziyaretleri iptal edip sonraki günlere kaydırmak istediğinize emin misiniz?`;
+      ? `Bu günkü${shiftLabel} tamamlanmamış (${uncompletedAssignments.length}) ziyareti iptal edip ${formatSafe(targetDateStr, 'dd.MM.yyyy')} tarihine ve sonrasına kaydırmak istediğinize emin misiniz?`
+      : `Bu günkü${shiftLabel} tamamlanmamış (${uncompletedAssignments.length}) ziyareti iptal edip sonraki günlere kaydırmak istediğinize emin misiniz?`;
 
     const confirmCancel = confirm(confirmMsg);
     if (!confirmCancel) return;
@@ -529,20 +542,26 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           }
 
           if (s) {
-            await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
+            await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...tagAssignmentsWithShift(newUncompleted, dailyLimit)] });
           } else {
             // Check if it's a work day
             const workDays = await dbLocal.workDays.toArray();
             const wd = workDays.find(w => w.date === dStr);
             if (wd?.isWorkDay) {
-              await dbLocal.schedules.add({ date: dStr, programId: schedule.programId, assignments: newUncompleted });
+              await dbLocal.schedules.add({ date: dStr, programId: schedule.programId, assignments: tagAssignmentsWithShift(newUncompleted, dailyLimit) });
             }
           }
         }
 
-        // Clear the canceled day's uncompleted assignments
-        const completedToday = schedule.assignments.filter(a => a.isCompleted);
-        await dbLocal.schedules.update(schedule.id!, { assignments: completedToday });
+        // Clear only the cancelled shift's assignments; keep the other shift intact
+        const remainingAssignments = schedule.assignments.filter(a => {
+          if (a.isCompleted) return true; // always keep completed
+          if (!cancelShift) return false;  // full day cancel → remove all uncompleted
+          // Keep assignments that belong to the OTHER shift
+          if (!a.shift) return false;      // untagged → was in the cancelled batch
+          return a.shift !== cancelShift;
+        });
+        await dbLocal.schedules.update(schedule.id!, { assignments: remainingAssignments });
         
         // Handle leftovers — auto-derive next available day if workDays is insufficient
         if (tempPool.length > 0) {
@@ -567,8 +586,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
             for (let j = 0; j < dailyLimit && tempPool.length > 0; j++) {
               newUncompleted.push(tempPool.shift());
             }
-            
-            leftoverSchedules.push({ date: currentDateStr, programId: schedule.programId, assignments: newUncompleted });
+            // Tag shifts for this leftover day
+            const taggedUncompleted = tagAssignmentsWithShift(newUncompleted, dailyLimit);
+            leftoverSchedules.push({ date: currentDateStr, programId: schedule.programId, assignments: taggedUncompleted });
           }
           if (leftoverSchedules.length > 0) {
             await dbLocal.schedules.bulkAdd(leftoverSchedules);
@@ -1340,13 +1360,70 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in duration-300">
             <h3 className="text-xl font-bold text-gray-900 mb-2">Günü İptal Et ve Kaydır</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              {formatSafe(rescheduleModal.date, 'dd MMMM yyyy', { locale: tr })} tarihindeki tüm tamamlanmamış ziyaretleri nereye kaydırmak istersiniz?
+            <p className="text-sm text-gray-500 mb-4">
+              {formatSafe(rescheduleModal.date, 'dd MMMM yyyy', { locale: tr })} tarihindeki ziyaretleri kaydırın.
             </p>
+
+            {/* Shift selection */}
+            {(() => {
+              const daySched = schedules.find(s => s.date === rescheduleModal.date);
+              const hasShiftData = daySched?.assignments.some(a => a.shift);
+              const hasMorning = daySched?.assignments.some(a => !a.isCompleted && a.shift === 'morning');
+              const hasAfternoon = daySched?.assignments.some(a => !a.isCompleted && a.shift === 'afternoon');
+              const hasUntagged = daySched?.assignments.some(a => !a.isCompleted && !a.shift);
+
+              return hasShiftData ? (
+                <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Hangi Vardiyayı İptal Edeceksiniz?</p>
+                  <div className="flex gap-2">
+                    {hasMorning && (
+                      <button
+                        onClick={() => setSelectedCancelShift(selectedCancelShift === 'morning' ? undefined : 'morning')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${
+                          selectedCancelShift === 'morning'
+                            ? 'bg-amber-500 text-white border-amber-500'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-amber-300'
+                        }`}
+                      >
+                        🌅 Sabah
+                      </button>
+                    )}
+                    {hasAfternoon && (
+                      <button
+                        onClick={() => setSelectedCancelShift(selectedCancelShift === 'afternoon' ? undefined : 'afternoon')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${
+                          selectedCancelShift === 'afternoon'
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                        }`}
+                      >
+                        🌇 Öğleden Sonra
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setSelectedCancelShift(undefined)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${
+                        selectedCancelShift === undefined
+                          ? 'bg-slate-800 text-white border-slate-800'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                      }`}
+                    >
+                      🗓 Tüm Gün
+                    </button>
+                  </div>
+                  {selectedCancelShift && (
+                    <p className="text-[10px] text-slate-400 mt-2 text-center">
+                      {selectedCancelShift === 'morning' ? '☀️ Sabah' : '🌆 Öğleden sonra'} görevi kaydırılacak.
+                      Diğer vardiya bu günde kalacak.
+                    </p>
+                  )}
+                </div>
+              ) : null;
+            })()}
             
             <div className="space-y-3 mb-6">
               <button
-                onClick={() => handleCancelDay(rescheduleModal.date)}
+                onClick={() => handleCancelDay(rescheduleModal.date, undefined, selectedCancelShift)}
                 className="w-full py-3 px-4 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-100 transition-all text-left flex items-center justify-between"
               >
                 <span>Bir Sonraki İş Gününe Kaydır</span>
@@ -1365,7 +1442,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                   />
                   <button
                     disabled={!targetRescheduleDate}
-                    onClick={() => handleCancelDay(rescheduleModal.date, targetRescheduleDate)}
+                    onClick={() => handleCancelDay(rescheduleModal.date, targetRescheduleDate, selectedCancelShift)}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
                   >
                     Uygula
@@ -1378,6 +1455,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               onClick={() => {
                 setRescheduleModal(null);
                 setTargetRescheduleDate('');
+                setSelectedCancelShift(undefined);
               }}
               className="w-full py-3 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-all"
             >
@@ -1386,6 +1464,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           </div>
         </div>
       )}
+
 
       {/* Shift Single Assignment Modal */}
       {shiftAssignmentModal && (

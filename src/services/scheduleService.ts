@@ -3,6 +3,18 @@ import { Schedule, Program, WorkDay } from '../types';
 import { format, isAfter, parseISO, addDays, isWeekend } from 'date-fns';
 
 /**
+ * Tags an array of assignments with 'morning' or 'afternoon' based on position.
+ * First half (up to Math.ceil(limit/2)) = morning, rest = afternoon.
+ */
+export function tagAssignmentsWithShift<T extends { shift?: 'morning' | 'afternoon' }>(assignments: T[], limit: number): T[] {
+  const morningCount = Math.ceil(limit / 2);
+  return assignments.map((a, i) => ({
+    ...a,
+    shift: i < morningCount ? 'morning' as const : 'afternoon' as const,
+  }));
+}
+
+/**
  * Re-aligns all future uncompleted assignments in an active program to the current work day calendar.
  * This is triggered when the work day calendar changes.
  */
@@ -124,20 +136,23 @@ export async function reAlignActiveProgramSchedules() {
   while (uncompletedQueue.length > 0 && dateIdx < availableDates.length) {
     const targetDate = availableDates[dateIdx];
     const existingSchedule = await dbLocal.schedules.where('date').equals(targetDate).first();
-    const completedCount = existingSchedule ? existingSchedule.assignments.filter(a => a.isCompleted).length : 0;
+    const completedOnes = existingSchedule ? existingSchedule.assignments.filter(a => a.isCompleted) : [];
+    const completedCount = completedOnes.length;
     
     const capacity = dailyLimit - completedCount;
     if (capacity > 0) {
-      const assignmentsToAdd = uncompletedQueue.splice(0, capacity);
+      const batch = uncompletedQueue.splice(0, capacity);
+      // Tag with shift based on position within this day's full slot
+      const tagged = tagAssignmentsWithShift(batch, dailyLimit);
       if (existingSchedule) {
         await dbLocal.schedules.update(existingSchedule.id!, { 
-          assignments: [...existingSchedule.assignments, ...assignmentsToAdd] 
+          assignments: [...completedOnes, ...tagged] 
         });
       } else {
         await dbLocal.schedules.add({
           date: targetDate,
           programId: activeProgram.id!,
-          assignments: assignmentsToAdd
+          assignments: tagged
         });
       }
     }

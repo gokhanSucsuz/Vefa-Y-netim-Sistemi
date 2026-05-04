@@ -141,24 +141,35 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
     
     try {
        const sched = schedules.find(s => s.date === currentDateObj.date);
-       const newAssignments = selectedAssignments.map(a => ({ 
-         applicantId: a.applicantId, 
-         staffIds: a.staffIds,
-         isCompleted: false 
+       const existingCompleted = sched ? sched.assignments.filter(a => a.isCompleted) : [];
+       const existingUncompleted = sched ? sched.assignments.filter(a => !a.isCompleted) : [];
+
+       // Determine daily limit from localStorage (same as ScheduleView)
+       const savedLimit = parseInt(localStorage.getItem('dailyLimit') || '6');
+
+       // Build new assignments and tag with shift considering already existing uncompleted
+       const combined = [
+         ...existingUncompleted,
+         ...selectedAssignments.map(a => ({ applicantId: a.applicantId, staffIds: a.staffIds, isCompleted: false }))
+       ];
+       const morningCount = Math.ceil(savedLimit / 2);
+       const tagged = combined.map((a, i) => ({
+         ...a,
+         shift: i < morningCount ? 'morning' as const : 'afternoon' as const,
        }));
        
        const activeProgram = await dbLocal.programs.where('status').equals('active').first();
        
        if (sched) {
           await dbLocal.schedules.update(sched.id!, { 
-             assignments: [...sched.assignments, ...newAssignments]
+             assignments: [...existingCompleted, ...tagged]
           });
        } else {
           let pId = activeProgram?.id || 'manual';
           await dbLocal.schedules.add({
              date: currentDateObj.date,
              programId: pId,
-             assignments: newAssignments
+             assignments: tagged
           });
        }
        
