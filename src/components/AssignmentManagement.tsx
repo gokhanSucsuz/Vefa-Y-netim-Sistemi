@@ -80,9 +80,38 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
     };
   };
 
-  const shiftCleaningToNextDay = async (scheduleId: string, scheduleDate: string) => {
+  /**
+   * Moves only the assignments of the given staff member's team for the selected shift
+   * to the next available work day. Other teams are NOT affected.
+   */
+  const shiftCleaningToNextDay = async (
+    scheduleId: string,
+    scheduleDate: string,
+    staffId: string,
+    assignmentShift: 'morning' | 'afternoon' | 'full'
+  ) => {
     const schedule = schedules.find(s => s.id === scheduleId);
     if (!schedule) return;
+
+    // Collect this staff member's team IDs (self + partner)
+    const member = staff.find(s => s.id === staffId);
+    const teamIds = new Set<string>([staffId]);
+    if (member?.partnerId) teamIds.add(member.partnerId);
+
+    // Determine which schedule-level shifts to target
+    // 'full' assignment → move everything that belongs to the team
+    // 'morning' → move only team's morning-tagged assignments
+    // 'afternoon' → move only team's afternoon-tagged assignments
+    const shouldMove = (a: Schedule['assignments'][0]) => {
+      if (a.isCompleted) return false;
+      // Must involve at least one team member
+      const involvesTeam = a.staffIds?.some(id => teamIds.has(id));
+      if (!involvesTeam) return false;
+      // Shift matching
+      if (assignmentShift === 'full') return true;
+      if (!a.shift) return true; // untagged → treat as full-day → always move
+      return a.shift === assignmentShift;
+    };
 
     // Find next work day
     let checkDate = addDays(parseISO(scheduleDate), 1);
@@ -91,8 +120,7 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
     while (safetyLimit-- > 0) {
       const dateStr = format(checkDate, 'yyyy-MM-dd');
       const isWeekdayDay = !isWeekend(checkDate);
-      nextWorkDayStr = dateStr;
-      if (isWeekdayDay) break;
+      if (isWeekdayDay) { nextWorkDayStr = dateStr; break; }
       checkDate = addDays(checkDate, 1);
     }
 
@@ -101,25 +129,35 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
       return;
     }
 
-    // Move uncompleted assignments from this day to next
-    const uncompleted = schedule.assignments.filter(a => !a.isCompleted);
-    const completed = schedule.assignments.filter(a => a.isCompleted);
+    const toMove = schedule.assignments.filter(a => shouldMove(a));
+    const toKeep = schedule.assignments.filter(a => !shouldMove(a));
 
-    await dbLocal.schedules.update(scheduleId, { assignments: completed });
+    if (toMove.length === 0) {
+      toast('Bu vardiyada taşınacak ekip görevi bulunamadı.', { icon: 'ℹ️' });
+      return;
+    }
 
+    // Update current day: keep everything except the moved ones
+    await dbLocal.schedules.update(scheduleId, { assignments: toKeep });
+
+    // Add moved assignments to next work day
     const nextDaySched = schedules.find(s => s.date === nextWorkDayStr);
     if (nextDaySched) {
       await dbLocal.schedules.update(nextDaySched.id!, {
-        assignments: [...uncompleted, ...nextDaySched.assignments],
+        assignments: [...nextDaySched.assignments, ...toMove],
       });
     } else {
       await dbLocal.schedules.add({
         date: nextWorkDayStr,
         programId: schedule.programId,
-        assignments: uncompleted,
+        assignments: toMove,
       });
     }
-    toast.success(`Temizlik görevi ${format(parseISO(nextWorkDayStr), 'dd.MM.yyyy')} tarihine kaydırıldı.`);
+
+    const shiftLabel = assignmentShift === 'morning' ? 'sabah' : assignmentShift === 'afternoon' ? 'öğleden sonra' : 'tam gün';
+    toast.success(
+      `${member?.name} ${member?.surname} ekibinin ${shiftLabel} temizlik görevi ${format(parseISO(nextWorkDayStr), 'dd.MM.yyyy')} tarihine kaydırıldı.`
+    );
   };
 
   const handleSubmit = async (opts?: { backupStaffId?: string; shiftCleaning?: boolean }) => {
@@ -138,9 +176,14 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
         return;
       }
 
-      // Handle conflict resolution
+      // Handle conflict resolution — only moves THIS TEAM's assignments for THIS SHIFT
       if (opts?.shiftCleaning && conflict.scheduleId) {
-        await shiftCleaningToNextDay(conflict.scheduleId, conflict.scheduleDate!);
+        await shiftCleaningToNextDay(
+          conflict.scheduleId,
+          conflict.scheduleDate!,
+          formData.staffId!,
+          (formData.shift || 'full') as 'morning' | 'afternoon' | 'full'
+        );
       }
 
       const payload: StaffAssignment = {
@@ -393,11 +436,23 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
               <div className="border border-slate-200 rounded-xl p-4">
                 <p className="text-sm font-bold text-slate-700 mb-1">
                   {conflictModal.conflict.backupStaff.length > 0 ? 'Seçenek 2: ' : 'Seçenek 1: '}
-                  Temizlik Görevini Kaydır
+                  Ekibin Temizlik Görevini Kaydır
                 </p>
                 <p className="text-xs text-slate-500 mb-3">
-                  Bu günkü temizlik görevleri bir sonraki iş gününe sıra bozulmadan taşınır.
-                  {conflictModal.conflict.partnerName && ` Ekip arkadaşı (${conflictModal.conflict.partnerName}) vakıf işlerine atanır.`}
+                  {(() => {
+                    const shift = conflictModal.pendingForm.shift;
+                    const shiftText = shift === 'morning' ? 'sabah' : shift === 'afternoon' ? 'öğleden sonra' : 'tüm gün';
+                    const memberName = staff.find(s => s.id === conflictModal.pendingForm.staffId);
+                    const teamLabel = memberName
+                      ? `${memberName.name} ${memberName.surname}${conflictModal.conflict.partnerName ? ` & ${conflictModal.conflict.partnerName}` : ''}`
+                      : 'Bu ekip';
+                    return (
+                      <>
+                        <strong>{teamLabel}</strong> ekibinin <strong>{shiftText}</strong> temizlik görevi sonraki iş gününe taşınır.{' '}
+                        Diğer ekiplerin görevleri bu günde aynen devam eder.
+                      </>
+                    );
+                  })()}
                 </p>
                 <button
                   onClick={() => {
@@ -407,7 +462,7 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
                   }}
                   className="w-full py-2 bg-amber-500 text-white rounded-lg text-sm font-bold hover:bg-amber-600"
                 >
-                  Temizlik Görevini Kaydır ve Görevlendir
+                  Ekibin Görevini Kaydır ve Görevlendir
                 </button>
               </div>
 
