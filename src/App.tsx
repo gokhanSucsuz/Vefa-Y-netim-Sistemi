@@ -18,6 +18,8 @@ import GoogleLogin from './components/GoogleLogin';
 import AuditLogView from './components/AuditLogView';
 import UserManager from './components/UserManager';
 import StaffPanel from './components/StaffPanel';
+import AssignmentManagement from './components/AssignmentManagement';
+import TeamAssignment from './components/TeamAssignment';
 import { SystemUser } from './types';
 import { logAction } from './services/auditService';
 import LeaveManagement from './components/LeaveManagement';
@@ -27,7 +29,7 @@ import { usePWA } from './hooks/usePWA';
 import { APP_LOGO_URL } from './constants/logo';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'priority' | 'staff' | 'leaves' | 'workdays' | 'schedule' | 'programs' | 'active_tasks' | 'completed' | 'docs' | 'stats' | 'audit' | 'users' | 'backup'>(() => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'priority' | 'staff' | 'leaves' | 'workdays' | 'schedule' | 'programs' | 'active_tasks' | 'completed' | 'docs' | 'stats' | 'audit' | 'users' | 'backup' | 'assignments' | 'team_assign'>(() => {
     return (localStorage.getItem('vefaActiveTab') as any) || 'dashboard';
   });
 
@@ -77,6 +79,7 @@ export default function App() {
   const workDays = useLiveQuery(() => isAuthorized ? dbLocal.workDays.toArray() : Promise.resolve([]), [isAuthorized]) || [];
   const schedules = useLiveQuery(() => isAuthorized ? dbLocal.schedules.toArray() : Promise.resolve([]), [isAuthorized]) || [];
   const programs = useLiveQuery(() => isAuthorized ? dbLocal.programs.toArray() : Promise.resolve([]), [isAuthorized]) || [];
+  const assignments = useLiveQuery(() => isAuthorized ? dbLocal.assignments.toArray() : Promise.resolve([]), [isAuthorized]) || [];
 
   if (isLoading) {
     return (
@@ -117,12 +120,14 @@ export default function App() {
         { id: 'programs', label: 'Programlar', icon: Calendar },
         { id: 'applicants', label: 'Haneler', icon: Users },
         { id: 'priority', label: 'Hane Öncelik', icon: TrendingUp },
+        { id: 'team_assign', label: 'Ekip-Hane Ataması', icon: Building2 },
       ]
     },
     {
       title: "YÖNETİM",
       items: [
         { id: 'staff', label: 'Personel', icon: Briefcase },
+        { id: 'assignments', label: 'Görevlendirme', icon: MapPin },
         { id: 'leaves', label: 'İzin Yönetimi', icon: Calendar },
         { id: 'workdays', label: 'İş Günleri', icon: Calendar },
         { id: 'completed', label: 'Tamamlananlar', icon: CheckCircle2 },
@@ -407,7 +412,7 @@ export default function App() {
                 currentUser={currentStaffUser!} 
               />
             )}
-            {activeTab === 'applicants' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} />}
+            {activeTab === 'applicants' && <ApplicantList applicants={applicants} staff={staff} currentUser={currentStaffUser!} />}
             {activeTab === 'priority' && <ApplicantList applicants={applicants} currentUser={currentStaffUser!} isPriorityMode={true} />}
             {activeTab === 'staff' && <StaffList staff={staff} currentUser={currentStaffUser!} />}
             {activeTab === 'leaves' && <LeaveManagement staffList={staff} onStaffUpdate={() => {}} />}
@@ -439,6 +444,21 @@ export default function App() {
             {activeTab === 'users' && currentStaffUser?.isSuperAdmin && <UserManager currentUser={currentStaffUser!} />}
             {activeTab === 'docs' && <Documentation />}
             {activeTab === 'backup' && <BackupManager user={firebaseUser} />}
+            {activeTab === 'assignments' && (
+              <AssignmentManagement
+                staff={staff}
+                schedules={schedules}
+                assignments={assignments as any}
+                currentUser={currentStaffUser!}
+              />
+            )}
+            {activeTab === 'team_assign' && (
+              <TeamAssignment
+                applicants={applicants}
+                staff={staff}
+                currentUser={currentStaffUser!}
+              />
+            )}
           </div>
         </div>
       </main>

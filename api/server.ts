@@ -19,7 +19,8 @@ import {
   ProgramModel, 
   AuditLogModel, 
   AdminModel,
-  UserModel
+  UserModel,
+  StaffAssignmentModel
 } from "./models.js";
 
 dotenv.config();
@@ -538,6 +539,7 @@ app.use("/api/programs", authMiddleware, createCrudRoutes(ProgramModel, 'program
 app.use("/api/auditlogs", authMiddleware, createCrudRoutes(AuditLogModel, 'auditlog'));
 app.use("/api/admins", authMiddleware, createCrudRoutes(AdminModel, 'admin', ['name', 'surname', 'tcNo', 'phone', 'email']));
 app.use("/api/users", authMiddleware, createCrudRoutes(UserModel, 'user', ['name', 'surname', 'tcNo', 'phone', 'email', 'passwordHash']));
+app.use("/api/assignments", authMiddleware, createCrudRoutes(StaffAssignmentModel, 'staffassignment'));
 
 // Reset Mock Data Route
 app.post("/api/admin/reset-mock-data", authMiddleware, async (req, res) => {

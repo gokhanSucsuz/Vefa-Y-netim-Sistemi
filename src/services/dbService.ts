@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { io } from 'socket.io-client';
-import { Applicant, Staff, WorkDay, Schedule, Program, Admin } from '../types';
+import { Applicant, Staff, WorkDay, Schedule, Program, Admin, StaffAssignment } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
 
 // local database schema
@@ -13,6 +13,7 @@ class VefaDatabase extends Dexie {
   admins!: Table<Admin>;
   auditLogs!: Table<any>;
   systemUsers!: Table<any>;
+  assignments!: Table<StaffAssignment>;
   syncQueue!: Table<{ id?: number; collection: string; action: 'add' | 'update' | 'delete' | 'bulkAdd'; data: any; timestamp: number }>;
 
   constructor() {
@@ -26,6 +27,18 @@ class VefaDatabase extends Dexie {
       admins: '++id, email',
       auditLogs: '++id, timestamp',
       systemUsers: '++id, email',
+      syncQueue: '++id, collection, timestamp'
+    });
+    this.version(3).stores({
+      applicants: '++id, tcNo, name, surname, neighborhood',
+      staff: '++id, tcNo, name, surname, googleEmail',
+      workDays: '++id, date',
+      schedules: '++id, date, programId',
+      programs: '++id, status',
+      admins: '++id, email',
+      auditLogs: '++id, timestamp',
+      systemUsers: '++id, email',
+      assignments: '++id, staffId, date',
       syncQueue: '++id, collection, timestamp'
     });
   }
@@ -86,7 +99,7 @@ export async function syncWithServer() {
             method: 'POST',
             body: JSON.stringify(item.data.item),
           });
-          const table = (dexieDb as any)[item.collection === 'workdays' ? 'workDays' : item.collection === 'auditlogs' ? 'auditLogs' : item.collection === 'users' ? 'systemUsers' : item.collection];
+          const table = (dexieDb as any)[item.collection === 'workdays' ? 'workDays' : item.collection === 'auditlogs' ? 'auditLogs' : item.collection === 'users' ? 'systemUsers' : item.collection === 'assignments' ? 'assignments' : item.collection];
           if (table) {
              await table.update(item.data.localId, { id: res.id });
           }
@@ -112,7 +125,7 @@ export async function syncWithServer() {
     // 2. Only pull if queue is empty to avoid overwriting unpushed changes
     const remainingQueue = await dexieDb.syncQueue.count();
     if (remainingQueue === 0) {
-      const collections = ['applicants', 'staff', 'workdays', 'schedules', 'programs', 'admins', 'auditlogs', 'users'];
+      const collections = ['applicants', 'staff', 'workdays', 'schedules', 'programs', 'admins', 'auditlogs', 'users', 'assignments'];
       for (const col of collections) {
         try {
           const data = await apiFetch(`/${col}`);
@@ -379,6 +392,7 @@ export const dbService = {
   auditLogs: new ApiTable<any>('auditlogs', dexieDb.auditLogs),
   systemUsers: new ApiTable<any>('users', dexieDb.systemUsers),
   users: new ApiTable<any>('users', dexieDb.systemUsers),
+  assignments: new ApiTable<StaffAssignment>('assignments', dexieDb.assignments),
   syncQueue: dexieDb.syncQueue,
   
   transaction: async (mode: string, tables: any, callback: () => Promise<void>) => {

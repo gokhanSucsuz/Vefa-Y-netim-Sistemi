@@ -19,6 +19,7 @@ const ApplicantSchema = new mongoose.Schema({
   isDeleted: { type: Boolean, default: false },
   status: { type: String, default: 'active' }, // 'active', 'passive'
   passiveUntil: Date,
+  teamId: String, // Atanmış ekip ID'si
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -110,3 +111,17 @@ export const ProgramModel = mongoose.models.Program || mongoose.model('Program',
 export const AuditLogModel = mongoose.models.AuditLog || mongoose.model('AuditLog', AuditLogSchema);
 export const AdminModel = mongoose.models.Admin || mongoose.model('Admin', AdminSchema);
 export const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
+
+const StaffAssignmentSchema = new mongoose.Schema({
+  staffId: String,
+  assignmentType: { type: String, enum: ['vakif', 'hasta_bakim', 'idari', 'diger'], default: 'vakif' },
+  description: String,
+  date: String,
+  shift: { type: String, enum: ['morning', 'afternoon', 'full'], default: 'full' },
+  backupStaffId: String,
+  cleaningShifted: { type: Boolean, default: false },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  createdBy: String,
+});
+
+export const StaffAssignmentModel = mongoose.models.StaffAssignment || mongoose.model('StaffAssignment', StaffAssignmentSchema);

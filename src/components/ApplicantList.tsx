@@ -1,9 +1,9 @@
 import toast from 'react-hot-toast';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { dbLocal } from '../db';
-import { Applicant, EDIRNE_NEIGHBORHOODS, SystemUser } from '../types';
+import { Applicant, Staff, EDIRNE_NEIGHBORHOODS, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3, Eye, EyeOff, GripVertical, Download } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3, Eye, EyeOff, GripVertical, Download, Users, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -42,15 +42,24 @@ function LocationPicker({ position, setPosition }: { position: [number, number],
 
 interface Props {
   applicants: Applicant[];
+  staff?: Staff[];
   currentUser: SystemUser;
   isPriorityMode?: boolean;
 }
 
-export default function ApplicantList({ applicants, currentUser, isPriorityMode = false }: Props) {
+interface Team {
+  id: string;
+  label: string;
+  members: Staff[];
+}
+
+export default function ApplicantList({ applicants, staff = [], currentUser, isPriorityMode = false }: Props) {
   const activeApplicants = applicants.filter(a => !a.isDeleted);
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [teamPopover, setTeamPopover] = useState<string | null>(null); // applicant id whose popover is open
+  const [assigningTeam, setAssigningTeam] = useState<string | null>(null); // applicant id being saved
   const [formData, setFormData] = useState<Applicant>({
     name: '',
     surname: '',
@@ -80,6 +89,50 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
   const [selectedStatsApplicant, setSelectedStatsApplicant] = useState<Applicant | null>(null);
   const [hasActiveProgram, setHasActiveProgram] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Derive teams from staff partner pairs
+  const teams = useMemo((): Team[] => {
+    const seen = new Set<string>();
+    const result: Team[] = [];
+    staff.filter(s => s.isActive !== false && !s.isBackup).forEach(s => {
+      if (!s.id || seen.has(s.id)) return;
+      const partner = s.partnerId ? staff.find(p => p.id === s.partnerId) : undefined;
+      const members = partner ? [s, partner] : [s];
+      const id = members.map(m => m.id!).sort().join('_');
+      if (!seen.has(id)) {
+        result.push({ id, members, label: members.map(m => `${m.name} ${m.surname}`).join(' & ') });
+        members.forEach(m => seen.add(m.id!));
+      }
+    });
+    return result;
+  }, [staff]);
+
+  const getTeamForApplicant = (teamId?: string) =>
+    teamId ? teams.find(t => t.id === teamId) : undefined;
+
+  const handleAssignTeam = async (applicantId: string, teamId: string | null) => {
+    setAssigningTeam(applicantId);
+    try {
+      await dbLocal.applicants.update(applicantId, { teamId: teamId || undefined });
+      const applicant = applicants.find(a => a.id === applicantId);
+      const teamLabel = teamId ? teams.find(t => t.id === teamId)?.label : 'Kaldırıldı';
+      logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ekip Ataması', `${applicant?.name} ${applicant?.surname} hanesi → ${teamLabel}`);
+      toast.success(teamId ? `Ekip atandı: ${teamLabel}` : 'Ekip kaldırıldı.');
+    } catch (e) {
+      toast.error('Ekip ataması başarısız.');
+    } finally {
+      setAssigningTeam(null);
+      setTeamPopover(null);
+    }
+  };
+
+  // Close team popover on outside click
+  useEffect(() => {
+    if (!teamPopover) return;
+    const handler = () => setTeamPopover(null);
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [teamPopover]);
 
   useEffect(() => {
     const checkPrograms = async () => {
@@ -845,6 +898,7 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                   <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Adres Bilgisi</th>
                   <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">TC Kimlik / Hane No</th>
                   <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Kişi Sayısı</th>
+                  {staff.length > 0 && <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ekip</th>}
                   <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 text-right uppercase tracking-wider">İşlemler</th>
                 </tr>
               </thead>
@@ -856,7 +910,10 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                     </td>
                   </tr>
                 ) : (
-                  paginatedApplicants.map(applicant => (
+                  paginatedApplicants.map(applicant => {
+                    const currentTeam = getTeamForApplicant(applicant.teamId);
+                    const isAdmin = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+                    return (
                     <tr key={applicant.id} className="hover:bg-blue-50/30 transition-all group">
                       <td className="px-4 lg:px-6 py-4">
                         <div className="font-bold text-blue-600 bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center border border-blue-100 text-xs shadow-sm">
@@ -891,6 +948,86 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                         )}
                       </td>
                       <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{applicant.householdSize || 1} Kişi</td>
+
+                      {/* Ekip Kolonu */}
+                      {staff.length > 0 && (
+                        <td className="px-4 lg:px-6 py-4">
+                          <div className="relative">
+                            <button
+                              onClick={() => {
+                                if (!isAdmin) return;
+                                setTeamPopover(teamPopover === applicant.id ? null : applicant.id!);
+                              }}
+                              disabled={assigningTeam === applicant.id}
+                              className={`flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1.5 rounded-lg border transition-all ${
+                                currentTeam
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                              } ${!isAdmin ? 'cursor-default' : 'cursor-pointer'}`}
+                              title={isAdmin ? 'Ekip ata / değiştir' : 'Sadece yönetici ekip atayabilir'}
+                            >
+                              {assigningTeam === applicant.id ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Users className="w-3 h-3" />
+                              )}
+                              <span className="max-w-[100px] truncate">
+                                {currentTeam ? currentTeam.label.split(' & ')[0] + (currentTeam.members.length > 1 ? ' & ...' : '') : 'Atanmamış'}
+                              </span>
+                              {isAdmin && <ChevronDown className="w-2.5 h-2.5 opacity-60 shrink-0" />}
+                            </button>
+
+                            {/* Dropdown popover */}
+                            {teamPopover === applicant.id && isAdmin && (
+                              <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[220px] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                <div className="px-3 py-2 border-b border-slate-50">
+                                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Ekip Seç</p>
+                                </div>
+                                <div className="max-h-52 overflow-y-auto">
+                                  {teams.length === 0 ? (
+                                    <div className="px-3 py-3 text-xs text-slate-400 text-center">
+                                      Personel sayfasından ekip kurun.
+                                    </div>
+                                  ) : (
+                                    teams.map(team => (
+                                      <button
+                                        key={team.id}
+                                        onClick={() => handleAssignTeam(applicant.id!, team.id)}
+                                        className={`w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-blue-50 transition-colors ${
+                                          applicant.teamId === team.id ? 'bg-blue-50' : ''
+                                        }`}
+                                      >
+                                        <div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                                          <Users className="w-3 h-3 text-blue-600" />
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="text-xs font-bold text-slate-800 truncate">{team.label}</div>
+                                          <div className="text-[10px] text-slate-400">{team.members.length} personel</div>
+                                        </div>
+                                        {applicant.teamId === team.id && (
+                                          <Check className="w-3.5 h-3.5 text-blue-600 ml-auto shrink-0" />
+                                        )}
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                                {applicant.teamId && (
+                                  <div className="border-t border-slate-50 p-2">
+                                    <button
+                                      onClick={() => handleAssignTeam(applicant.id!, null)}
+                                      className="w-full text-xs font-bold text-rose-500 hover:bg-rose-50 px-3 py-2 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                      Ekibi Kaldır
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      )}
+
                       <td className="px-4 lg:px-6 py-4 text-right">
                         <div className="flex justify-end gap-1 lg:gap-2">
                           <button
@@ -917,7 +1054,8 @@ export default function ApplicantList({ applicants, currentUser, isPriorityMode 
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

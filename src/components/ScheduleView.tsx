@@ -368,20 +368,32 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           s.assignments = [...completedOnes, ...newUncompleted];
         }
 
-        // 7. Handle leftovers
+        // 7. Handle leftovers — auto-derive next available day if workDays list is insufficient
         if (tempPool.length > 0) {
           const allWorkDays = await dbLocal.workDays.toArray();
+          const allSchedules2 = await dbLocal.schedules.toArray();
+          const scheduledDates = new Set(allSchedules2.map(s => s.date));
           let currentDateStr = futureSchedules.length > 0 ? futureSchedules[futureSchedules.length - 1].date : date;
           
           const leftoverSchedules = [];
-          while(tempPool.length > 0) {
-            // Find next work day
-            const nextWd = allWorkDays.find(wd => wd.date > currentDateStr && wd.isWorkDay);
-            if (!nextWd) {
-              toast.error('Kalan ziyaretleri planlamak için yeterli iş günü bulunamadı. Lütfen takvimden yeni iş günleri ekleyin.');
-              break;
+          let safetyLimit = 120; // max 120 days ahead
+          while(tempPool.length > 0 && safetyLimit-- > 0) {
+            // Advance to next calendar day
+            const nextDate = addDays(parseISO(currentDateStr), 1);
+            const nextDateStr = format(nextDate, 'yyyy-MM-dd');
+            currentDateStr = nextDateStr;
+
+            // Check if this is a work day: explicit setting OR weekday (Mon-Fri)
+            const explicitWd = allWorkDays.find(wd => wd.date === nextDateStr);
+            const isWeekdayDay = nextDate.getDay() !== 0 && nextDate.getDay() !== 6;
+            const isWorkable = explicitWd ? explicitWd.isWorkDay : isWeekdayDay;
+
+            if (!isWorkable) continue;
+            // Skip days that already have a schedule with assignments
+            if (scheduledDates.has(nextDateStr)) {
+              const existing = allSchedules2.find(s => s.date === nextDateStr);
+              if (existing && existing.assignments.length >= dailyLimit) continue;
             }
-            currentDateStr = nextWd.date;
             
             const newUncompleted: any[] = [];
             for (let j = 0; j < dailyLimit && tempPool.length > 0; j++) {
@@ -392,6 +404,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           }
           if (leftoverSchedules.length > 0) {
             await dbLocal.schedules.bulkAdd(leftoverSchedules);
+          }
+          if (tempPool.length > 0) {
+            toast.error(`${tempPool.length} ziyaret planlanamadı. Lütfen çalışma günü takvimini kontrol edin.`);
           }
         }
       });
@@ -529,21 +544,25 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         const completedToday = schedule.assignments.filter(a => a.isCompleted);
         await dbLocal.schedules.update(schedule.id!, { assignments: completedToday });
         
-        // Handle leftovers
+        // Handle leftovers — auto-derive next available day if workDays is insufficient
         if (tempPool.length > 0) {
           const allWorkDays = await dbLocal.workDays.toArray();
+          const allSchedForLeftover = await dbLocal.schedules.toArray();
           let currentDateStr = planningDates.length > 0 ? planningDates[planningDates.length - 1] : date;
           
           const leftoverSchedules = [];
-          while(tempPool.length > 0) {
-            // Find next work day
-            const nextWd = allWorkDays.find(wd => wd.date > currentDateStr && wd.isWorkDay);
-            if (!nextWd) {
-              toast.error('Kalan ziyaretleri planlamak için yeterli iş günü bulunamadı. Kalanlar silinmemesi için lütfen takvimden yeni iş günleri ekleyin.');
-              break;
-            }
-            currentDateStr = nextWd.date;
-            
+          let safetyLimit = 120;
+          while(tempPool.length > 0 && safetyLimit-- > 0) {
+            const nextDate = addDays(parseISO(currentDateStr), 1);
+            const nextDateStr = format(nextDate, 'yyyy-MM-dd');
+            currentDateStr = nextDateStr;
+
+            const explicitWd = allWorkDays.find(wd => wd.date === nextDateStr);
+            const isWeekdayDay = nextDate.getDay() !== 0 && nextDate.getDay() !== 6;
+            const isWorkable = explicitWd ? explicitWd.isWorkDay : isWeekdayDay;
+
+            if (!isWorkable) continue;
+
             const newUncompleted: any[] = [];
             for (let j = 0; j < dailyLimit && tempPool.length > 0; j++) {
               newUncompleted.push(tempPool.shift());
@@ -553,6 +572,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           }
           if (leftoverSchedules.length > 0) {
             await dbLocal.schedules.bulkAdd(leftoverSchedules);
+          }
+          if (tempPool.length > 0) {
+            toast.error(`${tempPool.length} ziyaret planlanamadı. Lütfen çalışma günü takvimini kontrol edin.`);
           }
         }
       });

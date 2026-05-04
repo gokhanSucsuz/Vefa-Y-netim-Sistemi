@@ -47,6 +47,7 @@ export interface Applicant {
   isDeleted?: boolean;
   status?: 'active' | 'passive';
   passiveUntil?: string; // ISO Date String
+  teamId?: string; // Atanmış ekip ID'si (staff pair)
 }
 
 export interface Staff {
@@ -105,6 +106,19 @@ export interface Schedule {
     completionDate?: string;
     completionNote?: string;
   }[];
+}
+
+export interface StaffAssignment {
+  id?: string;
+  staffId: string;              // Görevlendirilen personel ID
+  assignmentType: 'vakif' | 'hasta_bakim' | 'idari' | 'diger'; // Görev türü
+  description?: string;         // Serbest açıklama
+  date: string;                 // YYYY-MM-DD
+  shift: 'morning' | 'afternoon' | 'full'; // Sabah / Öğleden sonra / Tam gün
+  backupStaffId?: string;       // Yedek personel atandıysa ID
+  cleaningShifted?: boolean;    // Temizlik görevi kaydırıldı mı?
+  createdAt: string;
+  createdBy: string;            // Oluşturan kullanıcı ID
 }
 
 export interface Program {
