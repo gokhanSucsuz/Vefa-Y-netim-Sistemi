@@ -90,6 +90,24 @@ export default function ProgramManagement({ programs, schedules, currentUser, on
     }
   };
 
+  const handleDeleteManual = async (id: string, date: string, completedCount: number) => {
+    if (completedCount > 0) {
+      toast.error('Tamamlanmış programlar silinemez. Bu günde tamamlanmış ziyaretler bulunmaktadır.');
+      return;
+    }
+
+    if (!confirm(`${new Date(date).toLocaleDateString('tr-TR')} tarihindeki tüm manuel atamaları silmek istediğinize emin misiniz?`)) return;
+
+    try {
+      await dbLocal.schedules.delete(id);
+      logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Manuel Program Silme', `${date} tarihindeki manuel planlama silindi.`);
+      toast.success('Planlama silindi.');
+    } catch (error) {
+      console.error('Manual schedule deletion failed:', error);
+      toast.error('Silme işlemi başarısız oldu.');
+    }
+  };
+
   return (
     <div className="space-y-12">
       {/* ======================================================== */}
@@ -244,17 +262,35 @@ export default function ProgramManagement({ programs, schedules, currentUser, on
             return (
               <div 
                 key={sched.date}
-                onClick={() => onNavigate(sched.date)}
-                className="group cursor-pointer bg-white rounded-2xl border border-slate-100 p-4 transition-all hover:border-orange-200 hover:shadow-lg hover:shadow-orange-500/5 active:scale-95"
+                className="group relative bg-white rounded-2xl border border-slate-100 p-4 transition-all hover:border-orange-200 hover:shadow-lg hover:shadow-orange-500/5"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isFullyCompleted ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
+                  <div 
+                    onClick={() => onNavigate(sched.date)}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-colors ${isFullyCompleted ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}
+                  >
                     <Calendar className="w-5 h-5" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" />
+                  <div className="flex items-center gap-1">
+                    {completedCount === 0 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteManual(sched.id!, sched.date, completedCount); }}
+                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        title="Sil"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => onNavigate(sched.date)}
+                      className="p-2 text-slate-300 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 
-                <div className="space-y-1">
+                <div onClick={() => onNavigate(sched.date)} className="space-y-1 cursor-pointer">
                   <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">
                     {new Date(sched.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </h4>
