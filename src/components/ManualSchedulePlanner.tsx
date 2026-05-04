@@ -127,7 +127,21 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
   };
 
   const handleUpdateTeam = (appId: string, staffIds: string[]) => {
-    setSelectedAssignments(selectedAssignments.map(a => 
+    // Team daily limit check: count how many existing+pending assignments this team already has on this day
+    if (staffIds.length > 0) {
+      const existingTeamCount = (currentDaySchedule?.assignments || []).filter(
+        a => !a.isCompleted && a.staffIds?.some(id => staffIds.includes(id))
+      ).length;
+      const pendingTeamCount = selectedAssignments.filter(
+        a => a.applicantId !== appId && a.staffIds.some(id => staffIds.includes(id))
+      ).length;
+      const total = existingTeamCount + pendingTeamCount;
+      if (total >= 2) {
+        toast.error('Bu ekip bugün zaten 2 temizlik görevine atanmış. Aynı ekip aynı günde en fazla 2 görev alabilir.');
+        return;
+      }
+    }
+    setSelectedAssignments(selectedAssignments.map(a =>
       a.applicantId === appId ? { ...a, staffIds } : a
     ));
   };

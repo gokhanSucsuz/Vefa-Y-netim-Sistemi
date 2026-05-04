@@ -5,6 +5,7 @@ import { Staff, Schedule, StaffAssignment, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
 import { format, parseISO, addDays, isWeekend } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { cleanupOverloadedSchedules } from '../services/scheduleService';
 import {
   Briefcase, Plus, Trash2, Edit2, X, Check, ChevronDown,
   AlertTriangle, Users, Calendar, Clock, RefreshCw
@@ -158,6 +159,9 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
     toast.success(
       `${member?.name} ${member?.surname} ekibinin ${shiftLabel} temizlik görevi ${format(parseISO(nextWorkDayStr), 'dd.MM.yyyy')} tarihine kaydırıldı.`
     );
+
+    // After shifting, run cleanup to ensure no team exceeds the 2-task limit on the target day(s)
+    await cleanupOverloadedSchedules();
   };
 
   const handleSubmit = async (opts?: { backupStaffId?: string; shiftCleaning?: boolean }) => {
@@ -176,22 +180,65 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
         return;
       }
 
-      // Handle conflict resolution — only moves THIS TEAM's assignments for THIS SHIFT
-      if (opts?.shiftCleaning && conflict.scheduleId) {
+      const absentStaffId = formData.staffId!;
+      const assignmentShift = (formData.shift || 'full') as 'morning' | 'afternoon' | 'full';
+
+      // ── BACKUP SELECTED: replace absent member's id in cleaning assignments ──
+      if (opts?.backupStaffId && conflict.scheduleId) {
+        const schedule = schedules.find(s => s.id === conflict.scheduleId);
+        if (schedule) {
+          const updatedAssignments = schedule.assignments.map(a => {
+            if (!a.staffIds?.includes(absentStaffId)) return a;
+            // Shift filter: only replace in matching shift
+            if (assignmentShift !== 'full' && a.shift && a.shift !== assignmentShift) return a;
+            return {
+              ...a,
+              staffIds: a.staffIds.map(id => (id === absentStaffId ? opts.backupStaffId! : id)),
+            };
+          });
+          await dbLocal.schedules.update(conflict.scheduleId, { assignments: updatedAssignments });
+          toast.success(`Yedek personel temizlik görevine eklendi.`);
+        }
+      }
+
+      // ── NO BACKUP: shift this team's cleaning + auto-assign partner to vakıf ──
+      if (!opts?.backupStaffId && opts?.shiftCleaning && conflict.scheduleId) {
         await shiftCleaningToNextDay(
           conflict.scheduleId,
           conflict.scheduleDate!,
-          formData.staffId!,
-          (formData.shift || 'full') as 'morning' | 'afternoon' | 'full'
+          absentStaffId,
+          assignmentShift
         );
+
+        // Auto-assign partner to vakıf işleri for the same date if not already assigned
+        if (conflict.partnerId) {
+          const partnerAlreadyAssigned = assignments.some(
+            a => a.staffId === conflict.partnerId && a.date === formData.date
+          );
+          if (!partnerAlreadyAssigned) {
+            const partnerAssignment: import('../types').StaffAssignment = {
+              staffId: conflict.partnerId!,
+              assignmentType: 'vakif',
+              description: `${staff.find(s => s.id === absentStaffId)?.name} personelinin görevlendirmesi nedeniyle vakıf işleri.`,
+              date: formData.date!,
+              shift: assignmentShift,
+              cleaningShifted: false,
+              createdAt: new Date().toISOString(),
+              createdBy: currentUser.id!,
+            };
+            await dbLocal.assignments.add(partnerAssignment);
+            const partnerName = staff.find(s => s.id === conflict.partnerId);
+            toast(`${partnerName?.name} ${partnerName?.surname} otomatik olarak vakıf işlerine atandı.`, { icon: 'ℹ️' });
+          }
+        }
       }
 
-      const payload: StaffAssignment = {
-        staffId: formData.staffId!,
+      const payload: import('../types').StaffAssignment = {
+        staffId: absentStaffId,
         assignmentType: formData.assignmentType as any,
         description: formData.description,
         date: formData.date!,
-        shift: formData.shift as any,
+        shift: assignmentShift,
         backupStaffId: opts?.backupStaffId || formData.backupStaffId || undefined,
         cleaningShifted: opts?.shiftCleaning || false,
         createdAt: new Date().toISOString(),
@@ -204,7 +251,7 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
         toast.success('Görevlendirme güncellendi.');
       } else {
         await dbLocal.assignments.add(payload);
-        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Görevlendirme', `${staff.find(s => s.id === formData.staffId)?.name} personeli ${formData.date} tarihine görevlendirildi.`);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Görevlendirme', `${staff.find(s => s.id === absentStaffId)?.name} personeli ${formData.date} tarihine görevlendirildi.`);
         toast.success('Görevlendirme kaydedildi.');
       }
 
@@ -219,6 +266,7 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
       setIsSubmitting(false);
     }
   };
+
 
   const handleDelete = async (id: string) => {
     if (!confirm('Bu görevlendirmeyi silmek istediğinize emin misiniz?')) return;

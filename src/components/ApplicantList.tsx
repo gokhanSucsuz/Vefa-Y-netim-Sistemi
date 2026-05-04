@@ -12,7 +12,7 @@ import { AnimatePresence, motion, Reorder } from 'motion/react';
 import { formatPhone, formatTC } from '../lib/format';
 import { geocodeAddress } from '../services/geocoding';
 import ApplicantStatsModal from './ApplicantStatsModal';
-import { reAlignActiveProgramSchedules } from '../services/scheduleService';
+import { reAlignActiveProgramSchedules, cleanupOverloadedSchedules } from '../services/scheduleService';
 import Pagination from './Pagination';
 
 // Leaflet icon fix removed as it's not needed for MapLibre
@@ -114,10 +114,37 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
     setAssigningTeam(applicantId);
     try {
       await dbLocal.applicants.update(applicantId, { teamId: teamId || undefined });
+      
+      // Update future uncompleted schedules for this applicant to reflect the new team
+      const today = new Date().toISOString().split('T')[0];
+      const futureSchedules = await dbLocal.schedules.where('date').aboveOrEqual(today).toArray();
+      
+      const team = teamId ? teams.find(t => t.id === teamId) : undefined;
+      const newStaffIds = team ? team.members.map(m => m.id!) : [];
+
+      for (const schedule of futureSchedules) {
+        let changed = false;
+        const newAssignments = schedule.assignments.map(a => {
+          if (a.applicantId === applicantId && !a.isCompleted) {
+            changed = true;
+            return { ...a, staffIds: newStaffIds };
+          }
+          return a;
+        });
+        if (changed) {
+          await dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
+        }
+      }
+
+      // If team was changed, some days might now have > 2 tasks for this new team. Clean up.
+      if (teamId) {
+        await cleanupOverloadedSchedules();
+      }
+
       const applicant = applicants.find(a => a.id === applicantId);
       const teamLabel = teamId ? teams.find(t => t.id === teamId)?.label : 'Kaldırıldı';
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ekip Ataması', `${applicant?.name} ${applicant?.surname} hanesi → ${teamLabel}`);
-      toast.success(teamId ? `Ekip atandı: ${teamLabel}` : 'Ekip kaldırıldı.');
+      toast.success(teamId ? `Ekip atandı ve program güncellendi: ${teamLabel}` : 'Ekip kaldırıldı.');
     } catch (e) {
       toast.error('Ekip ataması başarısız.');
     } finally {

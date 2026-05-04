@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { tagAssignmentsWithShift } from '../services/scheduleService';
+import { tagAssignmentsWithShift, cleanupOverloadedSchedules } from '../services/scheduleService';
 import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays, isWeekend } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye, Settings2, Trash2 } from 'lucide-react';
@@ -126,7 +126,27 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     return { valid: true };
   };
 
-  const reportRef = useRef<HTMLDivElement>(null);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+
+  const handleCleanupOverloaded = async () => {
+    if (!confirm('Bu işlem, aynı ekibe aynı günde 2\'den fazla atanmış temizlik görevlerini sıra bozulmadan ileriki günlere taşıyacaktır. Devam edilsin mi?')) return;
+    setIsCleaningUp(true);
+    try {
+      const moved = await cleanupOverloadedSchedules();
+      if (moved === 0) {
+        toast.success('Program temiz! Hiçbir ekipte günlük 2 görev aşımı yok.');
+      } else {
+        toast.success(`${moved} fazla görev ileriki günlere taşındı. Program düzenlendi.`);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Program Temizleme', `${moved} fazla atama ileriki günlere kaydırıldı.`);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Program temizleme sırasında hata oluştu.');
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
+
 
   useEffect(() => {
     localStorage.setItem('dailyLimit', dailyLimit.toString());
@@ -413,6 +433,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         }
       });
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ziyaret Kaydırma', `${date} tarihindeki ${applicants.find(a => a.id === applicantId)?.name} ziyareti kaydırıldı.`);
+      
+      // Safety net: ensure per-team limit is maintained
+      await cleanupOverloadedSchedules();
+      
       toast.success('Ziyaret başarıyla sonraki güne kaydırıldı.');
     } catch (error) {
       console.error('Rescheduling error:', error);
@@ -599,6 +623,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         }
       });
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Gün İptali ve Kaydırma', `${date} tarihindeki tüm ziyaretler kaydırıldı.`);
+      
+      // Safety net: ensure per-team limit is maintained
+      await cleanupOverloadedSchedules();
+      
       toast.success('Ziyaretler başarıyla kaydırıldı.');
       setRescheduleModal(null);
       setTargetRescheduleDate('');
@@ -1615,6 +1643,15 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           >
             <Wand2 className={`w-4 h-4 lg:w-5 lg:h-5 ${isGenerating ? 'animate-spin' : ''}`} />
             <span>Otomatik Planla</span>
+          </button>
+          <button
+            onClick={handleCleanupOverloaded}
+            disabled={isCleaningUp}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-500 text-white px-4 py-2 rounded-xl hover:bg-rose-600 transition-all shadow-lg shadow-rose-100 disabled:opacity-50 text-sm font-bold"
+            title="Aynı ekibe aynı günde 2'den fazla atanmış görevleri kaydırır"
+          >
+            <RefreshCw className={`w-4 h-4 lg:w-5 lg:h-5 ${isCleaningUp ? 'animate-spin' : ''}`} />
+            <span>Programı Düzelt</span>
           </button>
           {hasOrphanedSchedules && (
             <button
