@@ -94,6 +94,8 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
     return saved ? parseInt(saved) : 6;
   });
 
+
+
   // formatSafe imported from exportUtils
 const validateAssignment = (applicantId: string, date: string, currentSchedules: Schedule[], excludeScheduleId?: string) => {
     // 1. Single visit per day check
@@ -1319,69 +1321,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         </div>
       )}
 
-      {/* Hidden Report for PDF Generation */}
-      <div className="absolute opacity-0 pointer-events-none" style={{ width: '210mm', padding: '25mm', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.5' }}>
-        <div ref={reportRef} style={{ backgroundColor: '#ffffff', padding: '20px', color: '#000000' }}>
-          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <img 
-              src={APP_LOGO_URL} 
-              alt="Logo" 
-              crossOrigin="anonymous"
-              style={{ width: '80px', height: '80px', margin: '0 auto 15px', display: 'block', objectFit: 'contain' }} 
-              referrerPolicy="no-referrer"
-            />
-            <h1 style={{ fontSize: '16pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>T.C.</h1>
-            <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>EDİRNE VALİLİĞİ</h2>
-            <h3 style={{ fontSize: '12pt', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid #000', paddingBottom: '10px' }}>Sosyal Yardımlaşma ve Dayanışma Vakfı Başkanlığı</h3>
-            <h4 style={{ fontSize: '13pt', fontWeight: 'bold', marginTop: '20px' }}>{format(selectedMonth, 'MMMM yyyy', { locale: tr }).toUpperCase()} AYI VEFA PROGRAMI ÇİZELGESİ</h4>
-          </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '9pt' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f1f5f9' }}>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Tarih</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Zaman</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Mahalle</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Hane</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #94a3b8' }}>Görevli Personeller</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assignments.flatMap(a => a.items.map((item, idx) => {
-                const teamKey = item.staffMembers.map(s => s.id).sort().join(',');
-                const teamTasks = a.items.filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey);
-                const teamTasksIndex = a.items.slice(0, idx).filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey).length;
-                let timingLabel = '-';
-                if (teamTasks.length === 2) {
-                  timingLabel = teamTasksIndex === 0 ? 'Sabah' : 'Öğleden Sonra';
-                }
-
-                return (
-                  <tr key={`${a.date}-${idx}`}>
-                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{formatSafe(a.date, 'dd.MM.yyyy')}</td>
-                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{timingLabel}</td>
-                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.neighborhood}</td>
-                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.applicant.name} {item.applicant.surname}</td>
-                    <td style={{ padding: '6px', border: '1px solid #e2e8f0' }}>{item.staffMembers.map(s => `${s.name} ${s.surname}`).join(', ') || '-'}</td>
-                  </tr>
-                );
-              }))}
-            </tbody>
-          </table>
-
-          <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={{ textAlign: 'center', width: '200px' }}>
-              <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>Vakıf Müdürü</p>
-              <p style={{ fontSize: '10pt', marginBottom: '40px' }}>{currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'}</p>
-              <p>(İmza)</p>
-            </div>
-          </div>
-
-          <div style={{ position: 'absolute', bottom: '15mm', left: '20mm', right: '20mm', textAlign: 'center', fontSize: '8pt', color: '#94a3b8', borderTop: '0.5px solid #cbd5e1', paddingTop: '10px' }}>
-            Bu belge elektronik ortamda {currentUser ? `${currentUser.name} ${currentUser.surname}` : 'Yetkili Personel'} tarafından {format(new Date(), 'dd.MM.yyyy')} tarihinde oluşturulmuştur.
-          </div>
-        </div>
-      </div>
 
       {/* Reschedule Day Modal */}
       {rescheduleModal && (
