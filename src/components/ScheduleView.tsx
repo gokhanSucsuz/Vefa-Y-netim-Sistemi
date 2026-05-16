@@ -65,13 +65,14 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
       try {
         const allScheds = await dbLocal.schedules.toArray();
         const allProgs = await dbLocal.programs.toArray();
-        const progIds = new Set(allProgs.map(p => p.id));
+        // Create a set of string IDs for easy comparison
+        const progIds = new Set(allProgs.map(p => String(p.id)));
         progIds.add('manual');
         progIds.add('history');
         progIds.add(''); // explicit manual/standalone
 
         const orphanIds = allScheds
-          .filter(s => s.programId && !progIds.has(s.programId))
+          .filter(s => s.programId && !progIds.has(String(s.programId)))
           .map(s => s.id!);
 
         if (orphanIds.length > 0) {
@@ -738,7 +739,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         !schedule.programId || 
         schedule.programId === 'manual' || 
         schedule.programId === 'history' || 
-        programs.some(p => p.id === schedule.programId)
+        programs.some(p => String(p.id) === String(schedule.programId))
       );
 
       const items = (isValidSchedule && schedule.assignments)
