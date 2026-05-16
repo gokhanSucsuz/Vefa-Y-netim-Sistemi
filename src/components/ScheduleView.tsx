@@ -157,6 +157,45 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
   const [isCleaningUp, setIsCleaningUp] = useState(false);
 
+  const promptAutoFillIfNeeded = async () => {
+    try {
+      const activeProgram = await dbLocal.programs.where('status').equals('active').first();
+      if (!activeProgram) return;
+
+      const progSchedules = await dbLocal.schedules.where('programId').equals(activeProgram.id!).toArray();
+      if (progSchedules.length === 0) return;
+
+      progSchedules.sort((a, b) => a.date.localeCompare(b.date));
+      const lastSchedule = progSchedules[progSchedules.length - 1];
+      
+      if (lastSchedule.assignments.length < dailyLimit) {
+        const willDoMore = window.confirm("Son günün kapasitesi eksik kaldı. Başka kaydırma işlemi yapacak mısınız?\n\nTamam: Evet, başka kaydırma yapacağım (10 dakika beklenir)\nİptal: Hayır, yapmayacağım (Eksik gün otomatik olarak görevlendirilir)");
+        
+        if (!willDoMore) {
+          await autoFillLastDayOfProgram(dailyLimit);
+          toast.success("Son gün otomatik olarak dolduruldu.");
+          loadData();
+        } else {
+          toast.success("10 dakika içinde başka işlem yapılmazsa otomatik doldurulacaktır.");
+          setTimeout(async () => {
+            const pSchedules = await dbLocal.schedules.where('programId').equals(activeProgram.id!).toArray();
+            if (pSchedules.length > 0) {
+              pSchedules.sort((a, b) => a.date.localeCompare(b.date));
+              const lSchedule = pSchedules[pSchedules.length - 1];
+              if (lSchedule.assignments.length < dailyLimit) {
+                 await autoFillLastDayOfProgram(dailyLimit);
+                 toast.info("10 dakika süresi doldu. Son gün otomatik tamamlandı.");
+                 loadData();
+              }
+            }
+          }, 10 * 60 * 1000);
+        }
+      }
+    } catch (error) {
+      console.error("AutoFill check failed:", error);
+    }
+  };
+
   const handleCleanupOverloaded = async () => {
     if (!confirm('Bu işlem, aynı ekibe aynı günde 2\'den fazla atanmış temizlik görevlerini sıra bozulmadan ileriki günlere taşıyacaktır. Devam edilsin mi?')) return;
     setIsCleaningUp(true);
@@ -478,6 +517,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
+      await promptAutoFillIfNeeded();
       
       toast.success('Ziyaret başarıyla sonraki güne kaydırıldı.');
     } catch (error) {
@@ -654,6 +694,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
+      await promptAutoFillIfNeeded();
       
       toast.success('Ziyaretler başarıyla kaydırıldı.');
       setRescheduleModal(null);
