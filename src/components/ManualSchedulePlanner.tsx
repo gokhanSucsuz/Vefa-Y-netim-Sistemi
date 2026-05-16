@@ -2,7 +2,7 @@ import toast from 'react-hot-toast';
 import { useState, useMemo } from 'react';
 import { Applicant, Schedule, WorkDay, Program, SystemUser, Staff } from '../types';
 import { dbLocal } from '../db';
-import { X, ChevronRight, ChevronLeft, Plus, Trash2, Calendar, Users, MapPin, CheckCircle2, Settings2 } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Plus, Trash2, Calendar, Users, MapPin, CheckCircle2, Settings2, Search, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { logAction } from '../services/auditService';
@@ -25,6 +25,9 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
   const [currentDateIndex, setCurrentDateIndex] = useState(0);
   const [dailyLimit, setDailyLimit] = useState(6);
   const [selectedAssignments, setSelectedAssignments] = useState<SelectedAssignment[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'priority' | 'name' | 'neighborhood'>('priority');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
   // Teams calculated from staff
   const teams = useMemo(() => {
@@ -81,38 +84,62 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
     const tDate = parseISO(currentDateObj.date);
     const selectedIds = selectedAssignments.map(a => a.applicantId);
     
-    return applicants.map(app => {
-      // Find last visit
-      const visits = schedules.flatMap(s => 
-        s.assignments.filter(a => a.applicantId === app.id).map(() => s.date)
-      ).concat(selectedIds.includes(app.id!) ? [currentDateObj.date] : []); 
-      
-      let isAvailable = true;
-      let reason = '';
-      
-      for (const vDate of visits) {
-        if (vDate === currentDateObj.date && !selectedIds.includes(app.id!)) {
-           isAvailable = false;
-           reason = 'Bugün zaten listede';
-           break;
-        }
-        if (vDate !== currentDateObj.date) {
-           const daysDiff = Math.abs(differenceInDays(tDate, parseISO(vDate)));
-           if (daysDiff < 14) {
+    return applicants
+      .filter(app => {
+        const search = searchTerm.toLocaleLowerCase('tr-TR');
+        return (
+          app.name.toLocaleLowerCase('tr-TR').includes(search) ||
+          app.surname.toLocaleLowerCase('tr-TR').includes(search) ||
+          (app.tcNo || '').includes(search) ||
+          (app.neighborhood || '').toLocaleLowerCase('tr-TR').includes(search)
+        );
+      })
+      .map(app => {
+        // Find last visit
+        const visits = schedules.flatMap(s => 
+          s.assignments.filter(a => a.applicantId === app.id).map(() => s.date)
+        ).concat(selectedIds.includes(app.id!) ? [currentDateObj.date] : []); 
+        
+        let isAvailable = true;
+        let reason = '';
+        
+        for (const vDate of visits) {
+          if (vDate === currentDateObj.date && !selectedIds.includes(app.id!)) {
              isAvailable = false;
-             reason = `Son ziyaret: ${daysDiff} gün önce`;
+             reason = 'Bugün zaten listede';
              break;
-           }
+          }
+          if (vDate !== currentDateObj.date) {
+             const daysDiff = Math.abs(differenceInDays(tDate, parseISO(vDate)));
+             if (daysDiff < 14) {
+               isAvailable = false;
+               reason = `Son ziyaret: ${daysDiff} gün önce`;
+               break;
+             }
+          }
         }
-      }
-      return { applicant: app, isAvailable, reason };
-    }).sort((a, b) => {
-      // Prioritize available, then by priority number (highest first)
-      if (a.isAvailable && !b.isAvailable) return -1;
-      if (!a.isAvailable && b.isAvailable) return 1;
-      return (b.applicant.priority || 0) - (a.applicant.priority || 0);
-    });
-  }, [applicants, schedules, currentDateObj, selectedAssignments]);
+        return { applicant: app, isAvailable, reason };
+      }).sort((a, b) => {
+        // First group by availability
+        if (a.isAvailable && !b.isAvailable) return -1;
+        if (!a.isAvailable && b.isAvailable) return 1;
+        
+        // Then sort by user preference
+        if (sortBy === 'priority') {
+          const valA = a.applicant.priority || 9999;
+          const valB = b.applicant.priority || 9999;
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        } else if (sortBy === 'name') {
+          const valA = (a.applicant.name + a.applicant.surname).toLocaleLowerCase('tr-TR');
+          const valB = (b.applicant.name + b.applicant.surname).toLocaleLowerCase('tr-TR');
+          return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+          const valA = (a.applicant.neighborhood || '').toLocaleLowerCase('tr-TR');
+          const valB = (b.applicant.neighborhood || '').toLocaleLowerCase('tr-TR');
+          return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+      });
+  }, [applicants, schedules, currentDateObj, selectedAssignments, searchTerm, sortBy, sortOrder]);
 
   const handleSelect = (appId: string) => {
     if (existingCount + selectedAssignments.length >= dailyLimit) {
@@ -144,6 +171,20 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
     setSelectedAssignments(selectedAssignments.map(a =>
       a.applicantId === appId ? { ...a, staffIds } : a
     ));
+  };
+
+  const handleMove = (idx: number, direction: 'up' | 'down') => {
+    const newAssignments = [...selectedAssignments];
+    if (direction === 'up' && idx > 0) {
+      const temp = newAssignments[idx];
+      newAssignments[idx] = newAssignments[idx - 1];
+      newAssignments[idx - 1] = temp;
+    } else if (direction === 'down' && idx < newAssignments.length - 1) {
+      const temp = newAssignments[idx];
+      newAssignments[idx] = newAssignments[idx + 1];
+      newAssignments[idx + 1] = temp;
+    }
+    setSelectedAssignments(newAssignments);
   };
   
   const handleSaveDay = async () => {
@@ -317,12 +358,28 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
                                  {applicant.neighborhood}
                                </div>
                              </div>
-                             <button 
-                               onClick={() => handleRemove(assignment.applicantId)} 
-                               className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all"
-                             >
-                               <Trash2 className="w-4 h-4"/>
-                             </button>
+                             <div className="flex items-center gap-1">
+                               <button 
+                                 onClick={() => handleMove(idx, 'up')}
+                                 disabled={idx === 0}
+                                 className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center transition-all disabled:opacity-0"
+                               >
+                                 <ChevronUp className="w-4 h-4"/>
+                               </button>
+                               <button 
+                                 onClick={() => handleMove(idx, 'down')}
+                                 disabled={idx === selectedAssignments.length - 1}
+                                 className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center transition-all disabled:opacity-0"
+                               >
+                                 <ChevronDown className="w-4 h-4"/>
+                               </button>
+                               <button 
+                                 onClick={() => handleRemove(assignment.applicantId)} 
+                                 className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all"
+                               >
+                                 <Trash2 className="w-4 h-4"/>
+                               </button>
+                             </div>
                            </div>
                            
                            {/* Ekip Seçimi */}
@@ -384,22 +441,50 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
            
            {/* Sağ Taraf: Hane Havuzu */}
            <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden relative z-0">
-              <div className="px-8 py-5 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm">
-                 <div>
-                   <h4 className="font-bold text-sm text-slate-900">Bekleyen Haneler Havuzu</h4>
-                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Sadece ziyaret sırası gelenler aktiftir</p>
-                 </div>
-                 <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Günlük Kota:</span>
-                    <input 
-                      type="number" 
-                      min="1" max="20" 
-                      value={dailyLimit} 
-                      onChange={e => setDailyLimit(Number(e.target.value))} 
-                      className="w-12 bg-transparent text-center font-black text-blue-600 text-sm outline-none border-b-2 border-transparent focus:border-blue-500 transition-colors"
+               <div className="px-8 py-4 border-b border-slate-200 bg-white shadow-sm flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                  <div className="flex-1 max-w-md relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Hane Ara (İsim, TC, Mahalle)..."
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     />
-                 </div>
-              </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                      <select 
+                        value={sortBy} 
+                        onChange={e => setSortBy(e.target.value as any)}
+                        className="bg-transparent text-[11px] font-bold text-slate-600 outline-none cursor-pointer"
+                      >
+                        <option value="priority">Öncelik</option>
+                        <option value="name">İsim (A-Z)</option>
+                        <option value="neighborhood">Mahalle</option>
+                      </select>
+                      <button 
+                        onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                        className="p-1 hover:bg-white rounded-md transition-colors"
+                      >
+                        {sortOrder === 'asc' ? <ChevronUp className="w-3 h-3 text-blue-600" /> : <ChevronDown className="w-3 h-3 text-blue-600" />}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kota:</span>
+                       <input 
+                         type="number" 
+                         min="1" max="20" 
+                         value={dailyLimit} 
+                         onChange={e => setDailyLimit(Number(e.target.value))} 
+                         className="w-8 bg-transparent text-center font-black text-blue-600 text-xs outline-none"
+                       />
+                    </div>
+                  </div>
+               </div>
               
               <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-max">
@@ -464,4 +549,3 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
     </div>
   );
 }
-
