@@ -94,6 +94,8 @@ export default function Statistics({ currentUser, onNavigate }: { currentUser: S
       }
 
       a.staffMembers.forEach(s => {
+        if (s.name.toLowerCase().includes('deneme') || s.surname.toLowerCase().includes('deneme')) return;
+        
         if (!staffMap.has(s.id!)) {
           staffMap.set(s.id!, { 
             name: `${s.name} ${s.surname}`, 

@@ -26,6 +26,8 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
           const applicant = applicants.find(a => a.id === assignment.applicantId);
           const staffMembers = (assignment.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[];
           
+          if (staffMembers.some(s => s.name.toLowerCase().includes('deneme') || s.surname.toLowerCase().includes('deneme'))) return;
+
           if (applicant) {
             items.push({
               id: `${schedule.id}-${assignment.applicantId}`,
@@ -49,6 +51,8 @@ export default function CompletedCleanings({ applicants, staff, schedules, curre
             const applicant = applicants.find(a => a.id === assignment.applicantId);
             const staffMembers = (assignment.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[];
             
+            if (staffMembers.some(s => s.name.toLowerCase().includes('deneme') || s.surname.toLowerCase().includes('deneme'))) return;
+
             if (applicant) {
               items.push({
                 id: `${schedule.id}-${assignment.applicantId}`,

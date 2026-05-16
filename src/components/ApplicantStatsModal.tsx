@@ -23,9 +23,17 @@ export default function ApplicantStatsModal({ applicant, currentUser, onClose }:
   useEffect(() => {
     const fetchStats = async () => {
       const allSchedules = await dbLocal.schedules.toArray();
+      const allStaff = await dbLocal.staff.toArray();
+      const denemeStaffIds = new Set(allStaff.filter(s => s.name.toLowerCase().includes('deneme') || s.surname.toLowerCase().includes('deneme')).map(s => s.id));
+
       // Filter schedules where this applicant was assigned
       const applicantSchedules = allSchedules.filter(s => 
-        s.assignments.some(a => a.applicantId === applicant.id)
+        s.assignments.some(a => {
+          if (a.applicantId !== applicant.id) return false;
+          // Exclude if any assigned staff is a deneme staff
+          if (a.staffIds && a.staffIds.some(id => denemeStaffIds.has(id))) return false;
+          return true;
+        })
       );
       setSchedules(applicantSchedules.sort((a, b) => b.date.localeCompare(a.date)));
       setLoading(false);

@@ -76,7 +76,7 @@ export async function autoFillLastDayOfProgram(dailyLimit: number) {
   const dayTeamCounts = new Map<string, number>();
   // We need active staff to form teams
   const staffObj = await dbLocal.staff.toArray();
-  const activeStaff = staffObj.filter(s => s.isActive !== false && s.isBackup !== true);
+  const activeStaff = staffObj.filter(s => s.isActive !== false && s.isBackup !== true && !s.name.toLowerCase().includes('deneme') && !s.surname.toLowerCase().includes('deneme'));
   
   // Quick team generator for fallback
   const dailyTeams: string[][] = [];

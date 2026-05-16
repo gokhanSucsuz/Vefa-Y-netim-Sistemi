@@ -162,7 +162,6 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     setIsCleaningUp(true);
     try {
       const moved = await cleanupOverloadedSchedules();
-      await autoFillLastDayOfProgram(dailyLimit);
       
       if (moved === 0) {
         toast.success('Program temiz! Hiçbir ekipte günlük 2 görev aşımı yok.');
@@ -479,7 +478,6 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
-      await autoFillLastDayOfProgram(dailyLimit);
       
       toast.success('Ziyaret başarıyla sonraki güne kaydırıldı.');
     } catch (error) {
@@ -656,7 +654,6 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
-      await autoFillLastDayOfProgram(dailyLimit);
       
       toast.success('Ziyaretler başarıyla kaydırıldı.');
       setRescheduleModal(null);
@@ -839,6 +836,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       const getTeamsForDate = (dateStr: string) => {
         const activeStaff = staff.filter(s => {
           if (s.isActive === false || s.isBackup === true) return false;
+          if (s.name.toLowerCase().includes('deneme') || s.surname.toLowerCase().includes('deneme')) return false;
           // Check if on leave
           if (s.leaves && s.leaves.length > 0) {
             const onLeave = s.leaves.some(leave => dateStr >= leave.startDate && dateStr <= leave.endDate);
