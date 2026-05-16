@@ -113,6 +113,31 @@ export async function syncWithServer() {
           if (table) {
              await table.update(item.data.localId, { id: res.id });
           }
+          // Update any pending sync queue items that still use the localId
+          const pendingItems = await dexieDb.syncQueue.where('collection').equals(item.collection).toArray();
+          for (const pending of pendingItems) {
+            if (pending.timestamp > item.timestamp) {
+              let updated = false;
+              if ((pending.action === 'update' || pending.action === 'delete') && !pending.data.isBulk && pending.data.id === item.data.localId) {
+                pending.data.id = res.id;
+                updated = true;
+              }
+              if (pending.data.isBulk && pending.data.updates) {
+                pending.data.updates = pending.data.updates.map((u: any) => {
+                  if (u.id === item.data.localId) return { ...u, id: res.id };
+                  return u;
+                });
+                updated = true;
+              }
+              if (pending.data.isBulk && pending.data.ids) {
+                pending.data.ids = pending.data.ids.map((id: string) => id === item.data.localId ? res.id : id);
+                updated = true;
+              }
+              if (updated) {
+                await dexieDb.syncQueue.put(pending);
+              }
+            }
+          }
         } else if (item.action === 'bulkAdd') {
           await apiFetch(`/${item.collection}/bulk`, {
             method: 'POST',

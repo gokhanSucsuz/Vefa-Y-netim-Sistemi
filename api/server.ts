@@ -282,7 +282,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       await connectDB();
       const { ids } = req.body;
       if (Array.isArray(ids) && ids.length > 0) {
-        const validIds = ids.filter((id) => require('mongoose').Types.ObjectId.isValid(id)); if (validIds.length > 0) { await model.deleteMany({ _id: { $in: validIds } }); }
+        const validIds = ids.filter((id) => mongoose.Types.ObjectId.isValid(id)); if (validIds.length > 0) { await model.deleteMany({ _id: { $in: validIds } }); }
         io.emit('db_update', { collection: name, action: 'bulk-delete' });
       }
       res.json({ success: true, count: ids?.length || 0 });
@@ -340,6 +340,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
   router.get("/:id", async (req, res) => {
     try {
       await connectDB();
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(404).json({ error: "Invalid ID format" });
       const item = await model.findById(req.params.id);
       if (!item) return res.status(404).json({ error: "Not found" });
       res.json(prepareFromDB(item));
@@ -392,6 +393,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
   router.put("/:id", async (req, res) => {
     try {
       await connectDB();
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(404).json({ error: "Invalid ID format" });
       const data = prepareForDB(req.body);
       const item = await model.findByIdAndUpdate(req.params.id, data, { new: true });
       if (!item) return res.status(404).json({ error: "Not found" });
@@ -409,6 +411,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
   router.delete("/:id", async (req, res) => {
     try {
       await connectDB();
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(404).json({ error: "Invalid ID format" });
       await model.findByIdAndDelete(req.params.id);
       
       // Notify all clients
