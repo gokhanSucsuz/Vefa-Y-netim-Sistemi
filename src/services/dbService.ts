@@ -225,7 +225,8 @@ export async function syncWithServer() {
 }
 
 // Start sync period
-// setInterval(syncWithServer, 5000); // 🚨 REMOVED: 5-second polling causes DDoS risk. Socket.io handles real-time updates!
+// Run an initial sync
+setTimeout(syncWithServer, 100);
 setInterval(syncWithServer, 1000 * 60 * 5); // Fallback sync every 5 minutes
 window.addEventListener('online', syncWithServer);
 window.addEventListener('focus', syncWithServer); // Sync when user comes back to the tab
@@ -270,17 +271,7 @@ class ApiTable<T extends { id?: string }> {
     this.dexieTable = dexieTable;
   }
 
-  async toArray(): Promise<T[]> {
-    try {
-      if (navigator.onLine) {
-        const data = await apiFetch(`/${this.collectionName}`);
-        await this.dexieTable.clear();
-        await this.dexieTable.bulkPut(data);
-        return data;
-      }
-    } catch (e) {
-      console.warn("Fetch failed, using local data", e);
-    }
+  toArray() {
     return this.dexieTable.toArray();
   }
 

@@ -1,7 +1,7 @@
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import React, { useMemo, useEffect } from 'react';
-import { useLiveQuery } from '../hooks/useLiveQuery';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from '../db';
 import { format, parseISO } from 'date-fns';
 import { Applicant, Staff, Schedule, SystemUser } from '../types';

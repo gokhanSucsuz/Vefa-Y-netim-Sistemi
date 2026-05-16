@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useLiveQuery } from '../hooks/useLiveQuery';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from '../db';
 import { Staff, SystemUser } from '../types';
 import { format, isToday, isFuture, parseISO } from 'date-fns';

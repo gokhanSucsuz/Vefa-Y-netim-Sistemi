@@ -1,6 +1,6 @@
 import { useState, useMemo, ReactNode, useRef } from 'react';
 import html2canvas from 'html2canvas';
-import { useLiveQuery } from '../hooks/useLiveQuery';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from '../db';
 import { Program, Schedule, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
