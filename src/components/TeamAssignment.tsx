@@ -66,22 +66,8 @@ export default function TeamAssignment({ applicants, staff, currentUser }: Props
     setIsSaving(true);
     try {
       await Promise.all(
-        applicantIds.map(async rawId => {
-          // Send explicit empty string if team is being removed, so it gets serialized and saved
-          const newTeamId = teamId || '';
-          
-          try {
-            await dbLocal.applicants.update(rawId, { teamId: newTeamId });
-          } catch (e) {
-            console.error("String ID update failed, trying numeric", e);
-          }
-          
-          // As a fallback to force Dexie's live query or in case ID was actually numeric
-          try {
-            if (!isNaN(Number(rawId))) {
-               await dbLocal.applicants.update(Number(rawId) as any, { teamId: newTeamId });
-            }
-          } catch (e) {}
+        applicantIds.map(async id => {
+          await dbLocal.applicants.update(id, { teamId: teamId || undefined });
         })
       );
       const teamLabel = teamId ? teams.find(t => t.id === teamId)?.label : 'Kaldırıldı';

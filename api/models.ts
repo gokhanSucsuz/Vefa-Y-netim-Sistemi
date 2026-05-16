@@ -14,6 +14,7 @@ const ApplicantSchema = new mongoose.Schema({
   maritalStatus: String,
   notes: String,
   priority: Number,
+  teamId: String,
   lat: Number,
   lng: Number,
   isDeleted: { type: Boolean, default: false },
