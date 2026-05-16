@@ -356,6 +356,7 @@ class ApiTable<T extends { id?: string }> {
           method: 'POST',
           body: JSON.stringify(items),
         });
+        await this.toArray();
       } catch (e) {
         console.warn(`Bulk add to server failed for ${this.collectionName}, queuing`, e);
         await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'bulkAdd', data: { items }, timestamp: Date.now() });

@@ -287,7 +287,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       await connectDB();
       const { ids } = req.body;
       if (Array.isArray(ids) && ids.length > 0) {
-        await model.deleteMany({ _id: { $in: ids } });
+        const validIds = ids.filter((id) => require('mongoose').Types.ObjectId.isValid(id)); if (validIds.length > 0) { await model.deleteMany({ _id: { $in: validIds } }); }
         io.emit('db_update', { collection: name, action: 'bulk-delete' });
       }
       res.json({ success: true, count: ids?.length || 0 });
