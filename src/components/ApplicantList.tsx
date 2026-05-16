@@ -362,17 +362,29 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
+        const data = XLSX.utils.sheet_to_json(ws, { defval: "" }) as any[];
         
         setImportProgress({ current: 0, total: data.length });
 
         const newApplicants: Applicant[] = [];
         
+        // Helper function to find value by case-insensitive key
+        const getValue = (row: any, ...keys: string[]) => {
+          const rowKeys = Object.keys(row);
+          for (const key of keys) {
+            const foundKey = rowKeys.find(rk => rk.toLowerCase().trim() === key.toLowerCase().trim());
+            if (foundKey) return row[foundKey];
+          }
+          return '';
+        };
+
         for (let i = 0; i < data.length; i++) {
           const row = data[i];
           setImportProgress(prev => ({ ...prev, current: i + 1 }));
           
-          const fullName = (row['isim-soyisim'] || row['İsim Soyisim'] || row['Ad Soyad'] || '').toString().trim();
+          const fullName = (getValue(row, 'İsim Soyisim', 'isim-soyisim', 'Ad Soyad', 'Adı Soyadı') || '').toString().trim();
+          if (!fullName) continue;
+
           const parts = fullName.split(/\s+/);
           let name = '';
           let surname = '';
@@ -384,8 +396,8 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
             name = fullName;
           }
 
-          const address = (row['adres'] || row['Adres'] || '').toString();
-          const neighborhoodFromExcel = (row['mahalle-köy'] || row['Mahalle/Köy'] || row['Mahalle'] || '').toString().trim();
+          const address = (getValue(row, 'Adres', 'adres', 'Adres Bilgisi') || '').toString();
+          const neighborhoodFromExcel = (getValue(row, 'Mahalle/Köy', 'mahalle-köy', 'Mahalle', 'Köy') || '').toString().trim();
 
           // Try to detect neighborhood from Excel column first, then from address
           let detectedNeighborhood = '';
@@ -423,11 +435,11 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
           newApplicants.push({
             name: name,
             surname: surname,
-            tcNo: (row['tc kimlik no'] || row['TC No'] || '').toString().replace(/\D/g, ''),
-            haneNo: (row['hane no'] || row['Hane No'] || '').toString(),
-            phone: (row['telefon'] || row['Telefon'] || '').toString(),
+            tcNo: (getValue(row, 'TC Kimlik No', 'tc kimlik no', 'TC No', 'TC Kimlik Numarası', 'TC') || '').toString().replace(/\D/g, '').slice(0, 11),
+            haneNo: (getValue(row, 'Hane No', 'hane no', 'Hane Numarası') || '').toString(),
+            phone: (getValue(row, 'Telefon', 'telefon', 'Cep Telefonu') || '').toString(),
             address: address,
-            householdSize: parseInt(row['kişi sayısı'] || row['Kişi Sayısı'] || '1'),
+            householdSize: parseInt((getValue(row, 'Hane Birey Sayısı', 'kişi sayısı', 'Kişi Sayısı', 'Birey Sayısı') || '1').toString()),
             neighborhood: detectedNeighborhood,
             lat: coords?.lat,
             lng: coords?.lng,
@@ -838,6 +850,7 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
               </label>
               <div className="h-[300px] rounded-2xl border border-gray-200 overflow-hidden relative z-0">
                 <Map
+                  key={editingId || 'new'}
                   initialViewState={{
                     latitude: formData.lat || 41.675,
                     longitude: formData.lng || 26.570,
