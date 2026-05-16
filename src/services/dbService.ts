@@ -136,9 +136,14 @@ export async function syncWithServer() {
               body: JSON.stringify({ ids: item.data.ids }),
             });
           } else {
-            await apiFetch(`/${item.collection}/${item.data.id}`, {
-              method: 'DELETE',
-            });
+            try {
+              await apiFetch(`/${item.collection}/${item.data.id}`, {
+                method: 'DELETE',
+              });
+            } catch (e: any) {
+              // If already gone (404), that's fine for a delete
+              if (e.status !== 404) throw e;
+            }
           }
         }
         await dexieDb.syncQueue.delete(item.id!);
@@ -178,7 +183,9 @@ export async function syncWithServer() {
           if (table) {
             await table.bulkPut(data);
           }
-        } catch (e) {
+        } catch (e: any) {
+          // If 401/403, stop syncing, user probably logged out or session expired
+          if (e.status === 401 || e.status === 403) break;
           console.warn(`Could not sync collection ${col}:`, e);
         }
       }
@@ -303,14 +310,25 @@ class ApiTable<T extends { id?: string }> {
 
   async delete(id: string): Promise<void> {
     await this.dexieTable.delete(id);
+    
+    // Clean up sync queue for this ID to avoid orphaned updates
+    await dexieDb.syncQueue
+      .where('collection').equals(this.collectionName)
+      .filter(item => item.data && (item.data.id === id || item.data.localId === id))
+      .delete();
+
     if (navigator.onLine) {
       try {
         await apiFetch(`/${this.collectionName}/${id}`, {
           method: 'DELETE',
         });
-      } catch (e) {
-        console.warn("Delete from server failed, queuing for sync", e);
-        await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'delete', data: { id }, timestamp: Date.now() });
+      } catch (e: any) {
+        if (e.status === 404) {
+          // Already gone, no problem
+        } else {
+          console.warn("Delete from server failed, queuing for sync", e);
+          await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'delete', data: { id }, timestamp: Date.now() });
+        }
       }
     } else {
       await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'delete', data: { id }, timestamp: Date.now() });

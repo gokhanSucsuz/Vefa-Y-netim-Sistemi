@@ -52,20 +52,29 @@ export default function ProgramManagement({ programs, schedules, currentUser, on
     
     try {
       await dbLocal.transaction("rw", [dbLocal.programs, dbLocal.schedules], async () => {
-        await dbLocal.programs.delete(id);
-        const tempScheds = await dbLocal.schedules.toArray();
-        const programSchedules = tempScheds.filter(s => s.programId === id);
+        const programSchedules = await dbLocal.schedules.where('programId').equals(id).toArray();
+        
+        const toDelete: string[] = [];
+        const toUpdate: { id: string, changes: any }[] = [];
+
         for (const s of programSchedules) {
           const completedAssignments = (s.assignments || []).filter(a => a.isCompleted);
           if (completedAssignments.length > 0) {
-            await dbLocal.schedules.update(s.id!, { 
-              assignments: completedAssignments,
-              programId: 'history'
+            toUpdate.push({
+              id: s.id!,
+              changes: {
+                assignments: completedAssignments,
+                programId: 'history'
+              }
             });
           } else {
-            await dbLocal.schedules.delete(s.id!);
+            toDelete.push(s.id!);
           }
         }
+
+        if (toDelete.length > 0) await dbLocal.schedules.bulkDelete(toDelete);
+        if (toUpdate.length > 0) await dbLocal.schedules.bulkUpdate(toUpdate);
+        await dbLocal.programs.delete(id);
       });
       if (program) {
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Program Silme', `${program.name} silindi. Tamamlanmış işlemler korundu.`);
