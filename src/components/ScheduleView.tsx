@@ -162,7 +162,6 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     setIsCleaningUp(true);
     try {
       const moved = await cleanupOverloadedSchedules();
-      const dailyLimit = parseInt(localStorage.getItem('dailyLimit') || '6');
       await autoFillLastDayOfProgram(dailyLimit);
       
       if (moved === 0) {
@@ -480,7 +479,6 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
-      const dailyLimit = parseInt(localStorage.getItem('dailyLimit') || '6');
       await autoFillLastDayOfProgram(dailyLimit);
       
       toast.success('Ziyaret başarıyla sonraki güne kaydırıldı.');
@@ -658,7 +656,6 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
-      const dailyLimit = parseInt(localStorage.getItem('dailyLimit') || '6');
       await autoFillLastDayOfProgram(dailyLimit);
       
       toast.success('Ziyaretler başarıyla kaydırıldı.');
