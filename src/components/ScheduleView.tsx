@@ -301,29 +301,37 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           uncompletedPool.push(...uncompletedInDay);
         }
 
-        const poolIdx = uncompletedPool.findIndex(a => a.applicantId === applicantId);
-        if (poolIdx === -1) return;
+        // Sort uncompleted pool by priority, then by name as fallback
+        const poolWithPriorities = uncompletedPool.map(item => {
+          const applicant = applicants.find(a => a.id === item.applicantId);
+          return { ...item, priority: applicant?.priority || 9999, name: applicant?.name || '' };
+        });
 
-        const [item] = uncompletedPool.splice(poolIdx, 1);
+        poolWithPriorities.sort((a, b) => {
+          if (a.priority !== b.priority) return a.priority - b.priority;
+          return a.name.localeCompare(b.name);
+        });
+
+        const sortedPool = poolWithPriorities.map(({ priority, name, ...item }) => item);
         
+        // Find and extract the item being moved
+        const moveIdx = sortedPool.findIndex(a => a.applicantId === applicantId);
+        const [movedItem] = sortedPool.splice(moveIdx, 1);
+
         let insertIndex = 0;
         if (targetDateStr) {
           for (const s of futureSchedules) {
             if (s.date >= targetDateStr) break;
-            insertIndex += s.assignments.filter(a => !a.isCompleted).length;
-          }
-          if (targetDateStr > date) {
-            insertIndex = Math.max(0, insertIndex - 1);
+            const completedCount = s.assignments.filter(a => a.isCompleted).length;
+            insertIndex += Math.max(0, dailyLimit - completedCount);
           }
         } else {
-          insertIndex = currentDaySchedule.assignments.filter(a => !a.isCompleted).length - 1;
+          const currentDayCompletedCount = currentDaySchedule.assignments.filter(a => a.isCompleted).length;
+          insertIndex = Math.max(0, dailyLimit - currentDayCompletedCount - 1);
         }
         
-        uncompletedPool.splice(insertIndex, 0, item);
-
-        // 6. Redistribute back to schedules using greedy logic to respect 14-day rule
-        let poolOffset = 0;
-        const tempPool = [...uncompletedPool];
+        sortedPool.splice(insertIndex, 0, movedItem);
+        const tempPool = [...sortedPool];
         
         // We need a way to track visits for the 14-day rule during redistribution
         // We'll use the existing schedules but ignore the uncompleted ones we are about to overwrite
@@ -334,12 +342,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           const completedOnes = s.assignments.filter(a => a.isCompleted);
           const targetDate = parseISO(s.date);
           
-          let targetUncompletedCount;
-          if (s.date === date) {
-            targetUncompletedCount = Math.max(0, (s.assignments.length - completedOnes.length) - 1);
-          } else {
-            targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
-          }
+          let targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
           
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {
@@ -387,9 +390,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
             }
           }
           
-          await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...newUncompleted] });
+          const taggedUncompleted = tagAssignmentsWithShift(newUncompleted, dailyLimit);
+          await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...taggedUncompleted] });
           // Update the futureSchedules array so subsequent iterations see the new assignments
-          s.assignments = [...completedOnes, ...newUncompleted];
+          s.assignments = [...completedOnes, ...taggedUncompleted];
         }
 
         // 7. Handle leftovers — auto-derive next available day if workDays list is insufficient
@@ -507,7 +511,18 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           return true;
         });
 
-        const tempPool = [...uniquePool];
+        // Sort the unique pool by priority before redistribution
+        const uniquePoolWithPriorities = uniquePool.map(item => {
+          const applicant = applicants.find(a => a.id === item.applicantId);
+          return { ...item, priority: applicant?.priority || 9999, name: applicant?.name || '' };
+        });
+
+        uniquePoolWithPriorities.sort((a, b) => {
+          if (a.priority !== b.priority) return a.priority - b.priority;
+          return a.name.localeCompare(b.name);
+        });
+
+        const tempPool = uniquePoolWithPriorities.map(({ priority, name, ...item }) => item);
         
         // We need to handle the case where targetDateStr is a new date not in futureSchedules
         let planningDates = futureSchedules.map(s => s.date);
