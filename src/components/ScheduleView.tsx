@@ -370,6 +370,11 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           const targetDate = parseISO(s.date);
           
           let targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
+          if (s.date === date) {
+             const originalUncompletedCount = currentDaySchedule.assignments.filter(a => !a.isCompleted).length;
+             const movingToSameDay = targetDateStr === date;
+             targetUncompletedCount = movingToSameDay ? originalUncompletedCount : Math.max(0, originalUncompletedCount - 1);
+          }
           
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {

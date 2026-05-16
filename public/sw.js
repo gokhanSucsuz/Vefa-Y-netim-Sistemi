@@ -39,6 +39,22 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension and external map tiles (CORS issues)
   if (event.request.url.startsWith('chrome-extension') || 
       event.request.url.includes('basemaps.cartocdn.com')) return;
+
+  // Network First for HTML/navigation to ensure we get the latest assets
+  if (event.request.mode === 'navigate' || event.request.headers.get('accept').includes('text/html')) {
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const cacheCopy = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, cacheCopy));
+        }
+        return networkResponse;
+      }).catch(() => {
+        return caches.match(event.request);
+      })
+    );
+    return;
+  }
   
   // Stale-while-revalidate for assets
   event.respondWith(

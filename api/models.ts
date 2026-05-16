@@ -109,4 +109,17 @@ export const ScheduleModel = mongoose.models.Schedule || mongoose.model('Schedul
 export const ProgramModel = mongoose.models.Program || mongoose.model('Program', ProgramSchema);
 export const AuditLogModel = mongoose.models.AuditLog || mongoose.model('AuditLog', AuditLogSchema);
 export const AdminModel = mongoose.models.Admin || mongoose.model('Admin', AdminSchema);
+const AssignmentSchema = new mongoose.Schema({
+  staffId: String,
+  assignmentType: String,
+  description: String,
+  date: String,
+  shift: String,
+  backupStaffId: String,
+  cleaningShifted: Boolean,
+  createdAt: String,
+  createdBy: String
+});
+
+export const AssignmentModel = mongoose.models.Assignment || mongoose.model('Assignment', AssignmentSchema);
 export const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
