@@ -219,7 +219,7 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
               disabled={isSyncing}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               title="Yedekten Geri Yükle"
-            />
+             id="field-3mhb1i2" />
             <button
               disabled={isSyncing}
               className="w-full flex items-center justify-center gap-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-4 py-4 rounded-2xl text-sm font-bold transition-all disabled:opacity-50"

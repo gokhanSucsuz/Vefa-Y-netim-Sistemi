@@ -654,7 +654,7 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
             onChange={handleExcelImport}
             accept=".xlsx, .xls"
             className="hidden"
-          />
+           id="field-58noprt" />
           {!isAdding && !isImporting && !isPriorityMode && (
             <>
               <button

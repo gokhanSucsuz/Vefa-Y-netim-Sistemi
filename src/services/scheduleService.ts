@@ -331,14 +331,24 @@ export async function reAlignActiveProgramSchedules() {
     s.assignments.filter(a => a.isCompleted || s.date < today)
   );
 
-  const uncompletedQueueRaw = allSchedules
-    .filter(s => s.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .flatMap(s => s.assignments.filter(a => !a.isCompleted));
-
   const allApplicantsRaw = await dbLocal.applicants.toArray();
   const allApplicants = allApplicantsRaw.filter(a => !a.isDeleted);
   const priorityMap = new Map(allApplicants.map(a => [a.id, a.priority || 0]));
+
+  const validApplicantIds = new Set(allApplicants.map(a => a.id));
+
+  let uncompletedQueueRaw = allSchedules
+    .filter(s => s.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .flatMap(s => s.assignments.filter(a => {
+      if (a.isCompleted) return false;
+      const app = allApplicants.find(x => x.id === a.applicantId);
+      if (!app) return false;
+      if (app.status === 'passive' && (!app.passiveUntil || s.date <= app.passiveUntil)) {
+        return false;
+      }
+      return true;
+    }));
 
   const assignmentEncounter = new Map<string, number>();
 

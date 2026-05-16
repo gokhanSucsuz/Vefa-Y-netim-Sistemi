@@ -202,7 +202,7 @@ export default function StaffList({ staff, currentUser }: Props) {
             onChange={handleExcelImport}
             accept=".xlsx, .xls"
             className="hidden"
-          />
+           id="field-wwm2esz" />
           {!isAdding && (
             <button
               onClick={() => fileInputRef.current?.click()}

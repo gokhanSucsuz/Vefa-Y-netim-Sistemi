@@ -66,10 +66,9 @@ export default function TeamAssignment({ applicants, staff, currentUser }: Props
     setIsSaving(true);
     try {
       await Promise.all(
-        // we use null instead of undefined strictly to ensure it's removed from localstorage if not supported nicely.
-        // wait, Dexie handles undefined correctly, but maybe we should just set to empty string if teamId is null, 
-        // to forcefully trigger the index update. Let's set it to undefined explicitly.
-        applicantIds.map(id => dbLocal.applicants.update(id, { teamId: teamId || undefined }))
+        applicantIds.map(async id => {
+          await dbLocal.applicants.update(Number(id) || id as any, { teamId: teamId || '' });
+        })
       );
       const teamLabel = teamId ? teams.find(t => t.id === teamId)?.label : 'Kaldırıldı';
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ekip-Hane Ataması',
