@@ -19,14 +19,18 @@ import {
   ProgramModel, 
   AuditLogModel, 
   AdminModel,
-  UserModel
+  UserModel,
+  StaffAssignmentModel
 } from "./models.js";
 
 dotenv.config();
 
-const ALLOWED_EMAIL = "edirnesydv@gmail.com";
+const MASTER_ADMIN_EMAILS = (process.env.MASTER_ADMIN_EMAILS || "edirnesydv@gmail.com").split(',').map(e => e.trim().toLowerCase());
 const MONGODB_URI = process.env.MONGODB_URI?.trim();
 const IV_LENGTH = 16;
+if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
+  throw new Error("CRITICAL: ENCRYPTION_KEY is missing in production environment!");
+}
 const ENCRYPTION_KEY_RAW = (process.env.ENCRYPTION_KEY || "vefa-sydv-secure-encryption-key-2026-64-chars-long-string-needed-32chars").trim();
 
 function getEncryptionKey() {
@@ -85,7 +89,10 @@ const io = new SocketServer(httpServer, {
 });
 const PORT = 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
 app.use(cookieParser(process.env.COOKIE_SECRET || "edirne-sydv-secret"));
 
@@ -227,6 +234,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       result.id = result._id?.toString() || result.id;
       delete result._id;
       delete result.__v;
+      delete result.password; // 🔴 SECURITY: Never send raw password to client
 
       // Decrypt requested fields
       encryptedFields.forEach(field => {
@@ -245,8 +253,27 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     }
   };
 
+  // RBAC Middleware for Write Operations
+  const checkWriteAccess = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const userRole = (req as any).user?.role;
+    if (userRole === 'superadmin' || userRole === 'admin') return next();
+    
+    if (userRole === 'staff') {
+      // Staff can only write to auditlog, schedule, and their own staff record
+      if (['auditlog', 'auditlogs', 'schedule', 'schedules', 'staff'].includes(name)) {
+         if (req.method === 'DELETE') {
+            return res.status(403).json({ error: "Saha personeli kayıt silemez." });
+         }
+         return next();
+      }
+      return res.status(403).json({ error: "Saha personeli bu koleksiyonda değişiklik yapamaz." });
+    }
+    
+    return res.status(403).json({ error: "Yetkisiz işlem." });
+  };
+
   // Bulk operations
-  router.post("/bulk", async (req, res) => {
+  router.post("/bulk", checkWriteAccess, async (req, res) => {
     try {
       await connectDB();
       const items = (Array.isArray(req.body) ? req.body : []).map(prepareForDB);
@@ -261,7 +288,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     }
   });
 
-  router.put("/bulk-update", async (req, res) => {
+  router.put("/bulk-update", checkWriteAccess, async (req, res) => {
     try {
       await connectDB();
       const updates = req.body;
@@ -282,7 +309,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     }
   });
 
-  router.delete("/bulk", async (req, res) => {
+  router.delete("/bulk", checkWriteAccess, async (req, res) => {
     try {
       await connectDB();
       const { ids } = req.body;
@@ -302,8 +329,9 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       await connectDB();
       let query = {};
       
-      const userRole = req.headers['x-user-role'];
-      const userId = req.headers['x-user-id'];
+      const reqUser = (req as any).user;
+      const userRole = reqUser?.role;
+      const userId = reqUser?.id;
 
   // Specialized logic for AuditLogs
       if (name === 'auditlog') {
@@ -354,7 +382,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     }
   });
 
-  router.post("/", async (req, res) => {
+  router.post("/", checkWriteAccess, async (req, res) => {
     try {
       await connectDB();
       console.log(`[POST /api/${name}] Incoming data:`, req.body);
@@ -394,7 +422,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     }
   });
 
-  router.put("/:id", async (req, res) => {
+  router.put("/:id", checkWriteAccess, async (req, res) => {
     try {
       await connectDB();
       const data = prepareForDB(req.body);
@@ -411,7 +439,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     }
   });
 
-  router.delete("/:id", async (req, res) => {
+  router.delete("/:id", checkWriteAccess, async (req, res) => {
     try {
       await connectDB();
       await model.findByIdAndDelete(req.params.id);
@@ -426,7 +454,11 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
     }
   });
 
-  router.delete("/", async (req, res) => {
+  router.delete("/", checkWriteAccess, async (req, res) => {
+    const userRole = (req as any).user?.role;
+    if (userRole !== 'superadmin') {
+      return res.status(403).json({ error: "Toplu silme yetkisi sadece Süper Admin'e aittir." });
+    }
     try {
       await connectDB();
       await model.deleteMany({});
@@ -441,19 +473,77 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
   return router;
 };
 
+// Auth Middleware
+const authMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  try {
+    const sessionStr = req.signedCookies.app_session;
+    let userEmail = '';
+    
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      userEmail = session.email;
+    } else if (req.headers['x-user-email']) {
+      // Fallback for Firebase Auth clients
+      userEmail = req.headers['x-user-email'] as string;
+    }
+    
+    let role = 'guest';
+    let userId = '';
+    
+    if (userEmail) {
+      if (MASTER_ADMIN_EMAILS.includes(userEmail.toLowerCase())) {
+        role = 'superadmin';
+        userId = 'master-admin';
+      } else {
+        // Users table has AES-encrypted emails with random IV, so we must fetch all and decrypt to find a match
+        const allUsers = await (UserModel as any).find({}).lean();
+        const dbUser = allUsers.find((u: any) => {
+          try {
+            return decrypt(u.email)?.toLowerCase() === userEmail.toLowerCase() || u.email?.toLowerCase() === userEmail.toLowerCase();
+          } catch { return false; }
+        });
+        
+        if (dbUser) {
+          role = dbUser.role || 'admin';
+          userId = dbUser._id.toString();
+        } else {
+          const staffUser = await (StaffModel as any).findOne({ 
+            $or: [
+              { googleEmail: new RegExp(`^${userEmail}$`, 'i') },
+              { email: new RegExp(`^${userEmail}$`, 'i') }
+            ]
+          }).lean();
+          
+          if (staffUser) {
+            role = staffUser.role || 'staff';
+            userId = staffUser._id.toString();
+          }
+        }
+      }
+    }
+    
+    (req as any).user = { email: userEmail, role, id: userId };
+    next();
+  } catch (err) {
+    (req as any).user = { role: 'guest' };
+    next();
+  }
+};
+
 // API Routes
-app.use("/api/applicants", createCrudRoutes(ApplicantModel, 'applicant', ['tcNo', 'phone', 'address', 'haneNo']));
-app.use("/api/staff", createCrudRoutes(StaffModel, 'staff', ['phone', 'tcNo', 'password']));
-app.use("/api/workdays", createCrudRoutes(WorkDayModel, 'workday'));
-app.use("/api/schedules", createCrudRoutes(ScheduleModel, 'schedule'));
-app.use("/api/programs", createCrudRoutes(ProgramModel, 'program'));
-app.use("/api/auditlogs", createCrudRoutes(AuditLogModel, 'auditlog'));
-app.use("/api/admins", createCrudRoutes(AdminModel, 'admin', ['name', 'surname', 'tcNo', 'phone', 'email']));
-app.use("/api/users", createCrudRoutes(UserModel, 'user', ['name', 'surname', 'tcNo', 'phone', 'email', 'password', 'passwordHash']));
+app.use("/api/applicants", authMiddleware, createCrudRoutes(ApplicantModel, 'applicant', ['tcNo', 'phone', 'address', 'haneNo']));
+app.use("/api/staff", authMiddleware, createCrudRoutes(StaffModel, 'staff', ['phone', 'tcNo']));
+app.use("/api/workdays", authMiddleware, createCrudRoutes(WorkDayModel, 'workday'));
+app.use("/api/schedules", authMiddleware, createCrudRoutes(ScheduleModel, 'schedule'));
+app.use("/api/programs", authMiddleware, createCrudRoutes(ProgramModel, 'program'));
+app.use("/api/auditlogs", authMiddleware, createCrudRoutes(AuditLogModel, 'auditlog'));
+app.use("/api/admins", authMiddleware, createCrudRoutes(AdminModel, 'admin', ['name', 'surname', 'tcNo', 'phone', 'email']));
+app.use("/api/users", authMiddleware, createCrudRoutes(UserModel, 'user', ['name', 'surname', 'tcNo', 'phone', 'email', 'passwordHash']));
+app.use("/api/assignments", authMiddleware, createCrudRoutes(StaffAssignmentModel, 'staffassignment'));
 
 // Reset Mock Data Route
-app.post("/api/admin/reset-mock-data", async (req, res) => {
-  const userRole = req.headers['x-user-role'];
+app.post("/api/admin/reset-mock-data", authMiddleware, async (req, res) => {
+  const userRole = (req as any).user?.role;
   if (userRole !== 'superadmin') {
     return res.status(403).json({ error: "Sadece Süper Admin bu işlemi yapabilir." });
   }
@@ -627,7 +717,7 @@ app.get(["/api/auth/callback", "/auth/callback"], async (req, res) => {
     // 2. Check if email exists in System Users
     // 3. Check if email exists in Staff records
     
-    const isMasterAdmin = userEmail === ALLOWED_EMAIL;
+    const isMasterAdmin = MASTER_ADMIN_EMAILS.includes(userEmail);
     const allUsers = await (UserModel as any).find({}).lean();
     const existsInUsers = allUsers.some((u: any) => decrypt(u.email)?.toLowerCase() === userEmail);
     
@@ -656,6 +746,15 @@ app.get(["/api/auth/callback", "/auth/callback"], async (req, res) => {
       secure: true,
       sameSite: "none",
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
+    // Custom secure session for authorization
+    res.cookie("app_session", JSON.stringify({ email: userEmail }), {
+      httpOnly: true,
+      secure: true,
+      signed: true,
+      sameSite: "none",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
     res.send(`
@@ -699,6 +798,7 @@ app.get(["/api/auth/status", "/auth/status"], async (req, res) => {
 // Logout
 app.post(["/api/auth/logout", "/auth/logout"], (req, res) => {
   res.clearCookie("google_tokens");
+  res.clearCookie("app_session");
   res.json({ success: true });
 });
 

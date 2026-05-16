@@ -1,0 +1,22 @@
+{
+  "name": "Vefa SYDV",
+  "short_name": "Vefa SYDV",
+  "description": "Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı Vefa SYDV Sistemi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://pbs.twimg.com/profile_images/1456143975845404674/xGjOJe4S_400x400.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

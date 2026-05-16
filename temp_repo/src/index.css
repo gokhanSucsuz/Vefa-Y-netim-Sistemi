@@ -1,0 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-institution-blue: #003366;
+  --color-institution-dark: #002244;
+  --color-institution-light: #f0f4f8;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+@layer base {
+  body {
+    @apply bg-institution-light text-slate-900 font-sans antialiased selection:bg-institution-blue selection:text-white;
+  }
+}
+
+@layer components {
+  .official-card {
+    @apply bg-white border border-slate-200 shadow-sm rounded-2xl transition-all duration-200;
+  }
+  
+  .official-button-primary {
+    @apply bg-institution-blue hover:bg-institution-dark text-white font-semibold py-2 px-4 rounded-xl transition-all active:scale-95 disabled:opacity-50;
+  }
+}
+
+@layer base {
+  html, body {
+    @apply overflow-x-hidden w-full;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  @keyframes progress {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(0); }
+    100% { transform: translateX(100%); }
+  }
+  .animate-progress {
+    animation: progress 2s infinite linear;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Modern Custom Scrollbar */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #e2e8f0;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease;
+  }
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+  }
+}

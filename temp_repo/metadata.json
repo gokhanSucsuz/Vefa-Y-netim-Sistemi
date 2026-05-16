@@ -1,0 +1,7 @@
+{
+  "name": "Vefa SYDV",
+  "description": "Edirne Merkez Sosyal Yardımlaşma ve Dayanışma Vakfı Vefa SYDV Sistemi",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

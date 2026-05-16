@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isMasterAccount() {
+      return isAuthenticated() && 
+             request.auth.token.email == 'edirnesydv@gmail.com' && 
+             request.auth.token.email_verified == true;
+    }
+
+    // System Users collection
+    match /system_users/{userId} {
+      allow read: if isMasterAccount();
+      allow create: if isMasterAccount() && 
+                      request.resource.data.keys().hasAll(['name', 'surname', 'email', 'tcNo', 'password', 'createdAt']) &&
+                      request.resource.data.email is string &&
+                      request.resource.data.tcNo is string &&
+                      request.resource.data.password is string;
+      allow update: if isMasterAccount() && 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'surname', 'email', 'tcNo', 'password', 'phone']);
+      allow delete: if isMasterAccount();
+    }
+    
+    // Audit Logs collection
+    match /audit_logs/{logId} {
+      allow read: if isMasterAccount();
+      allow create: if isMasterAccount() && 
+                      request.resource.data.keys().hasAll(['userId', 'userName', 'action', 'details', 'timestamp']) &&
+                      request.resource.data.timestamp is string;
+      allow update, delete: if false; // Audit logs should be immutable
+    }
+    
+    // Allow master account to manage everything else if needed
+    match /{document=**} {
+      allow read, write: if isMasterAccount();
+    }
+  }
+}

@@ -1,0 +1,1187 @@
+import toast from 'react-hot-toast';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { dbLocal } from '../db';
+import { Applicant, Staff, EDIRNE_NEIGHBORHOODS, SystemUser } from '../types';
+import { logAction } from '../services/auditService';
+import { Plus, Trash2, Edit2, X, Check, UserPlus, MapPin, FileSpreadsheet, Search, Map as MapIcon, RefreshCw, ArrowUp, ArrowDown, Hash, ArrowUpDown, BarChart3, Eye, EyeOff, GripVertical, Download, Users, ChevronDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Map, Marker, NavigationControl, useMap } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { AnimatePresence, motion, Reorder } from 'motion/react';
+
+import { formatPhone, formatTC } from '../lib/format';
+import { geocodeAddress } from '../services/geocoding';
+import ApplicantStatsModal from './ApplicantStatsModal';
+import { reAlignActiveProgramSchedules, cleanupOverloadedSchedules } from '../services/scheduleService';
+import Pagination from './Pagination';
+
+// Leaflet icon fix removed as it's not needed for MapLibre
+
+function LocationPicker({ position, setPosition }: { position: [number, number], setPosition: (pos: [number, number]) => void }) {
+  const { current: map } = useMap();
+  
+  useEffect(() => {
+    if (map) {
+      map.flyTo({ center: [position[1], position[0]], zoom: 17 });
+    }
+  }, [position, map]);
+
+  return (
+    <Marker 
+      latitude={position[0]} 
+      longitude={position[1]} 
+      draggable 
+      onDragEnd={(e) => setPosition([e.lngLat.lat, e.lngLat.lng])}
+    >
+      <div className="w-8 h-8 -mt-4 -ml-4 bg-red-500 text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg cursor-pointer">
+        <MapPin className="w-4 h-4" />
+      </div>
+    </Marker>
+  );
+}
+
+interface Props {
+  applicants: Applicant[];
+  staff?: Staff[];
+  currentUser: SystemUser;
+  isPriorityMode?: boolean;
+}
+
+interface Team {
+  id: string;
+  label: string;
+  members: Staff[];
+}
+
+export default function ApplicantList({ applicants, staff = [], currentUser, isPriorityMode = false }: Props) {
+  const activeApplicants = applicants.filter(a => !a.isDeleted);
+  const [isAdding, setIsAdding] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [teamPopover, setTeamPopover] = useState<string | null>(null); // applicant id whose popover is open
+  const [assigningTeam, setAssigningTeam] = useState<string | null>(null); // applicant id being saved
+  const [formData, setFormData] = useState<Applicant>({
+    name: '',
+    surname: '',
+    tcNo: '',
+    haneNo: '',
+    phone: '',
+    address: '',
+    neighborhood: '',
+    lat: 41.675,
+    lng: 26.570,
+    priority: 0
+  });
+
+  const [isImporting, setIsImporting] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'priority' | 'name' | 'neighborhood'>('priority');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 30;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortBy, sortOrder]);
+  const [selectedStatsApplicant, setSelectedStatsApplicant] = useState<Applicant | null>(null);
+  const [hasActiveProgram, setHasActiveProgram] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Derive teams from staff partner pairs
+  const teams = useMemo((): Team[] => {
+    const seen = new Set<string>();
+    const result: Team[] = [];
+    staff.filter(s => s.isActive !== false && !s.isBackup).forEach(s => {
+      if (!s.id || seen.has(s.id)) return;
+      const partner = s.partnerId ? staff.find(p => p.id === s.partnerId) : undefined;
+      const members = partner ? [s, partner] : [s];
+      const id = members.map(m => m.id!).sort().join('_');
+      if (!seen.has(id)) {
+        result.push({ id, members, label: members.map(m => `${m.name} ${m.surname}`).join(' & ') });
+        members.forEach(m => seen.add(m.id!));
+      }
+    });
+    return result;
+  }, [staff]);
+
+  const getTeamForApplicant = (teamId?: string) =>
+    teamId ? teams.find(t => t.id === teamId) : undefined;
+
+  const handleAssignTeam = async (applicantId: string, teamId: string | null) => {
+    setAssigningTeam(applicantId);
+    try {
+      await dbLocal.applicants.update(applicantId, { teamId: teamId || undefined });
+      
+      // Update future uncompleted schedules for this applicant to reflect the new team
+      const today = new Date().toISOString().split('T')[0];
+      const futureSchedules = await dbLocal.schedules.where('date').aboveOrEqual(today).toArray();
+      
+      const team = teamId ? teams.find(t => t.id === teamId) : undefined;
+      const newStaffIds = team ? team.members.map(m => m.id!) : [];
+
+      for (const schedule of futureSchedules) {
+        let changed = false;
+        const newAssignments = schedule.assignments.map(a => {
+          if (a.applicantId === applicantId && !a.isCompleted) {
+            changed = true;
+            return { ...a, staffIds: newStaffIds };
+          }
+          return a;
+        });
+        if (changed) {
+          await dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
+        }
+      }
+
+      // If team was changed, some days might now have > 2 tasks for this new team. Clean up.
+      if (teamId) {
+        await cleanupOverloadedSchedules();
+      }
+
+      const applicant = applicants.find(a => a.id === applicantId);
+      const teamLabel = teamId ? teams.find(t => t.id === teamId)?.label : 'Kaldırıldı';
+      logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ekip Ataması', `${applicant?.name} ${applicant?.surname} hanesi → ${teamLabel}`);
+      toast.success(teamId ? `Ekip atandı ve program güncellendi: ${teamLabel}` : 'Ekip kaldırıldı.');
+    } catch (e) {
+      toast.error('Ekip ataması başarısız.');
+    } finally {
+      setAssigningTeam(null);
+      setTeamPopover(null);
+    }
+  };
+
+  // Close team popover on outside click
+  useEffect(() => {
+    if (!teamPopover) return;
+    const handler = () => setTeamPopover(null);
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [teamPopover]);
+
+  useEffect(() => {
+    const checkPrograms = async () => {
+      const activePrograms = (applicants.length > 0) ? (await dbLocal.programs.toArray()).filter(p => p.status === 'active') : [];
+      setHasActiveProgram(activePrograms.length > 0);
+    };
+    checkPrograms();
+  }, [applicants]);
+
+  const reindexPriorities = async () => {
+    const allApplicants = await dbLocal.applicants.toArray();
+    // Sort by current priority, then by ID as fallback
+    const sorted = allApplicants.sort((a, b) => {
+      if ((a.priority || 0) !== (b.priority || 0)) {
+        return (a.priority || 0) - (b.priority || 0);
+      }
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+
+    const updates = [];
+    for (let i = 0; i < sorted.length; i++) {
+       if (sorted[i].priority !== i + 1) {
+         updates.push({ id: sorted[i].id!, changes: { priority: i + 1 } });
+       }
+    }
+    if (updates.length > 0) {
+      await dbLocal.applicants.bulkUpdate(updates);
+    }
+  };
+
+  const handleGeocode = async () => {
+    if (!formData.neighborhood) {
+      toast.error('Lütfen önce bir mahalle veya köy seçin.');
+      return;
+    }
+    setIsGeocoding(true);
+    const result = await geocodeAddress(formData.address, formData.neighborhood);
+    if (result) {
+      setFormData(prev => ({ ...prev, lat: result.lat, lng: result.lng }));
+    }
+    setIsGeocoding(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Check TC No uniqueness
+    if (applicants.some(a => a.tcNo === formData.tcNo && a.id !== editingId)) {
+      toast.error('Bu TC Kimlik Numarası ile kayıtlı bir hane zaten mevcut.');
+      return;
+    }
+
+    // Check Hane No uniqueness
+    if (formData.haneNo && applicants.some(a => a.haneNo === formData.haneNo && a.id !== editingId)) {
+      toast.error('Bu Hane Numarası ile kayıtlı bir hane zaten mevcut.');
+      return;
+    }
+
+    try {
+      if (editingId) {
+        await dbLocal.applicants.update(editingId, formData);
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Güncelleme', `${formData.name} ${formData.surname} hanesi güncellendi.`);
+        toast.success('Hane başarıyla güncellendi.');
+        setEditingId(null);
+      } else {
+        const maxPriority = applicants.reduce((max, a) => Math.max(max, a.priority || 0), 0);
+        await dbLocal.applicants.add({ ...formData, priority: maxPriority + 1 });
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Ekleme', `${formData.name} ${formData.surname} hanesi eklendi.`);
+        toast.success('Yeni hane başarıyla eklendi.');
+      }
+      setIsAdding(false);
+      setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: '', lat: 41.675, lng: 26.570, priority: 0 });
+      await reindexPriorities();
+      await reAlignActiveProgramSchedules();
+    } catch (error) {
+      console.error("Error saving applicant:", error);
+    }
+  };
+
+  const handleEdit = (applicant: Applicant) => {
+    setFormData(applicant);
+    setEditingId(applicant.id!);
+    setIsAdding(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    const applicant = applicants.find(a => a.id === id);
+    if (confirm('Bu haneyi silmek istediğinize emin misiniz?')) {
+      await dbLocal.applicants.update(id, { isDeleted: true });
+      if (applicant) {
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Silme', `${applicant.name} ${applicant.surname} hanesi silindi.`);
+      }
+      await reindexPriorities();
+      await reAlignActiveProgramSchedules();
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (confirm('TÜM hane kayıtlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) {
+      try {
+        setIsProcessing(true);
+        await dbLocal.applicants.clear();
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Tüm Haneleri Silme', 'Tüm hane kayıtları temizlendi.');
+      } catch (error) {
+        console.error("Error clearing applicants:", error);
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  const handlePriorityUpdate = async (updates: any[]) => {
+    if (hasActiveProgram) {
+      if (!confirm('Sistemde aktif bir program bulunmaktadır. Öncelik sırasını değiştirmek programın yeniden düzenlenmesine neden olabilir (Kaydet butonuna bastığınızda). Devam etmek istiyor musunuz?')) {
+        return false;
+      }
+    }
+    
+    try {
+      await dbLocal.applicants.bulkUpdate(updates);
+      await reindexPriorities();
+      return true;
+    } catch (e) {
+      console.error("Priority update error:", e);
+      return false;
+    }
+  };
+
+  const fixNeighborhoods = async () => {
+    if (!confirm('Mevcut tüm hanelerin mahalle bilgileri adreslerine göre yeniden taranacak. Onaylıyor musunuz?')) return;
+    
+    let fixedCount = 0;
+    for (const applicant of applicants) {
+      const upperAddress = applicant.address.toLocaleUpperCase('tr-TR');
+      let detectedNeighborhood = applicant.neighborhood;
+      
+      for (const n of EDIRNE_NEIGHBORHOODS) {
+        if (upperAddress.includes(n.toLocaleUpperCase('tr-TR'))) {
+          detectedNeighborhood = n;
+          break;
+        }
+      }
+      
+      if (detectedNeighborhood !== applicant.neighborhood) {
+        const coords = await geocodeAddress('', detectedNeighborhood);
+        await dbLocal.applicants.update(applicant.id!, { 
+          neighborhood: detectedNeighborhood,
+          lat: coords?.lat,
+          lng: coords?.lng
+        });
+        fixedCount++;
+      }
+    }
+    toast.error(`${fixedCount} hanenin mahalle bilgisi düzeltildi.`);
+  };
+
+  const exportTemplate = () => {
+    // If we have current applicants, create a template with their data.
+    // Otherwise, create an empty template.
+    const active = applicants.filter(a => !a.isDeleted);
+    
+    let data;
+    if (active.length > 0) {
+      data = active.map(a => ({
+        'İsim Soyisim': `${a.name} ${a.surname}`,
+        'TC Kimlik No': a.tcNo || '',
+        'Hane No': a.haneNo || '',
+        'Telefon': a.phone || '',
+        'Mahalle': a.neighborhood || '',
+        'Adres': a.address || '',
+        'Hane Birey Sayısı': a.householdSize || 1
+      }));
+    } else {
+      data = [{
+        'İsim Soyisim': 'Örnek İsim',
+        'TC Kimlik No': '11111111111',
+        'Hane No': '12345',
+        'Telefon': '05555555555',
+        'Mahalle': 'Şükrüpaşa Mahallesi',
+        'Adres': 'Test Sokak No:1 İç Kapı:2',
+        'Hane Birey Sayısı': 1
+      }];
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Haneler Şablonu");
+    XLSX.writeFile(wb, "Hane_Yukleme_Sablonu.xlsx");
+  };
+
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        setIsImporting(true);
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { defval: "" }) as any[];
+        
+        setImportProgress({ current: 0, total: data.length });
+
+        const newApplicants: Applicant[] = [];
+        
+        // Helper function to find value by case-insensitive key
+        const getValue = (row: any, ...keys: string[]) => {
+          const rowKeys = Object.keys(row);
+          for (const key of keys) {
+            const foundKey = rowKeys.find(rk => rk.toLowerCase().trim() === key.toLowerCase().trim());
+            if (foundKey) return row[foundKey];
+          }
+          return '';
+        };
+
+        for (let i = 0; i < data.length; i++) {
+          const row = data[i];
+          setImportProgress(prev => ({ ...prev, current: i + 1 }));
+          
+          const fullName = (getValue(row, 'İsim Soyisim', 'isim-soyisim', 'Ad Soyad', 'Adı Soyadı') || '').toString().trim();
+          if (!fullName) continue;
+
+          const parts = fullName.split(/\s+/);
+          let name = '';
+          let surname = '';
+          
+          if (parts.length > 1) {
+            surname = parts.pop() || '';
+            name = parts.join(' ');
+          } else {
+            name = fullName;
+          }
+
+          const address = (getValue(row, 'Adres', 'adres', 'Adres Bilgisi') || '').toString();
+          const neighborhoodFromExcel = (getValue(row, 'Mahalle/Köy', 'mahalle-köy', 'Mahalle', 'Köy') || '').toString().trim();
+
+          // Try to detect neighborhood from Excel column first, then from address
+          let detectedNeighborhood = '';
+          const upperNeighborhoodExcel = neighborhoodFromExcel.toLocaleUpperCase('tr-TR');
+          const upperAddress = address.toLocaleUpperCase('tr-TR');
+
+          // 1. Check if the provided neighborhood matches any in our list
+          if (upperNeighborhoodExcel) {
+            for (const n of EDIRNE_NEIGHBORHOODS) {
+              const nUpper = n.toLocaleUpperCase('tr-TR');
+              if (upperNeighborhoodExcel.includes(nUpper) || nUpper.includes(upperNeighborhoodExcel)) {
+                detectedNeighborhood = n;
+                break;
+              }
+            }
+          }
+
+          // 2. If not found, try to detect from address
+          if (!detectedNeighborhood) {
+            for (const n of EDIRNE_NEIGHBORHOODS) {
+              if (upperAddress.includes(n.toLocaleUpperCase('tr-TR'))) {
+                detectedNeighborhood = n;
+                break;
+              }
+            }
+          }
+
+          // Default to first neighborhood if still not found
+          if (!detectedNeighborhood) {
+            detectedNeighborhood = EDIRNE_NEIGHBORHOODS[0];
+          }
+
+          const coords = await geocodeAddress('', detectedNeighborhood);
+
+          newApplicants.push({
+            name: name,
+            surname: surname,
+            tcNo: (getValue(row, 'TC Kimlik No', 'tc kimlik no', 'TC No', 'TC Kimlik Numarası', 'TC') || '').toString().replace(/\D/g, '').slice(0, 11),
+            haneNo: (getValue(row, 'Hane No', 'hane no', 'Hane Numarası') || '').toString(),
+            phone: (getValue(row, 'Telefon', 'telefon', 'Cep Telefonu') || '').toString(),
+            address: address,
+            householdSize: parseInt((getValue(row, 'Hane Birey Sayısı', 'kişi sayısı', 'Kişi Sayısı', 'Birey Sayısı') || '1').toString()),
+            neighborhood: detectedNeighborhood,
+            lat: coords?.lat,
+            lng: coords?.lng,
+            priority: i + 1 // Temporary priority, will be reindexed
+          });
+        }
+
+        if (newApplicants.length > 0) {
+          await dbLocal.applicants.bulkAdd(newApplicants);
+          logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Excel İçe Aktarma', `${newApplicants.length} hane Excel'den yüklendi.`);
+          await reindexPriorities();
+          await reAlignActiveProgramSchedules();
+          toast.success(`${newApplicants.length} hane başarıyla yüklendi.`);
+        }
+      } catch (error) {
+        console.error("Excel import error:", error);
+        toast.error("Excel dosyası okunurken bir hata oluştu. Lütfen sütun başlıklarını kontrol edin.");
+      } finally {
+        setIsImporting(false);
+        setImportProgress({ current: 0, total: 0 });
+      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const [localReorderList, setLocalReorderList] = useState<Applicant[]>([]);
+  const [prioritySearch, setPrioritySearch] = useState('');
+
+  const filteredAndSortedApplicants = useMemo(() => {
+    return [...applicants]
+      .filter(a => !a.isDeleted)
+      .filter(a => {
+        const search = searchTerm.toLowerCase();
+        return (
+          a.name.toLowerCase().includes(search) ||
+          a.surname.toLowerCase().includes(search) ||
+          a.tcNo.includes(search) ||
+          (a.neighborhood || '').toLowerCase().includes(search) ||
+          (a.address || '').toLowerCase().includes(search) ||
+          (a.haneNo || '').toLowerCase().includes(search)
+        );
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === 'priority') {
+          comparison = (a.priority || 0) - (b.priority || 0);
+        } else if (sortBy === 'name') {
+          comparison = (a.name + a.surname).localeCompare(b.name + b.surname);
+        } else if (sortBy === 'neighborhood') {
+          comparison = (a.neighborhood || '').localeCompare(b.neighborhood || '');
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+  }, [applicants, searchTerm, sortBy, sortOrder]);
+
+  const paginatedApplicants = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedApplicants.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedApplicants, currentPage]);
+
+  const handleManualPriorityChange = (id: string, newIndex: number) => {
+    const list = [...localReorderList];
+    const currentIndex = list.findIndex(a => a.id === id);
+    if (currentIndex === -1) return;
+    
+    const targetIndex = Math.max(0, Math.min(list.length - 1, newIndex - 1));
+    const [movedItem] = list.splice(currentIndex, 1);
+    list.splice(targetIndex, 0, movedItem);
+    setLocalReorderList(list);
+  };
+
+  const [priorityInputs, setPriorityInputs] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (isPriorityMode) {
+      setLocalReorderList(filteredAndSortedApplicants);
+      const inputs: Record<string, string> = {};
+      filteredAndSortedApplicants.forEach((a, i) => {
+        inputs[a.id!] = (i + 1).toString();
+      });
+      setPriorityInputs(inputs);
+    }
+  }, [isPriorityMode, filteredAndSortedApplicants]);
+
+  const filteredLocalReorderList = useMemo(() => {
+    if (!prioritySearch) return localReorderList;
+    const searchLow = prioritySearch.toLowerCase();
+    return localReorderList.filter(a => 
+      a.name.toLowerCase().includes(searchLow) || 
+      a.surname.toLowerCase().includes(searchLow) || 
+      a.tcNo.includes(searchLow) ||
+      (a.haneNo && a.haneNo.includes(searchLow))
+    );
+  }, [localReorderList, prioritySearch]);
+
+  const paginatedPriorityList = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredLocalReorderList.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredLocalReorderList, currentPage]);
+
+  const handlePriorityReorder = (newOrder: Applicant[]) => {
+    let updatedList: Applicant[];
+    
+    // When paginated, we are reordering a slice of the visible filtered list
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const itemsInOtherPagesBefore = filteredLocalReorderList.slice(0, startIndex);
+    const itemsInOtherPagesAfter = filteredLocalReorderList.slice(startIndex + itemsPerPage);
+    
+    const newFilteredList = [...itemsInOtherPagesBefore, ...newOrder, ...itemsInOtherPagesAfter];
+
+    if (prioritySearch) {
+      // If searching, we need to merge the reordered visible items back into the master list
+      updatedList = [...localReorderList];
+      const visibleIds = filteredLocalReorderList.map(item => item.id);
+      
+      let visibleIdx = 0;
+      for (let i = 0; i < updatedList.length; i++) {
+        if (visibleIds.includes(updatedList[i].id)) {
+          updatedList[i] = newFilteredList[visibleIdx++];
+        }
+      }
+    } else {
+      updatedList = newFilteredList;
+    }
+    
+    setLocalReorderList(updatedList);
+    
+    // Update inputs to match new sequence
+    const inputs: Record<string, string> = {};
+    updatedList.forEach((a, i) => {
+      inputs[a.id!] = (i + 1).toString();
+    });
+    setPriorityInputs(inputs);
+  };
+
+  const handleSavePriorityAndRegenerate = async () => {
+    const listToSave = localReorderList.length > 0 ? localReorderList : filteredAndSortedApplicants;
+    
+    if (hasActiveProgram) {
+      if (!confirm('Hane sıralaması kaydedilecek ve mevcut programın gerçekleşmemiş tüm ziyaretleri araya yeni haneler eklenecek/çıkarılacak şekilde kaydırılarak güncellenecektir. Devam etmek istiyor musunuz?')) {
+        return;
+      }
+    }
+
+    setIsProcessing(true);
+    try {
+      // 1. Save new priorities
+      const updates = listToSave.map((item, index) => ({
+        id: item.id!,
+        changes: { priority: index + 1 }
+      }));
+      await dbLocal.applicants.bulkUpdate(updates);
+
+      // 2. If there's an active program, delete uncompleted schedules
+      if (hasActiveProgram) {
+        await reAlignActiveProgramSchedules();
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi ve program kaydırılarak yeniden düzenlendi.');
+        toast.success('Sıralama başarıyla kaydedildi ve aktif program yeni sıralamaya göre güncellendi.');
+      } else {
+        logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Sıralama Güncelleme', 'Hane sıralaması güncellendi.');
+        toast.success('Sıralama başarıyla kaydedildi.');
+      }
+    } catch (e) {
+      console.error("Save priority failed:", e);
+      toast.error('Sıralama kaydedilirken bir hata oluştu.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const toggleSort = (field: 'priority' | 'name' | 'neighborhood') => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">{isPriorityMode ? 'Hane Sıralama & Öncelik' : 'Hane Listesi'}</h2>
+          <p className="text-gray-500">{isPriorityMode ? 'Hanelerin öncelik sırasını (' : 'Temizlik hizmeti alan hanelerin kayıtlarını'} yönetin.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          {isPriorityMode && (
+            <button
+              onClick={handleSavePriorityAndRegenerate}
+              disabled={isProcessing}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 font-bold text-sm"
+            >
+              <Check className="w-5 h-5" />
+              Sıralamayı Kaydet ve Uygula
+            </button>
+          )}
+          {isImporting && !isPriorityMode && (
+            <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 animate-pulse w-full sm:w-auto">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-medium text-blue-700">
+                Yükleniyor: {importProgress.current} / {importProgress.total}
+              </span>
+            </div>
+          )}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleExcelImport}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+          {!isAdding && !isImporting && !isPriorityMode && (
+            <>
+              <button
+                onClick={exportTemplate}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-50 text-slate-700 px-4 py-2 rounded-xl hover:bg-slate-100 transition-all font-semibold border border-slate-200 text-sm"
+              >
+                <Download className="w-5 h-5" />
+                Şablon İndir
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl hover:bg-green-100 transition-all font-semibold border border-green-200 text-sm"
+              >
+                <FileSpreadsheet className="w-5 h-5" />
+                Excel'den Yükle
+              </button>
+            </>
+          )}
+          {activeApplicants.length > 0 && !isAdding && !isImporting && !isPriorityMode && (
+            <button
+              onClick={fixNeighborhoods}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all font-semibold border border-amber-200 text-sm"
+              title="Adres metninden mahalleyi otomatik tespit eder"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Mahalleleri Düzelt
+            </button>
+          )}
+          {activeApplicants.length > 0 && !isAdding && !isImporting && !isPriorityMode && (
+            <button
+              onClick={handleDeleteAll}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all font-semibold text-sm"
+            >
+              <Trash2 className="w-5 h-5" />
+              Tümünü Sil
+            </button>
+          )}
+          {!isAdding && !isImporting && !isPriorityMode && (
+            <button
+              onClick={() => setIsAdding(true)}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 text-sm"
+            >
+              <UserPlus className="w-5 h-5" />
+              Yeni Hane Ekle
+            </button>
+          )}
+        </div>
+      </div>
+
+      {isAdding && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {editingId ? 'Hane Düzenle' : 'Yeni Hane Kaydı'}
+            </h3>
+            <button onClick={() => { setIsAdding(false); setEditingId(null); setFormData({ name: '', surname: '', tcNo: '', phone: '', address: '', neighborhood: EDIRNE_NEIGHBORHOODS[0] }); }} className="text-gray-400 hover:text-gray-600">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Ad</label>
+              <input
+                required
+                type="text"
+                value={formData.name}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Soyad</label>
+              <input
+                required
+                type="text"
+                value={formData.surname}
+                onChange={e => setFormData({ ...formData, surname: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">TC Kimlik No</label>
+              <input
+                required
+                type="text"
+                maxLength={11}
+                value={formData.tcNo}
+                onChange={e => setFormData({ ...formData, tcNo: e.target.value.replace(/\D/g, '') })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Hane No</label>
+              <input
+                type="text"
+                value={formData.haneNo || ''}
+                onChange={e => setFormData({ ...formData, haneNo: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="İsteğe bağlı"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Mahalle / Köy</label>
+              <select
+                required
+                value={formData.neighborhood}
+                onChange={async (e) => {
+                  const n = e.target.value;
+                  const coords = await geocodeAddress('', n);
+                  setFormData({ 
+                    ...formData, 
+                    neighborhood: n,
+                    lat: coords?.lat || formData.lat,
+                    lng: coords?.lng || formData.lng
+                  });
+                }}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              >
+                <option value="" disabled>Seçiniz...</option>
+                {EDIRNE_NEIGHBORHOODS.map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Kişi Sayısı (Hane)</label>
+              <input
+                required
+                type="number"
+                min="1"
+                value={formData.householdSize || 1}
+                onChange={e => setFormData({ ...formData, householdSize: parseInt(e.target.value) })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Öncelik Sırası</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.priority || ''}
+                onChange={e => setFormData({ ...formData, priority: parseInt(e.target.value) })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="Otomatik atanır"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Durum</label>
+              <select
+                value={formData.status || 'active'}
+                onChange={e => setFormData({ ...formData, status: e.target.value as 'active' | 'passive' })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              >
+                <option value="active">Aktif</option>
+                <option value="passive">Pasif</option>
+              </select>
+            </div>
+            {formData.status === 'passive' && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">Pasiflik Bitiş Tarihi</label>
+                <input
+                  type="date"
+                  value={formData.passiveUntil || ''}
+                  onChange={e => setFormData({ ...formData, passiveUntil: e.target.value })}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                />
+              </div>
+            )}
+            <div className="md:col-span-2 space-y-1">
+              <label className="text-sm font-medium text-gray-700">Adres</label>
+              <div className="flex gap-2">
+                <textarea
+                  required
+                  placeholder="Örn: Abdurrahman Mah. Şehit Emniyet Müdürü Ertan Nezihi Turhan Cad. No: 5"
+                  value={formData.address}
+                  onChange={e => setFormData({ ...formData, address: e.target.value })}
+                  className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24"
+                />
+                <button
+                  type="button"
+                  onClick={handleGeocode}
+                  disabled={isGeocoding}
+                  className="px-4 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all flex flex-col items-center justify-center gap-1 border border-blue-100"
+                >
+                  <Search className={`w-5 h-5 ${isGeocoding ? 'animate-spin' : ''}`} />
+                  <span className="text-[10px] font-bold">Konumu Bul</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <MapIcon className="w-4 h-4 text-blue-600" />
+                Harita Üzerinde Konum (Tıklayarak veya İşaretçiyi Kaydırarak Ayarlayın)
+              </label>
+              <div className="h-[300px] rounded-2xl border border-gray-200 overflow-hidden relative z-0">
+                <Map
+                  key={editingId || 'new'}
+                  initialViewState={{
+                    latitude: formData.lat || 41.675,
+                    longitude: formData.lng || 26.570,
+                    zoom: 17
+                  }}
+                  mapStyle="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+                  style={{ width: '100%', height: '100%' }}
+                  onClick={(e) => setFormData(prev => ({ ...prev, lat: e.lngLat.lat, lng: e.lngLat.lng }))}
+                >
+                  <NavigationControl position="top-right" />
+                  <LocationPicker 
+                    position={[(formData.lat || 41.675) as number, (formData.lng || 26.570) as number]} 
+                    setPosition={(pos) => setFormData(prev => ({ ...prev, lat: pos[0], lng: pos[1] }))} 
+                  />
+                </Map>
+              </div>
+              <div className="text-[10px] text-gray-400 font-mono">
+                Koordinatlar: {formData.lat?.toFixed(6)}, {formData.lng?.toFixed(6)}
+              </div>
+            </div>
+            <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => { setIsAdding(false); setEditingId(null); }}
+                className="px-6 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all"
+              >
+                İptal
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all flex items-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                {editingId ? 'Güncelle' : 'Kaydet'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Search and Sort Bar */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Hane ara (Ad, Soyad, TC, Mahalle)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+          />
+        </div>
+        <div className="flex gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+            <ArrowUpDown className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-600 font-medium">Sırala:</span>
+            <select 
+              value={sortBy} 
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-transparent text-sm font-semibold text-gray-900 outline-none cursor-pointer"
+            >
+              <option value="priority">Öncelik</option>
+              <option value="name">Ad Soyad</option>
+              <option value="neighborhood">Mahalle</option>
+            </select>
+            <button 
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="ml-2 p-1 hover:bg-gray-200 rounded transition-colors"
+            >
+              {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
+        <div className="overflow-x-auto scrollbar-hide w-full">
+          {!isPriorityMode ? (
+            <table className="w-full text-left border-collapse min-w-[900px] lg:min-w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 w-20 lg:w-24 uppercase tracking-wider">Sıra</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ad Soyad</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Mahalle/Köy</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Adres Bilgisi</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">TC Kimlik / Hane No</th>
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Kişi Sayısı</th>
+                  {staff.length > 0 && <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 uppercase tracking-wider">Ekip</th>}
+                  <th className="px-4 lg:px-6 py-4 text-xs lg:text-sm font-bold text-gray-600 text-right uppercase tracking-wider">İşlemler</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredAndSortedApplicants.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 font-medium">
+                      Henüz kayıtlı hane bulunmuyor.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedApplicants.map(applicant => {
+                    const currentTeam = getTeamForApplicant(applicant.teamId);
+                    const isAdmin = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+                    return (
+                    <tr key={applicant.id} className="hover:bg-blue-50/30 transition-all group">
+                      <td className="px-4 lg:px-6 py-4">
+                        <div className="font-bold text-blue-600 bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center border border-blue-100 text-xs shadow-sm">
+                          {applicant.priority}
+                        </div>
+                      </td>
+                      <td className="px-4 lg:px-6 py-4">
+                        <div className="font-bold text-gray-900 text-sm">{applicant.name} {applicant.surname}</div>
+                        <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
+                          {formatPhone(applicant.phone)}
+                        </div>
+                      </td>
+                      <td className="px-4 lg:px-6 py-4">
+                        <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded-lg border border-slate-200 uppercase tracking-wider">
+                          {applicant.neighborhood}
+                        </span>
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 max-w-xs">
+                        <div className="flex items-start gap-1.5 text-xs text-gray-600">
+                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-institution-blue/60" />
+                          <span className="line-clamp-2 leading-relaxed">
+                            {applicant.address}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 lg:px-6 py-4">
+                        <div className="text-gray-600 font-mono text-xs font-bold">
+                          {applicant.tcNo}
+                        </div>
+                        {applicant.haneNo && (
+                          <div className="text-[10px] text-gray-500 font-medium mt-0.5">Hane: {applicant.haneNo}</div>
+                        )}
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 text-gray-600 text-xs font-medium">{applicant.householdSize || 1} Kişi</td>
+
+                      {/* Ekip Kolonu */}
+                      {staff.length > 0 && (
+                        <td className="px-4 lg:px-6 py-4">
+                          <div className="relative">
+                            <button
+                              onClick={() => {
+                                if (!isAdmin) return;
+                                setTeamPopover(teamPopover === applicant.id ? null : applicant.id!);
+                              }}
+                              disabled={assigningTeam === applicant.id}
+                              className={`flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1.5 rounded-lg border transition-all ${
+                                currentTeam
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                              } ${!isAdmin ? 'cursor-default' : 'cursor-pointer'}`}
+                              title={isAdmin ? 'Ekip ata / değiştir' : 'Sadece yönetici ekip atayabilir'}
+                            >
+                              {assigningTeam === applicant.id ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Users className="w-3 h-3" />
+                              )}
+                              <span className="max-w-[100px] truncate">
+                                {currentTeam ? currentTeam.label.split(' & ')[0] + (currentTeam.members.length > 1 ? ' & ...' : '') : 'Atanmamış'}
+                              </span>
+                              {isAdmin && <ChevronDown className="w-2.5 h-2.5 opacity-60 shrink-0" />}
+                            </button>
+
+                            {/* Dropdown popover */}
+                            {teamPopover === applicant.id && isAdmin && (
+                              <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[220px] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                <div className="px-3 py-2 border-b border-slate-50">
+                                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Ekip Seç</p>
+                                </div>
+                                <div className="max-h-52 overflow-y-auto">
+                                  {teams.length === 0 ? (
+                                    <div className="px-3 py-3 text-xs text-slate-400 text-center">
+                                      Personel sayfasından ekip kurun.
+                                    </div>
+                                  ) : (
+                                    teams.map(team => (
+                                      <button
+                                        key={team.id}
+                                        onClick={() => handleAssignTeam(applicant.id!, team.id)}
+                                        className={`w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-blue-50 transition-colors ${
+                                          applicant.teamId === team.id ? 'bg-blue-50' : ''
+                                        }`}
+                                      >
+                                        <div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                                          <Users className="w-3 h-3 text-blue-600" />
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="text-xs font-bold text-slate-800 truncate">{team.label}</div>
+                                          <div className="text-[10px] text-slate-400">{team.members.length} personel</div>
+                                        </div>
+                                        {applicant.teamId === team.id && (
+                                          <Check className="w-3.5 h-3.5 text-blue-600 ml-auto shrink-0" />
+                                        )}
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                                {applicant.teamId && (
+                                  <div className="border-t border-slate-50 p-2">
+                                    <button
+                                      onClick={() => handleAssignTeam(applicant.id!, null)}
+                                      className="w-full text-xs font-bold text-rose-500 hover:bg-rose-50 px-3 py-2 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                      Ekibi Kaldır
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      )}
+
+                      <td className="px-4 lg:px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1 lg:gap-2">
+                          <button
+                            onClick={() => setSelectedStatsApplicant(applicant)}
+                            className="p-2 text-institution-blue hover:bg-blue-50 rounded-lg transition-all"
+                            title="İstatistik ve Rapor"
+                          >
+                            <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(applicant)}
+                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                            title="Düzenle"
+                          >
+                            <Edit2 className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(applicant.id!)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            title="Sil"
+                          >
+                            <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <div className="p-4">
+               <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 mb-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-600 text-white p-2 rounded-lg">
+                      <GripVertical className="w-5 h-5" />
+                    </div>
+                    <p className="text-sm font-medium text-blue-800">
+                      Öncelik sırasını sürükleyerek düzenleyebilirsiniz.
+                    </p>
+                  </div>
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Hane ara (Sıralama için)..."
+                      value={prioritySearch}
+                      onChange={e => setPrioritySearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-white border border-blue-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+               </div>
+               <Reorder.Group 
+                 axis="y" 
+                 values={paginatedPriorityList} 
+                 onReorder={handlePriorityReorder}
+                 className="space-y-2"
+               >
+                 {paginatedPriorityList.map((applicant) => (
+                   <Reorder.Item 
+                     key={applicant.id} 
+                     value={applicant}
+                     className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 hover:border-blue-300 hover:shadow-md transition-all cursor-grab active:cursor-grabbing group"
+                   >
+                     <GripVertical className="w-5 h-5 text-gray-400 shrink-0 group-hover:text-blue-500 transition-colors" />
+                     <div className="bg-blue-50 text-blue-700 font-bold w-12 h-10 rounded-lg flex items-center justify-center border border-blue-100 shrink-0 relative overflow-hidden">
+                       <input
+                         type="text"
+                         className="w-full h-full bg-transparent text-center focus:bg-white outline-none transition-colors"
+                         value={priorityInputs[applicant.id!] || ''}
+                         onChange={e => setPriorityInputs(prev => ({ ...prev, [applicant.id!]: e.target.value.replace(/\D/g, '') }))}
+                         onKeyDown={e => {
+                           if (e.key === 'Enter') {
+                             const val = parseInt(priorityInputs[applicant.id!]);
+                             if (!isNaN(val)) {
+                               handleManualPriorityChange(applicant.id!, val);
+                             }
+                           }
+                         }}
+                       />
+                     </div>
+                     <div className="flex-1 min-w-0">
+                        <div className="font-bold text-gray-900 truncate">{applicant.name} {applicant.surname}</div>
+                        <div className="text-xs text-gray-500 truncate">{applicant.neighborhood} - {applicant.address}</div>
+                     </div>
+                     <div className="hidden sm:block text-right">
+                        <div className="text-xs font-bold text-gray-700 font-mono">{formatTC(applicant.tcNo)}</div>
+                        <div className="text-[10px] text-gray-400 font-bold uppercase">{applicant.haneNo || '-'}</div>
+                     </div>
+                   </Reorder.Item>
+                 ))}
+               </Reorder.Group>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Pagination 
+        currentPage={currentPage}
+        totalItems={isPriorityMode ? filteredLocalReorderList.length : filteredAndSortedApplicants.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
+
+      <AnimatePresence>
+        {selectedStatsApplicant && (
+          <ApplicantStatsModal 
+            applicant={selectedStatsApplicant} 
+            currentUser={currentUser}
+            onClose={() => setSelectedStatsApplicant(null)} 
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
