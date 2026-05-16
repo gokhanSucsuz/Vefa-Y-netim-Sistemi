@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { dbLocal } from '../db';
 import { Applicant, Staff, WorkDay, Schedule, DailyAssignment, EDIRNE_NEIGHBORHOODS, Program, SystemUser } from '../types';
 import { logAction } from '../services/auditService';
-import { tagAssignmentsWithShift, cleanupOverloadedSchedules } from '../services/scheduleService';
+import { tagAssignmentsWithShift, cleanupOverloadedSchedules, autoFillLastDayOfProgram } from '../services/scheduleService';
 import { format, startOfMonth, endOfMonth, parseISO, addDays, differenceInDays, isWeekend } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Wand2, FileSpreadsheet, FileText, Users, Map as MapIcon, ChevronDown, ChevronUp, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, Download, ChevronRight, RefreshCw, MapPin, Search, Eye, Settings2, Trash2 } from 'lucide-react';
@@ -162,6 +162,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     setIsCleaningUp(true);
     try {
       const moved = await cleanupOverloadedSchedules();
+      const dailyLimit = parseInt(localStorage.getItem('dailyLimit') || '6');
+      await autoFillLastDayOfProgram(dailyLimit);
+      
       if (moved === 0) {
         toast.success('Program temiz! Hiçbir ekipte günlük 2 görev aşımı yok.');
       } else {
@@ -419,7 +422,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
             }
           }
           
-          const taggedUncompleted = tagAssignmentsWithShift(newUncompleted, dailyLimit);
+          const taggedUncompleted = newUncompleted.map((a: any, idx: number) => ({
+            ...a,
+            shift: (completedOnes.length + idx) < Math.ceil(dailyLimit / 2) ? 'morning' : 'afternoon'
+          }));
           s.assignments = [...completedOnes, ...taggedUncompleted];
           scheduleUpdates.push({ id: s.id!, changes: { assignments: s.assignments } });
         }
@@ -474,6 +480,8 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
+      const dailyLimit = parseInt(localStorage.getItem('dailyLimit') || '6');
+      await autoFillLastDayOfProgram(dailyLimit);
       
       toast.success('Ziyaret başarıyla sonraki güne kaydırıldı.');
     } catch (error) {
@@ -575,13 +583,21 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           }
 
           if (s) {
-            scheduleUpdates.push({ id: s.id!, changes: { assignments: [...completedOnes, ...tagAssignmentsWithShift(newUncompleted, dailyLimit)] } });
+            const taggedUncompleted = newUncompleted.map((a: any, idx: number) => ({
+              ...a,
+              shift: (completedOnes.length + idx) < Math.ceil(dailyLimit / 2) ? 'morning' : 'afternoon'
+            }));
+            scheduleUpdates.push({ id: s.id!, changes: { assignments: [...completedOnes, ...taggedUncompleted] } });
           } else {
             // Check if it's a work day
             const workDays = await dbLocal.workDays.toArray();
             const wd = workDays.find(w => w.date === dStr);
             if (wd?.isWorkDay) {
-              await dbLocal.schedules.add({ date: dStr, programId: schedule.programId, assignments: tagAssignmentsWithShift(newUncompleted, dailyLimit) });
+              const taggedUncompleted = newUncompleted.map((a: any, idx: number) => ({
+                ...a,
+                shift: idx < Math.ceil(dailyLimit / 2) ? 'morning' : 'afternoon'
+              }));
+              await dbLocal.schedules.add({ date: dStr, programId: schedule.programId, assignments: taggedUncompleted });
             }
           }
         }
@@ -624,7 +640,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               newUncompleted.push(tempPool.shift());
             }
             // Tag shifts for this leftover day
-            const taggedUncompleted = tagAssignmentsWithShift(newUncompleted, dailyLimit);
+            const taggedUncompleted = newUncompleted.map((a: any, idx: number) => ({
+              ...a,
+              shift: idx < Math.ceil(dailyLimit / 2) ? 'morning' : 'afternoon'
+            }));
             leftoverSchedules.push({ date: currentDateStr, programId: schedule.programId, assignments: taggedUncompleted });
           }
           if (leftoverSchedules.length > 0) {
@@ -639,6 +658,8 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
+      const dailyLimit = parseInt(localStorage.getItem('dailyLimit') || '6');
+      await autoFillLastDayOfProgram(dailyLimit);
       
       toast.success('Ziyaretler başarıyla kaydırıldı.');
       setRescheduleModal(null);
@@ -854,17 +875,21 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
       const scheduleEntries: any[] = [];
       
-      // Keep track of last visit date for each applicant
+      // Keep track of last visit date and team for each applicant
       const lastVisitMap = new Map<string, string>();
       const visitCountMap = new Map<string, number>();
+      const lastTeamMap = new Map<string, string[]>();
 
-      // Initialize with existing schedules for the current month
+      // Initialize with existing schedules
       const allExistingSchedules = await dbLocal.schedules.toArray();
-      allExistingSchedules.forEach(s => {
+      allExistingSchedules.sort((a, b) => a.date.localeCompare(b.date)).forEach(s => {
         s.assignments.forEach(a => {
           const prev = lastVisitMap.get(a.applicantId);
-          if (!prev || s.date > prev) {
+          if (!prev || s.date >= prev) {
             lastVisitMap.set(a.applicantId, s.date);
+          }
+          if (a.staffIds && a.staffIds.length > 0) {
+            lastTeamMap.set(a.applicantId, a.staffIds);
           }
           visitCountMap.set(a.applicantId, (visitCountMap.get(a.applicantId) || 0) + 1);
         });
@@ -895,6 +920,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         const dailyTeams = getTeamsForDate(wd.date);
         if (dailyTeams.length === 0) continue;
         
+        const dailyTeamsList = dailyTeams.map(t => t.slice().sort().join(','));
+        const dayTeamCounts = new Map<string, number>();
+
         for (let i = 0; i < dailyLimit; i++) {
           if (applicantPool.length === 0) {
             // Liste bittiğinde (havuz boşaldığında), eğer günlük limit dolmadıysa 
@@ -947,24 +975,62 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           if (foundIdx !== -1) {
             const chosenApplicant = applicantPool.splice(foundIdx, 1)[0];
             
-            const teamIndex = Math.floor(i / 2) % dailyTeams.length;
-            const team = dailyTeams[teamIndex];
+            // Try to assign the preferred team (last team to visit them)
+            const preferredTeamIds = lastTeamMap.get(chosenApplicant.id!);
+            let assignedTeam: string[] | null = null;
+            
+            if (preferredTeamIds && preferredTeamIds.length > 0) {
+              const prefKey = preferredTeamIds.slice().sort().join(',');
+              const teamIdx = dailyTeamsList.indexOf(prefKey);
+              if (teamIdx !== -1) {
+                const count = dayTeamCounts.get(prefKey) || 0;
+                if (count < 2) {
+                  assignedTeam = dailyTeams[teamIdx];
+                  dayTeamCounts.set(prefKey, count + 1);
+                }
+              }
+            }
+
+            // Fallback to load balanced team assignment if preferred not found or full
+            if (!assignedTeam) {
+              // Find the team with the lowest count
+              let lowestTeamIdx = 0;
+              let lowestCount = 9999;
+              for (let tIdx = 0; tIdx < dailyTeamsList.length; tIdx++) {
+                const count = dayTeamCounts.get(dailyTeamsList[tIdx]) || 0;
+                if (count < lowestCount) {
+                  lowestCount = count;
+                  lowestTeamIdx = tIdx;
+                }
+              }
+              const fallbackKey = dailyTeamsList[lowestTeamIdx];
+              if (fallbackKey) {
+                dayTeamCounts.set(fallbackKey, lowestCount + 1);
+                assignedTeam = dailyTeams[lowestTeamIdx];
+              }
+            }
 
             dailyAssignments.push({ 
               applicantId: chosenApplicant.id!,
-              staffIds: team || [],
+              staffIds: assignedTeam || [],
               isCompleted: false
             });
             
             lastAssignedId = chosenApplicant.id;
             lastVisitMap.set(chosenApplicant.id!, wd.date);
+            if (assignedTeam && assignedTeam.length > 0) {
+              lastTeamMap.set(chosenApplicant.id!, assignedTeam);
+            }
           }
         }
         
         if (dailyAssignments.length > 0) {
+          // Assign shifts to the generated daily assignments
+          const taggedDailyAssignments = tagAssignmentsWithShift(dailyAssignments, dailyLimit);
+
           scheduleEntries.push({
             date: wd.date,
-            assignments: dailyAssignments
+            assignments: taggedDailyAssignments
           });
         }
 
@@ -996,6 +1062,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         programId: programId as string
       }));
       await dbLocal.schedules.bulkAdd(payloadSchedules);
+      
+      const sessionDailyLimit = parseInt(localStorage.getItem('dailyLimit') || '6');
+      await autoFillLastDayOfProgram(sessionDailyLimit);
 
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Program Oluşturma', `${scheduleEntries.length} günlük yeni program oluşturuldu.`);
       toast.success('Planlama başarıyla tamamlandı.');

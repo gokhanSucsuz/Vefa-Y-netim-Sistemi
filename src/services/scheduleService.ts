@@ -40,7 +40,147 @@ export function tagAssignmentsWithShift<T extends { shift?: 'morning' | 'afterno
 }
 
 /**
+ * Examines the active program. If its last day has fewer than dailyLimit assignments,
+ * it repeatedly pulls from the all uncompleted applicant list (in priority order) to fill the gap.
+ * Also assigns teams based on the team with the lowest count in that day.
+ */
+export async function autoFillLastDayOfProgram(dailyLimit: number) {
+  const activeProgram = await dbLocal.programs.where('status').equals('active').first();
+  if (!activeProgram) return;
+
+  const progSchedules = await dbLocal.schedules.where('programId').equals(activeProgram.id!).toArray();
+  if (progSchedules.length === 0) return;
+
+  // Find the true literal last date
+  progSchedules.sort((a, b) => a.date.localeCompare(b.date));
+  const lastSchedule = progSchedules[progSchedules.length - 1];
+  
+  if (lastSchedule.assignments.length >= dailyLimit) return;
+
+  const needed = dailyLimit - lastSchedule.assignments.length;
+  if (needed <= 0) return;
+
+  const applicantsObj = await dbLocal.applicants.toArray();
+  const sortedApplicants = applicantsObj.filter(a => !a.isDeleted).sort((a, b) => (a.priority || 0) - (b.priority || 0));
+  if (sortedApplicants.length === 0) return;
+
+  // We need to pick applicants. Start after the last global applicant.
+  const lastIdx = activeProgram.lastApplicantId ? sortedApplicants.findIndex(a => a.id === activeProgram.lastApplicantId) : -1;
+  let nextIdx = (lastIdx + 1) % sortedApplicants.length;
+
+  const newAssignments: any[] = [];
+  let added = 0;
+  let checks = 0;
+
+  // Build current team capacities for the last day
+  const dayTeamCounts = new Map<string, number>();
+  // We need active staff to form teams
+  const staffObj = await dbLocal.staff.toArray();
+  const activeStaff = staffObj.filter(s => s.isActive !== false && s.isBackup !== true);
+  
+  // Quick team generator for fallback
+  const dailyTeams: string[][] = [];
+  const processedStaff = new Set<string>();
+  activeStaff.forEach(s => {
+    if (processedStaff.has(s.id!)) return;
+    if (s.partnerId && activeStaff.find(as => as.id === s.partnerId)) {
+      dailyTeams.push([s.id!, s.partnerId]);
+      processedStaff.add(s.id!);
+      processedStaff.add(s.partnerId);
+    }
+  });
+  const individuals = activeStaff.filter(s => !processedStaff.has(s.id!));
+  for (let i = 0; i < individuals.length; i += 2) {
+    const pair = [individuals[i].id!];
+    if (individuals[i+1]) pair.push(individuals[i+1].id!);
+    dailyTeams.push(pair);
+  }
+  const dailyTeamsList = dailyTeams.map(t => t.slice().sort().join(','));
+
+  // Pre-seed day counts
+  lastSchedule.assignments.forEach(a => {
+    if (a.staffIds && a.staffIds.length > 0) {
+      const k = getTeamKey(a.staffIds);
+      dayTeamCounts.set(k, (dayTeamCounts.get(k) || 0) + 1);
+    }
+  });
+
+  // Re-build lastTeamMap real quick to assign proper teams
+  const lastTeamMap = new Map<string, string[]>();
+  const allSchedules = await dbLocal.schedules.toArray();
+  allSchedules.sort((a, b) => a.date.localeCompare(b.date)).forEach(s => {
+    s.assignments.forEach(a => {
+      if (a.staffIds && a.staffIds.length > 0) {
+        lastTeamMap.set(a.applicantId, a.staffIds);
+      }
+    });
+  });
+
+  while (added < needed && checks < sortedApplicants.length * 2) {
+    const applicant = sortedApplicants[nextIdx];
+    
+    // Ensure they are not already in the day
+    const alreadyInDay = lastSchedule.assignments.some(a => a.applicantId === applicant.id) ||
+                         newAssignments.some(a => a.applicantId === applicant.id);
+
+    if (!alreadyInDay) {
+      const preferredTeamIds = lastTeamMap.get(applicant.id!);
+      let assignedTeam: string[] | null = null;
+      
+      if (preferredTeamIds && preferredTeamIds.length > 0) {
+        const prefKey = preferredTeamIds.slice().sort().join(',');
+        const teamIdx = dailyTeamsList.indexOf(prefKey);
+        if (teamIdx !== -1) {
+          const count = dayTeamCounts.get(prefKey) || 0;
+          if (count < TEAM_DAILY_LIMIT) {
+            assignedTeam = dailyTeams[teamIdx];
+            dayTeamCounts.set(prefKey, count + 1);
+          }
+        }
+      }
+
+      if (!assignedTeam && dailyTeamsList.length > 0) {
+        let lowestTeamIdx = 0;
+        let lowestCount = 9999;
+        for (let tIdx = 0; tIdx < dailyTeamsList.length; tIdx++) {
+          const count = dayTeamCounts.get(dailyTeamsList[tIdx]) || 0;
+          if (count < lowestCount) {
+            lowestCount = count;
+            lowestTeamIdx = tIdx;
+          }
+        }
+        const fallbackKey = dailyTeamsList[lowestTeamIdx];
+        if (fallbackKey) {
+          dayTeamCounts.set(fallbackKey, lowestCount + 1);
+          assignedTeam = dailyTeams[lowestTeamIdx];
+        }
+      }
+
+      newAssignments.push({
+        applicantId: applicant.id!,
+        staffIds: assignedTeam || [],
+        isCompleted: false
+      });
+      added++;
+    }
+    
+    nextIdx = (nextIdx + 1) % sortedApplicants.length;
+    checks++;
+  }
+
+  if (newAssignments.length > 0) {
+    const updatedAssignments = [...lastSchedule.assignments, ...newAssignments];
+    const tagged = tagAssignmentsWithShift(updatedAssignments, dailyLimit);
+    await dbLocal.schedules.update(lastSchedule.id!, { assignments: tagged });
+    
+    const finalAppId = newAssignments[newAssignments.length - 1].applicantId;
+    await dbLocal.programs.update(activeProgram.id!, { lastApplicantId: finalAppId });
+  }
+}
+
+/**
  * Scans all schedules and fixes days where any team has more than TEAM_DAILY_LIMIT
+
  * assignments. Excess tasks are moved forward in order, preserving sequence.
  * Returns the number of assignments that were moved.
  */
