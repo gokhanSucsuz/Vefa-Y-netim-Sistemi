@@ -70,7 +70,16 @@ async function apiFetch(path: string, options?: RequestInit) {
 
     if (!response.ok) {
        const text = await response.text();
-       throw new Error(text || `API Hatası: ${response.status}`);
+       let errorData;
+       try {
+         errorData = JSON.parse(text);
+       } catch {
+         errorData = { error: text };
+       }
+       const err: any = new Error(errorData.error || `API Hatası: ${response.status}`);
+       err.status = response.status;
+       err.data = errorData;
+       throw err;
     }
     return response.json();
   } catch (error) {
@@ -103,22 +112,55 @@ export async function syncWithServer() {
           if (table) {
              await table.update(item.data.localId, { id: res.id });
           }
+        } else if (item.action === 'bulkAdd') {
+          await apiFetch(`/${item.collection}/bulk`, {
+            method: 'POST',
+            body: JSON.stringify(item.data.items),
+          });
         } else if (item.action === 'update') {
-          await apiFetch(`/${item.collection}/${item.data.id}`, {
-            method: 'PUT',
-            body: JSON.stringify(item.data.changes),
-          });
+          if (item.data.isBulk) {
+            await apiFetch(`/${item.collection}/bulk-update`, {
+              method: 'PUT',
+              body: JSON.stringify(item.data.updates),
+            });
+          } else {
+            await apiFetch(`/${item.collection}/${item.data.id}`, {
+              method: 'PUT',
+              body: JSON.stringify(item.data.changes),
+            });
+          }
         } else if (item.action === 'delete') {
-          await apiFetch(`/${item.collection}/${item.data.id}`, {
-            method: 'DELETE',
-          });
+          if (item.data.isBulk) {
+            await apiFetch(`/${item.collection}/bulk`, {
+              method: 'DELETE',
+              body: JSON.stringify({ ids: item.data.ids }),
+            });
+          } else {
+            await apiFetch(`/${item.collection}/${item.data.id}`, {
+              method: 'DELETE',
+            });
+          }
         }
         await dexieDb.syncQueue.delete(item.id!);
-      } catch (e) {
-        // If it's a server error (4xx, 5xx), maybe we should keep it in queue but for now skip and try next
-        console.warn(`Failed to process sync item for ${item.collection}:`, e);
-        // Break to avoid hammering the server if it's a network issue
-        break; 
+      } catch (e: any) {
+        // If it's a 404 (Not Found), it means the resource is gone on server
+        // We should remove it from the queue to prevent blocking
+        if (e.status === 404) {
+          console.warn(`Resource not found on server for ${item.collection}, removing from sync queue:`, item.data.id || item.data.localId);
+          await dexieDb.syncQueue.delete(item.id!);
+          
+          // Optionally remove from local DB if it's a persistent 404 on update/delete
+          if (item.action === 'update' || item.action === 'delete') {
+             const table = (dexieDb as any)[item.collection === 'workdays' ? 'workDays' : item.collection === 'auditlogs' ? 'auditLogs' : item.collection === 'users' ? 'systemUsers' : item.collection === 'assignments' ? 'assignments' : item.collection];
+             if (table && item.data.id) {
+               await table.delete(item.data.id);
+             }
+          }
+        } else {
+          console.warn(`Failed to process sync item for ${item.collection}:`, e);
+          // For other errors (network, 500), break and try again later
+          break; 
+        }
       }
     }
 
@@ -291,10 +333,17 @@ class ApiTable<T extends { id?: string }> {
   async bulkAdd(items: T[]): Promise<void> {
     await this.dexieTable.bulkAdd(items);
     if (navigator.onLine) {
+      try {
         await apiFetch(`/${this.collectionName}/bulk`, {
           method: 'POST',
           body: JSON.stringify(items),
         });
+      } catch (e) {
+        console.warn(`Bulk add to server failed for ${this.collectionName}, queuing`, e);
+        await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'bulkAdd', data: { items }, timestamp: Date.now() });
+      }
+    } else {
+      await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'bulkAdd', data: { items }, timestamp: Date.now() });
     }
     notifyListeners();
   }
@@ -302,10 +351,17 @@ class ApiTable<T extends { id?: string }> {
   async bulkDelete(ids: string[]): Promise<void> {
     await this.dexieTable.bulkDelete(ids as any);
     if (navigator.onLine) {
+      try {
         await apiFetch(`/${this.collectionName}/bulk`, {
           method: 'DELETE',
           body: JSON.stringify({ ids }),
         });
+      } catch (e) {
+        console.warn(`Bulk delete from server failed for ${this.collectionName}, queuing`, e);
+        await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'delete', data: { ids, isBulk: true }, timestamp: Date.now() });
+      }
+    } else {
+      await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'delete', data: { ids, isBulk: true }, timestamp: Date.now() });
     }
     notifyListeners();
   }
@@ -315,10 +371,17 @@ class ApiTable<T extends { id?: string }> {
       await this.dexieTable.update(u.id, u.changes as any);
     }
     if (navigator.onLine) {
+      try {
         await apiFetch(`/${this.collectionName}/bulk-update`, {
           method: 'PUT',
           body: JSON.stringify(updates),
         });
+      } catch (e) {
+        console.warn(`Bulk update to server failed for ${this.collectionName}, queuing`, e);
+        await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'update', data: { updates, isBulk: true }, timestamp: Date.now() });
+      }
+    } else {
+      await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'update', data: { updates, isBulk: true }, timestamp: Date.now() });
     }
     notifyListeners();
   }
