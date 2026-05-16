@@ -58,6 +58,32 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   const [isGenerating, setIsGenerating] = useState(false);
   const [showManualPlanner, setShowManualPlanner] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
+  
+  // Cleanup orphaned schedules (schedules pointing to non-existent programs)
+  useEffect(() => {
+    const cleanupOrphans = async () => {
+      try {
+        const allScheds = await dbLocal.schedules.toArray();
+        const allProgs = await dbLocal.programs.toArray();
+        const progIds = new Set(allProgs.map(p => p.id));
+        progIds.add('manual');
+        progIds.add('history');
+        progIds.add(''); // explicit manual/standalone
+
+        const orphanIds = allScheds
+          .filter(s => s.programId && !progIds.has(s.programId))
+          .map(s => s.id!);
+
+        if (orphanIds.length > 0) {
+          console.log(`Cleaning up ${orphanIds.length} orphaned schedules...`);
+          await dbLocal.schedules.bulkDelete(orphanIds);
+        }
+      } catch (error) {
+        console.error("Orphan cleanup failed:", error);
+      }
+    };
+    cleanupOrphans();
+  }, [programs]); // Re-run if programs list changes
   const [selectedMonth, setSelectedMonth] = useState(() => {
     if (initialDate) {
       const d = parseISO(initialDate);
@@ -706,7 +732,16 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
     currentMonthWorkDays.forEach(wd => {
       const schedule = schedules.find(s => s.date === wd.date);
-      const items = (schedule && schedule.assignments)
+      
+      // Filter out schedules for programs that no longer exist
+      const isValidSchedule = schedule && (
+        !schedule.programId || 
+        schedule.programId === 'manual' || 
+        schedule.programId === 'history' || 
+        programs.some(p => p.id === schedule.programId)
+      );
+
+      const items = (isValidSchedule && schedule.assignments)
         ? schedule.assignments.map(a => ({
             applicant: applicants.find(p => p.id === a.applicantId)!,
             staffMembers: (a.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[]
