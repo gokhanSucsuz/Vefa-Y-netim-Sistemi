@@ -4,6 +4,7 @@ import { subscribeToDbChanges } from '../services/dbService';
 export function useLiveQuery<T>(querier: () => Promise<T> | T, deps: any[] = []): T | undefined {
   const [data, setData] = useState<T | undefined>(undefined);
   const querierRef = useRef(querier);
+  const fetchIdRef = useRef(0);
 
   useEffect(() => {
     querierRef.current = querier;
@@ -13,9 +14,10 @@ export function useLiveQuery<T>(querier: () => Promise<T> | T, deps: any[] = [])
     let isMounted = true;
 
     const fetchData = async () => {
+      const fetchId = ++fetchIdRef.current;
       try {
         const result = await querierRef.current();
-        if (isMounted) {
+        if (isMounted && fetchId === fetchIdRef.current) {
           setData(result);
         }
       } catch (error) {

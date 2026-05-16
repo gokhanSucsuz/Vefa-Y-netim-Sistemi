@@ -49,6 +49,7 @@ export const dexieDb = new VefaDatabase();
 const API_BASE = window.location.origin + '/api';
 
 async function apiFetch(path: string, options?: RequestInit) {
+  options = { ...options, cache: 'no-store' };
   const user = useAuthStore.getState().user;
   const headers: any = {
     'Content-Type': 'application/json',

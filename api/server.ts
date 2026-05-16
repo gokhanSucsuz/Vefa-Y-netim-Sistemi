@@ -762,7 +762,7 @@ async function setupVite() {
       
       app.get('*', (req, res) => {
         // If it's an API route that somehow leaked here, 404 it
-        if (req.path.startsWith('/api')) {
+        if (req.path.startsWith('/api') || req.path.startsWith('/assets/')) {
           return res.status(404).json({ error: 'Not Found' });
         }
         res.sendFile(path.join(distPath, 'index.html'));
