@@ -297,6 +297,31 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Özel Görev', `${date} tarihinde personele özel görev atandı/güncellendi.`);
   };
 
+  const performCancelAssignment = async (date: string, applicantId: string, reason: string) => {
+    setIsRescheduling(true);
+    setShiftAssignmentModal(null);
+    try {
+      const schedule = schedules.find(s => s.date === date);
+      if (!schedule) return;
+
+      const updatedAssignments = schedule.assignments.map(a => {
+        if (a.applicantId === applicantId) {
+          return { ...a, isCancelled: true, cancelReason: reason || 'Mazeret bildirildi' };
+        }
+        return a;
+      });
+
+      await dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
+      logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ziyaret Pasife Alındı', `${date} tarihindeki hane ziyareti mazeretli olarak iptal edildi. Sebep: ${reason}`);
+      toast.success('Ziyaret iptal edildi.');
+    } catch (error) {
+      console.error('Cancel assignment failed:', error);
+      toast.error('İşlem başarısız oldu.');
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
   const performShiftAssignment = async (date: string, applicantId: string, targetDateStr?: string) => {
     setIsRescheduling(true);
     setShiftAssignmentModal(null);
@@ -324,7 +349,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
         let uncompletedPool: any[] = [];
         for (const s of futureSchedules) {
-          const uncompletedInDay = s.assignments.filter(a => !a.isCompleted);
+          const uncompletedInDay = s.assignments.filter(a => !a.isCompleted && !a.isCancelled);
           uncompletedPool.push(...uncompletedInDay);
         }
 
@@ -345,16 +370,22 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         const moveIdx = sortedPool.findIndex(a => a.applicantId === applicantId);
         const [movedItem] = sortedPool.splice(moveIdx, 1);
 
+        const firstDayCompleted = currentDaySchedule.assignments.filter(a => a.isCompleted || a.isCancelled).length;
+        const firstDayOriginalUncompleted = currentDaySchedule.assignments.length - firstDayCompleted;
+
         let insertIndex = 0;
         if (targetDateStr) {
           for (const s of futureSchedules) {
             if (s.date >= targetDateStr) break;
-            const completedCount = s.assignments.filter(a => a.isCompleted).length;
-            insertIndex += Math.max(0, dailyLimit - completedCount);
+            const completedCount = s.assignments.filter(a => a.isCompleted || a.isCancelled).length;
+            if (s.date === date) {
+               insertIndex += Math.max(0, firstDayOriginalUncompleted - 1);
+            } else {
+               insertIndex += Math.max(0, dailyLimit - completedCount);
+            }
           }
         } else {
-          const currentDayCompletedCount = currentDaySchedule.assignments.filter(a => a.isCompleted).length;
-          insertIndex = Math.max(0, dailyLimit - currentDayCompletedCount - 1);
+          insertIndex = Math.max(0, firstDayOriginalUncompleted - 1);
         }
         
         sortedPool.splice(insertIndex, 0, movedItem);
@@ -362,15 +393,20 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         
         // We need a way to track visits for the 14-day rule during redistribution
         // We'll use the existing schedules but ignore the uncompleted ones we are about to overwrite
-        const baseSchedules = allSchedules.filter(s => s.date < date || s.assignments.some(a => a.isCompleted));
+        const baseSchedules = allSchedules.filter(s => s.date < date || s.assignments.some(a => a.isCompleted || a.isCancelled));
+
         const scheduleUpdates: { id: string, changes: Partial<Schedule> }[] = [];
 
         for (let i = 0; i < futureSchedules.length; i++) {
           const s = futureSchedules[i];
-          const completedOnes = s.assignments.filter(a => a.isCompleted);
+          const completedOnes = s.assignments.filter(a => a.isCompleted || a.isCancelled);
           const targetDate = parseISO(s.date);
           
           let targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
+          if (s.date === date) {
+             const movingToSameDay = targetDateStr === date;
+             targetUncompletedCount = movingToSameDay ? firstDayOriginalUncompleted : Math.max(0, firstDayOriginalUncompleted - 1);
+          }
           
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {
@@ -489,7 +525,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
     // Filter uncompleted assignments based on the shift being cancelled
     const uncompletedAssignments = schedule.assignments.filter(a => {
-      if (a.isCompleted) return false;
+      if (a.isCompleted || a.isCancelled) return false;
       // If no shift specified on the cancel call → cancel everything
       if (!cancelShift) return true;
       // If the assignment has no shift tag, include it only when cancelling the full day
@@ -530,7 +566,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         // Add other future uncompleted (excluding current day's which are already added)
         for (const s of futureSchedules) {
           if (s.date === date) continue;
-          const uncompletedInDay = s.assignments.filter(a => !a.isCompleted);
+          const uncompletedInDay = s.assignments.filter(a => !a.isCompleted && !a.isCancelled);
           uncompletedPool.push(...uncompletedInDay);
         }
 
@@ -568,7 +604,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
         for (const dStr of receivingDates) {
           const s = allSchedules.find(as => as.date === dStr);
-          const completedOnes = s ? s.assignments.filter(a => a.isCompleted) : [];
+          const completedOnes = s ? s.assignments.filter(a => a.isCompleted || a.isCancelled) : [];
           const targetDate = parseISO(dStr);
           
           const targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
@@ -632,7 +668,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
         // Clear only the cancelled shift's assignments; keep the other shift intact
         const remainingAssignments = schedule.assignments.filter(a => {
-          if (a.isCompleted) return true; // always keep completed
+          if (a.isCompleted || a.isCancelled) return true; // always keep completed and cancelled
           if (!cancelShift) return false;  // full day cancel → remove all uncompleted
           // Keep assignments that belong to the OTHER shift
           if (!a.shift) return false;      // untagged → was in the cancelled batch
@@ -1498,9 +1534,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       {shiftAssignmentModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in duration-300">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Hanenin Gününü Değiştir</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Hanenin Gününü Değiştir veya Pasife Al</h3>
             <p className="text-sm text-gray-500 mb-6">
-              <strong className="text-gray-800">{shiftAssignmentModal.name}</strong> hanesine ait {formatSafe(shiftAssignmentModal.date, 'dd MMMM yyyy', { locale: tr })} tarihindeki temizlik işi iptal edilecektir. Sıra düzeni bozulmadan bu haneyi nereye yerleştirmek istersiniz?
+              <strong className="text-gray-800">{shiftAssignmentModal.name}</strong> hanesine ait {formatSafe(shiftAssignmentModal.date, 'dd MMMM yyyy', { locale: tr })} tarihindeki temizlik işi hakkında yapmak istediğiniz işlemi seçin.
             </p>
             
             <div className="space-y-3 mb-6">
@@ -1508,7 +1544,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                 onClick={() => performShiftAssignment(shiftAssignmentModal.date, shiftAssignmentModal.applicantId)}
                 className="w-full py-3 px-4 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-100 transition-all text-left flex items-center justify-between"
               >
-                <span>Sıradaki İlk Boşluğa (Veya Sonraki Güne) Kaydır</span>
+                <div>
+                  <div className="block">Sıradaki İlk Boşluğa Kaydır</div>
+                  <div className="text-xs font-normal opacity-80">Sonraki güne kaydırıp tüm planları ileri öteler</div>
+                </div>
                 <ChevronRight className="w-4 h-4" />
               </button>
               
@@ -1530,6 +1569,24 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                     Uygula
                   </button>
                 </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={() => {
+                     const reason = prompt('Mazeret veya sebep giriniz (opsiyonel):');
+                     if (reason !== null) {
+                       performCancelAssignment(shiftAssignmentModal.date, shiftAssignmentModal.applicantId, reason);
+                     }
+                  }}
+                  className="w-full py-3 px-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all text-left flex items-center justify-between"
+                >
+                  <div>
+                    <div className="block">İptal Et (Pasife Al)</div>
+                    <div className="text-xs font-normal opacity-80">Bugünkü temizliği mazeretli say, diğer günleri etkileme</div>
+                  </div>
+                  <AlertTriangle className="w-4 h-4" />
+                </button>
               </div>
             </div>
             
@@ -1862,6 +1919,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                         const schedule = schedules.find(s => s.date === a.date);
                         const assignment = schedule?.assignments[idx];
                         const isCompleted = assignment?.isCompleted;
+                        const isCancelled = assignment?.isCancelled;
                         const isSelectedForSwap = swapSelection?.date === a.date && swapSelection?.applicantId === item.applicant.id;
 
                         const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -1872,6 +1930,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                         return (
                           <div key={idx} className={`official-card p-4 flex flex-col gap-3 relative transition-all ${
                             isCompleted ? 'bg-emerald-50 border-emerald-100 shadow-none' : 
+                            isCancelled ? 'bg-rose-50 border-rose-100 shadow-none' :
                             isSelectedForSwap ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-100' : 'bg-white'
                           }`}>
                             {/* Timing Label (Sabah/Öğleden Sonra) */}
@@ -1976,11 +2035,20 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                             </div>
 
                             <button
-                              disabled={(isFuture && !isCompleted) || (isPast && isCompleted)}
+                              disabled={(isFuture && !isCompleted && !isCancelled) || (isPast && isCompleted)}
                               onClick={() => {
-                                if (!isCompleted) {
+                                if (!isCompleted && !isCancelled) {
                                   setCompletionModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
-                                } else {
+                                } else if (isCancelled) {
+                                  if (window.confirm('Bu pasife alma (iptal) işlemini geri almak istediğinize emin misiniz?')) {
+                                    const schedule = schedules.find(s => s.date === a.date);
+                                    if (schedule) {
+                                      const updatedAssignments = schedule.assignments.map(assign => assign.applicantId === item.applicant.id ? { ...assign, isCancelled: false, cancelReason: undefined } : assign);
+                                      dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
+                                      toast.success('İptal işlemi geri alındı.');
+                                    }
+                                  }
+                                } else if (isCompleted) {
                                   if (a.date === todayStr) {
                                     if (window.confirm('Bu ziyareti tamamlanmamış olarak işaretleyip geri almak istediğinize emin misiniz?')) {
                                       toggleCompletion(a.date, item.applicant.id!);
@@ -1993,11 +2061,15 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                               className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
                                 isCompleted 
                                   ? (isPast ? 'bg-gray-100 text-gray-300' : 'bg-slate-100 text-slate-400 hover:bg-slate-200') 
+                                  : isCancelled
+                                  ? 'bg-rose-100 text-rose-600'
                                   : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm shadow-emerald-100'
                               } disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed`}
                             >
-                              {isCompleted ? <RefreshCw className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                              {isCompleted ? (isPast ? 'Geri Alınamaz' : 'Geri Al') : (isFuture ? 'Zamanı Bekleniyor' : 'Ziyareti Tamamla')}
+                              {isCompleted ? <RefreshCw className="w-3.5 h-3.5" /> : isCancelled ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                              <span className="truncate max-w-[200px]">
+                                {isCompleted ? (isPast ? 'Geri Alınamaz' : 'Geri Al') : isCancelled ? `İptal: ${assignment?.cancelReason}` : (isFuture ? 'Zamanı Bekleniyor' : 'Ziyareti Tamamla')}
+                              </span>
                             </button>
 
                             <div className="space-y-4 pt-2 border-t border-slate-50">

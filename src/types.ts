@@ -87,6 +87,8 @@ export interface Schedule {
     staffIds: string[]; // Array of staff IDs
     shift?: 'morning' | 'afternoon'; // Vardiya (yoksa gün bütünü)
     isCompleted?: boolean;
+    isCancelled?: boolean;
+    cancelReason?: string;
     completionDate?: string;
     completionNote?: string;
     approvals?: { 

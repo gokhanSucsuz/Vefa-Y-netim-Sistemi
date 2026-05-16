@@ -264,6 +264,7 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
         // Run updates in parallel
         await Promise.all(
           updates.map((update: any) => {
+            if (!mongoose.Types.ObjectId.isValid(update.id)) return Promise.resolve(null);
             const data = prepareForDB(update.changes);
             return model.findByIdAndUpdate(update.id, data);
           })
