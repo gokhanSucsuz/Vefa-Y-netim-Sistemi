@@ -353,22 +353,15 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           uncompletedPool.push(...uncompletedInDay);
         }
 
-        // Sort uncompleted pool by priority, then by name as fallback
-        const poolWithPriorities = uncompletedPool.map(item => {
-          const applicant = applicants.find(a => a.id === item.applicantId);
-          return { ...item, priority: applicant?.priority || 9999, name: applicant?.name || '' };
-        });
-
-        poolWithPriorities.sort((a, b) => {
-          if (a.priority !== b.priority) return a.priority - b.priority;
-          return a.name.localeCompare(b.name);
-        });
-
-        const sortedPool = poolWithPriorities.map(({ priority, name, ...item }) => item);
+        // Strict queue sliding - no priority sort to preserve user's manual arrangement
         
         // Find and extract the item being moved
-        const moveIdx = sortedPool.findIndex(a => a.applicantId === applicantId);
-        const [movedItem] = sortedPool.splice(moveIdx, 1);
+        const moveIdx = uncompletedPool.findIndex(a => a.applicantId === applicantId);
+        if (moveIdx === -1) {
+          setIsRescheduling(false);
+          return;
+        }
+        const [movedItem] = uncompletedPool.splice(moveIdx, 1);
 
         const firstDayCompleted = currentDaySchedule.assignments.filter(a => a.isCompleted || a.isCancelled).length;
         const firstDayOriginalUncompleted = currentDaySchedule.assignments.length - firstDayCompleted;
@@ -388,8 +381,8 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           insertIndex = Math.max(0, firstDayOriginalUncompleted - 1);
         }
         
-        sortedPool.splice(insertIndex, 0, movedItem);
-        const tempPool = [...sortedPool];
+        uncompletedPool.splice(insertIndex, 0, movedItem);
+        const tempPool = [...uncompletedPool];
         
         // We need a way to track visits for the 14-day rule during redistribution
         // We'll use the existing schedules but ignore the uncompleted ones we are about to overwrite
@@ -411,41 +404,13 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {
             let foundIdx = -1;
-            // First pass: try to satisfy 14-day rule
+            // Strict queue sliding - find first item not already in this day
             for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
               const item = tempPool[pIdx];
               const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
-              if (isAlreadyInDay) continue;
-
-              const otherVisits = [
-                ...allSchedules.filter(as => as.date < date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
-                ...newUncompleted.filter(a => a.applicantId === item.applicantId).map(() => s.date),
-                ...futureSchedules.slice(0, i).flatMap(fs => fs.assignments.filter(a => a.applicantId === item.applicantId).map(a => fs.date))
-              ];
-              
-              let isGapOk = true;
-              for (const vDateStr of otherVisits) {
-                if (Math.abs(differenceInDays(targetDate, parseISO(vDateStr))) < 14) {
-                  isGapOk = false;
-                  break;
-                }
-              }
-
-              if (isGapOk) {
+              if (!isAlreadyInDay) {
                 foundIdx = pIdx;
                 break;
-              }
-            }
-
-            // Second pass: fallback to first available
-            if (foundIdx === -1) {
-              for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
-                const item = tempPool[pIdx];
-                const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
-                if (!isAlreadyInDay) {
-                  foundIdx = pIdx;
-                  break;
-                }
               }
             }
 
@@ -570,26 +535,8 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           uncompletedPool.push(...uncompletedInDay);
         }
 
-        // Deduplicate pool (just in case)
-        const seenIds = new Set();
-        const uniquePool = uncompletedPool.filter(a => {
-          if (seenIds.has(a.applicantId)) return false;
-          seenIds.add(a.applicantId);
-          return true;
-        });
-
-        // Sort the unique pool by priority before redistribution
-        const uniquePoolWithPriorities = uniquePool.map(item => {
-          const applicant = applicants.find(a => a.id === item.applicantId);
-          return { ...item, priority: applicant?.priority || 9999, name: applicant?.name || '' };
-        });
-
-        uniquePoolWithPriorities.sort((a, b) => {
-          if (a.priority !== b.priority) return a.priority - b.priority;
-          return a.name.localeCompare(b.name);
-        });
-
-        const tempPool = uniquePoolWithPriorities.map(({ priority, name, ...item }) => item);
+        // Strict queue sliding - no deduplication or priority sort to preserve user's manual arrangement
+        const tempPool = [...uncompletedPool];
         
         // We need to handle the case where targetDateStr is a new date not in futureSchedules
         let planningDates = futureSchedules.map(s => s.date);
@@ -612,36 +559,13 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {
             let foundIdx = -1;
+            // Strict queue sliding - find first item not already in this day
             for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
               const item = tempPool[pIdx];
               const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
-              if (isAlreadyInDay) continue;
-
-              const otherVisits = [
-                ...allSchedules.filter(as => as.date < dStr && as.date !== date).flatMap(as => as.assignments.filter(a => a.applicantId === item.applicantId).map(a => as.date)),
-                ...newUncompleted.filter(a => a.applicantId === item.applicantId).map(() => dStr)
-              ];
-              let isGapOk = true;
-              for (const vDateStr of otherVisits) {
-                if (Math.abs(differenceInDays(targetDate, parseISO(vDateStr))) < 14) {
-                  isGapOk = false;
-                  break;
-                }
-              }
-              if (isGapOk) {
+              if (!isAlreadyInDay) {
                 foundIdx = pIdx;
                 break;
-              }
-            }
-
-            if (foundIdx === -1) {
-              for (let pIdx = 0; pIdx < tempPool.length; pIdx++) {
-                const item = tempPool[pIdx];
-                const isAlreadyInDay = newUncompleted.some(a => a.applicantId === item.applicantId);
-                if (!isAlreadyInDay) {
-                  foundIdx = pIdx;
-                  break;
-                }
               }
             }
 
