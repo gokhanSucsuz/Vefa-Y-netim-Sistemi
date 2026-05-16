@@ -317,7 +317,12 @@ class ApiTable<T extends { id?: string }> {
       }
     });
 
-    await this.dexieTable.update(id, safeChanges as any);
+    let updatedCount = await this.dexieTable.update(id, safeChanges as any);
+    if (updatedCount === 0 && typeof id === 'string' && !isNaN(Number(id))) {
+      await this.dexieTable.update(Number(id) as any, safeChanges as any);
+    } else if (updatedCount === 0 && typeof id === 'number') {
+      await this.dexieTable.update(String(id) as any, safeChanges as any);
+    }
     if (navigator.onLine) {
       try {
         await apiFetch(`/${this.collectionName}/${id}`, {
@@ -336,6 +341,8 @@ class ApiTable<T extends { id?: string }> {
 
   async delete(id: string): Promise<void> {
     await this.dexieTable.delete(id);
+    if (typeof id === 'string' && !isNaN(Number(id))) await this.dexieTable.delete(Number(id) as any);
+    if (typeof id === 'number') await this.dexieTable.delete(String(id) as any);
     
     // Clean up sync queue for this ID to avoid orphaned updates
     await dexieDb.syncQueue

@@ -67,9 +67,32 @@ export default function TeamAssignment({ applicants, staff, currentUser }: Props
     try {
       await Promise.all(
         applicantIds.map(async id => {
-          await dbLocal.applicants.update(id, { teamId: teamId || undefined });
+          await dbLocal.applicants.update(id, { teamId: teamId || '' });
+
+          // Update future uncompleted schedules for this applicant to reflect the new team
+          const today = new Date().toISOString().split('T')[0];
+          const futureSchedules = await dbLocal.schedules.where('date').aboveOrEqual(today).toArray();
+          
+          const team = teamId ? teams.find(t => t.id === teamId) : undefined;
+          const newStaffIds = team ? team.members.map(m => m.id!) : [];
+
+          for (const schedule of futureSchedules) {
+            let changed = false;
+            const newAssignments = schedule.assignments.map(a => {
+              // we must use weak equal since id might be number or string
+              if (String(a.applicantId) === String(id) && !a.isCompleted) {
+                changed = true;
+                return { ...a, staffIds: newStaffIds };
+              }
+              return a;
+            });
+            if (changed) {
+              await dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
+            }
+          }
         })
       );
+      
       const teamLabel = teamId ? teams.find(t => t.id === teamId)?.label : 'Kaldırıldı';
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ekip-Hane Ataması',
         `${applicantIds.length} hane için ekip ataması: ${teamLabel}`);

@@ -115,7 +115,7 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
   const handleAssignTeam = async (applicantId: string, teamId: string | null) => {
     setAssigningTeam(applicantId);
     try {
-      await dbLocal.applicants.update(applicantId, { teamId: teamId || undefined });
+      await dbLocal.applicants.update(applicantId, { teamId: teamId || '' });
       
       // Update future uncompleted schedules for this applicant to reflect the new team
       const today = new Date().toISOString().split('T')[0];
