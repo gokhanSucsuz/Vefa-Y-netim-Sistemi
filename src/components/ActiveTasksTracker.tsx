@@ -585,7 +585,7 @@ export default function ActiveTasksTracker({ currentUser }: Props) {
               latitude: mapMarkers[0]?.lat || 41.675,
               zoom: 13
             }}
-            mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+            mapStyle="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
           >
             <NavigationControl position="bottom-right" />
             

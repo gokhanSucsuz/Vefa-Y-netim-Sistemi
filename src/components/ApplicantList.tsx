@@ -22,7 +22,7 @@ function LocationPicker({ position, setPosition }: { position: [number, number],
   
   useEffect(() => {
     if (map) {
-      map.flyTo({ center: [position[1], position[0]], zoom: 15 });
+      map.flyTo({ center: [position[1], position[0]], zoom: 17 });
     }
   }, [position, map]);
 
@@ -854,9 +854,9 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
                   initialViewState={{
                     latitude: formData.lat || 41.675,
                     longitude: formData.lng || 26.570,
-                    zoom: 15
+                    zoom: 17
                   }}
-                  mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+                  mapStyle="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
                   style={{ width: '100%', height: '100%' }}
                   onClick={(e) => setFormData(prev => ({ ...prev, lat: e.lngLat.lat, lng: e.lngLat.lng }))}
                 >

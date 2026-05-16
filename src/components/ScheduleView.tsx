@@ -1623,7 +1623,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               longitude: 26.570,
               zoom: 13
             }}
-            mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+            mapStyle="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
             style={{ width: '100%', height: '100%' }}
           >
             <NavigationControl position="top-right" />

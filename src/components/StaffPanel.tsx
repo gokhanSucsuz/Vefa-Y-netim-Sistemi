@@ -856,7 +856,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                       latitude: markers[0]?.pos[0] || 41.675,
                       zoom: 12
                     }}
-                    mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+                    mapStyle="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
                   >
                     <NavigationControl position="top-right" />
                     <MapUpdater markers={markers} />
