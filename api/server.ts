@@ -19,7 +19,8 @@ import {
   ProgramModel, 
   AuditLogModel, 
   AdminModel,
-  UserModel
+  UserModel,
+  AssignmentModel
 } from "./models.js";
 
 dotenv.config();
@@ -90,54 +91,48 @@ app.use(express.json());
 app.use(cookieParser(process.env.COOKIE_SECRET || "edirne-sydv-secret"));
 
 // MongoDB Connection
-let mongoPromise: Promise<typeof mongoose> | null = null;
+// @ts-ignore
+let cached = global.mongoose;
+
+if (!cached) {
+  // @ts-ignore
+  cached = global.mongoose = { conn: null, promise: null };
+}
 
 async function connectDB() {
-  if (mongoose.connection.readyState === 1) return mongoose;
-  
-  if (mongoPromise) {
-    try {
-      return await mongoPromise;
-    } catch (e) {
-      console.error("Previous mongoPromise failed, retrying...");
-      mongoPromise = null; 
-    }
+  if (cached.conn) {
+    return cached.conn;
   }
   
-  if (!MONGODB_URI) {
+  if (!process.env.MONGODB_URI) {
     console.error("MONGODB_URI is MISSING!");
     throw new Error("Veritabanı bağlantı adresi (MONGODB_URI) eksik.");
   }
 
-  console.log("Connecting to MongoDB Atlas... URI length:", MONGODB_URI.length);
-  mongoose.set('bufferCommands', false);
-  
-  // Explicitly connect to 'test' first if needed, or just connect to the target 'vefaDB'
-  // and provide a migration route/logic.
-  // The user wants to MOVE the data from 'test' to 'vefaDB'.
-  
-  mongoPromise = mongoose.connect(MONGODB_URI, {
-    dbName: "vefaDB",
-    serverSelectionTimeoutMS: 10000,
-    connectTimeoutMS: 10000,
-    maxPoolSize: 50,
-  });
+  if (!cached.promise) {
+    console.log("Connecting to MongoDB Atlas... URI length:", process.env.MONGODB_URI.length);
+    mongoose.set('bufferCommands', false);
+    
+    cached.promise = mongoose.connect(process.env.MONGODB_URI, {
+      dbName: "vefaDB",
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+      maxPoolSize: 10,
+    }).then((mongooseInstance) => {
+      console.log("✅ MongoDB Connection Established:", mongooseInstance.connection.name);
+      return Promise.all(
+        Object.values(mongooseInstance.models).map(m => 
+          m.init().catch(e => console.warn(`Model ${m.modelName} init error:`, e))
+        )
+      ).then(() => mongooseInstance);
+    });
+  }
 
   try {
-    const conn = await mongoPromise;
-    console.log("✅ MongoDB Connection Established:", conn.connection.name);
-    
-    // Check if we need to migrate from 'test'
-    // We can check if 'vefaDB' is totally empty and 'test' has data.
-    // However, the cleanest way to satisfy "copy all created tables to vefaDB" once
-    // is to provide a trigger or detect it.
-
-    // Initialize models
-    await Promise.all(Object.values(mongoose.models).map(m => m.init().catch(e => console.warn(`Model ${m.modelName} init error:`, e))));
-    
-    return conn;
+    cached.conn = await cached.promise;
+    return cached.conn;
   } catch (err: any) {
-    mongoPromise = null;
+    cached.promise = null;
     console.error("❌ MongoDB Connection Error Details:", {
       name: err.name,
       message: err.message,

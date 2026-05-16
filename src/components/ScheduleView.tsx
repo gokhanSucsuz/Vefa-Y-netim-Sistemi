@@ -363,6 +363,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         // We need a way to track visits for the 14-day rule during redistribution
         // We'll use the existing schedules but ignore the uncompleted ones we are about to overwrite
         const baseSchedules = allSchedules.filter(s => s.date < date || s.assignments.some(a => a.isCompleted));
+        const scheduleUpdates: { id: string, changes: Partial<Schedule> }[] = [];
 
         for (let i = 0; i < futureSchedules.length; i++) {
           const s = futureSchedules[i];
@@ -423,9 +424,12 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           }
           
           const taggedUncompleted = tagAssignmentsWithShift(newUncompleted, dailyLimit);
-          await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...taggedUncompleted] });
-          // Update the futureSchedules array so subsequent iterations see the new assignments
           s.assignments = [...completedOnes, ...taggedUncompleted];
+          scheduleUpdates.push({ id: s.id!, changes: { assignments: s.assignments } });
+        }
+
+        if (scheduleUpdates.length > 0) {
+          await dbLocal.schedules.bulkUpdate(scheduleUpdates);
         }
 
         // 7. Handle leftovers — auto-derive next available day if workDays list is insufficient
@@ -565,6 +569,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
         // Filter out the canceled day from receiving new assignments if it's the source
         const receivingDates = planningDates.filter(d => d !== date);
+        const scheduleUpdates: { id: string, changes: Partial<Schedule> }[] = [];
 
         for (const dStr of receivingDates) {
           const s = allSchedules.find(as => as.date === dStr);
@@ -615,7 +620,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           }
 
           if (s) {
-            await dbLocal.schedules.update(s.id!, { assignments: [...completedOnes, ...tagAssignmentsWithShift(newUncompleted, dailyLimit)] });
+            scheduleUpdates.push({ id: s.id!, changes: { assignments: [...completedOnes, ...tagAssignmentsWithShift(newUncompleted, dailyLimit)] } });
           } else {
             // Check if it's a work day
             const workDays = await dbLocal.workDays.toArray();
@@ -624,6 +629,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               await dbLocal.schedules.add({ date: dStr, programId: schedule.programId, assignments: tagAssignmentsWithShift(newUncompleted, dailyLimit) });
             }
           }
+        }
+
+        if (scheduleUpdates.length > 0) {
+          await dbLocal.schedules.bulkUpdate(scheduleUpdates);
         }
 
         // Clear only the cancelled shift's assignments; keep the other shift intact
