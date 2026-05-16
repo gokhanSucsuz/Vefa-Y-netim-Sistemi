@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import { useMemo, useState } from 'react';
 import { Program, Schedule, SystemUser } from '../types';
@@ -14,6 +15,7 @@ interface ProgramManagementProps {
 }
 
 export default function ProgramManagement({ programs, schedules, currentUser, onNavigate }: ProgramManagementProps) {
+  const { confirm } = useConfirmDialog();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 30;
 
@@ -48,7 +50,7 @@ export default function ProgramManagement({ programs, schedules, currentUser, on
 
   const handleDelete = async (id: string) => {
     const program = programs.find(p => p.id === id);
-    if (!confirm('Bu programı silmek istediğinize emin misiniz? Tamamlanmış temizlik kayıtları geçmişten silinmeyecek, ancak henüz tamamlanmamış kayıtlar silinecektir.')) return;
+    if (!(await confirm({ message: 'Bu programı silmek istediğinize emin misiniz? Tamamlanmış temizlik kayıtları geçmişten silinmeyecek, ancak henüz tamamlanmamış kayıtlar silinecektir.', type: "warning" }))) return;
     
     try {
       await dbLocal.transaction("rw", [dbLocal.programs, dbLocal.schedules], async () => {
@@ -87,7 +89,7 @@ export default function ProgramManagement({ programs, schedules, currentUser, on
 
   const handleCancel = async (id: string) => {
     const program = programs.find(p => p.id === id);
-    if (!confirm('Bu programı iptal etmek istediğinize emin misiniz?')) return;
+    if (!(await confirm({ message: 'Bu programı iptal etmek istediğinize emin misiniz?', type: "warning" }))) return;
     try {
       await dbLocal.programs.update(id, { status: 'cancelled' });
       if (program) {
@@ -105,7 +107,7 @@ export default function ProgramManagement({ programs, schedules, currentUser, on
       return;
     }
 
-    if (!confirm(`${new Date(date).toLocaleDateString('tr-TR')} tarihindeki tüm manuel atamaları silmek istediğinize emin misiniz?`)) return;
+    if (!(await confirm({ message: `${new Date(date).toLocaleDateString('tr-TR')} tarihindeki tüm manuel atamaları silmek istediğinize emin misiniz?`, type: 'warning' }))) return;
 
     try {
       await dbLocal.schedules.delete(id);

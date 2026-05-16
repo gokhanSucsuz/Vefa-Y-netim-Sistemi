@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { dbLocal } from '../db';
@@ -54,6 +55,7 @@ interface Team {
 }
 
 export default function ApplicantList({ applicants, staff = [], currentUser, isPriorityMode = false }: Props) {
+  const { confirm } = useConfirmDialog();
   const activeApplicants = applicants.filter(a => !a.isDeleted);
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -247,7 +249,7 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
 
   const handleDelete = async (id: string) => {
     const applicant = applicants.find(a => a.id === id);
-    if (confirm('Bu haneyi silmek istediğinize emin misiniz?')) {
+    if ((await confirm({ message: 'Bu haneyi silmek istediğinize emin misiniz?', type: "warning" }))) {
       await dbLocal.applicants.update(id, { isDeleted: true });
       if (applicant) {
         logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Hane Silme', `${applicant.name} ${applicant.surname} hanesi silindi.`);
@@ -258,7 +260,7 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
   };
 
   const handleDeleteAll = async () => {
-    if (confirm('TÜM hane kayıtlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) {
+    if ((await confirm({ message: 'TÜM hane kayıtlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz!', type: "warning" }))) {
       try {
         setIsProcessing(true);
         await dbLocal.applicants.clear();
@@ -273,7 +275,7 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
 
   const handlePriorityUpdate = async (updates: any[]) => {
     if (hasActiveProgram) {
-      if (!confirm('Sistemde aktif bir program bulunmaktadır. Öncelik sırasını değiştirmek programın yeniden düzenlenmesine neden olabilir (Kaydet butonuna bastığınızda). Devam etmek istiyor musunuz?')) {
+      if (!(await confirm({ message: 'Sistemde aktif bir program bulunmaktadır. Öncelik sırasını değiştirmek programın yeniden düzenlenmesine neden olabilir (Kaydet butonuna bastığınızda). Devam etmek istiyor musunuz?', type: 'warning' }))) {
         return false;
       }
     }
@@ -289,7 +291,7 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
   };
 
   const fixNeighborhoods = async () => {
-    if (!confirm('Mevcut tüm hanelerin mahalle bilgileri adreslerine göre yeniden taranacak. Onaylıyor musunuz?')) return;
+    if (!(await confirm({ message: 'Mevcut tüm hanelerin mahalle bilgileri adreslerine göre yeniden taranacak. Onaylıyor musunuz?', type: "warning" }))) return;
     
     let fixedCount = 0;
     for (const applicant of applicants) {
@@ -580,7 +582,7 @@ export default function ApplicantList({ applicants, staff = [], currentUser, isP
     const listToSave = localReorderList.length > 0 ? localReorderList : filteredAndSortedApplicants;
     
     if (hasActiveProgram) {
-      if (!confirm('Hane sıralaması kaydedilecek ve mevcut programın gerçekleşmemiş tüm ziyaretleri araya yeni haneler eklenecek/çıkarılacak şekilde kaydırılarak güncellenecektir. Devam etmek istiyor musunuz?')) {
+      if (!(await confirm({ message: 'Hane sıralaması kaydedilecek ve mevcut programın gerçekleşmemiş tüm ziyaretleri araya yeni haneler eklenecek/çıkarılacak şekilde kaydırılarak güncellenecektir. Devam etmek istiyor musunuz?', type: "warning" }))) {
         return;
       }
     }

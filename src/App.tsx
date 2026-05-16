@@ -25,10 +25,19 @@ import { logAction } from './services/auditService';
 import LeaveManagement from './components/LeaveManagement';
 import { useAuth } from './hooks/useAuth';
 import { usePWA } from './hooks/usePWA';
+import { ConfirmProvider } from './hooks/useConfirmDialog';
 
 import { APP_LOGO_URL } from './constants/logo';
 
 export default function App() {
+  return (
+    <ConfirmProvider>
+      <AppContent />
+    </ConfirmProvider>
+  );
+}
+
+function AppContent() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'applicants' | 'priority' | 'staff' | 'leaves' | 'workdays' | 'schedule' | 'programs' | 'active_tasks' | 'completed' | 'docs' | 'stats' | 'audit' | 'users' | 'backup' | 'assignments' | 'team_assign'>(() => {
     return (localStorage.getItem('vefaActiveTab') as any) || 'dashboard';
   });

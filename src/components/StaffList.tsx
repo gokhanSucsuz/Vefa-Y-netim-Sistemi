@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import React, { useState, useRef, useMemo } from 'react';
 import { dbLocal } from '../db';
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function StaffList({ staff, currentUser }: Props) {
+  const { confirm } = useConfirmDialog();
   const [isAdding, setIsAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -148,7 +150,7 @@ export default function StaffList({ staff, currentUser }: Props) {
 
   const handleDelete = async (id: string) => {
     const s = staff.find(item => item.id === id);
-    if (confirm('Bu personeli silmek istediğinize emin misiniz?')) {
+    if ((await confirm({ message: 'Bu personeli silmek istediğinize emin misiniz?', type: "warning" }))) {
       if (s?.partnerId) {
         await dbLocal.staff.update(s.partnerId, { partnerId: undefined });
       }

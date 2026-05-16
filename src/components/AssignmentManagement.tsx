@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import { useState, useMemo } from 'react';
 import { dbLocal } from '../db';
@@ -42,6 +43,7 @@ interface ConflictInfo {
 }
 
 export default function AssignmentManagement({ staff, schedules, assignments, currentUser }: Props) {
+  const { confirm } = useConfirmDialog();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -269,7 +271,7 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
 
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Bu görevlendirmeyi silmek istediğinize emin misiniz?')) return;
+    if (!(await confirm({ message: 'Bu görevlendirmeyi silmek istediğinize emin misiniz?', type: "warning" }))) return;
     await dbLocal.assignments.delete(id);
     logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Görevlendirme Silme', 'Görevlendirme silindi.');
     toast.success('Görevlendirme silindi.');

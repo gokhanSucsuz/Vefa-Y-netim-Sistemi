@@ -103,19 +103,28 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
         let isAvailable = true;
         let reason = '';
         
-        for (const vDate of visits) {
-          if (vDate === currentDateObj.date && !selectedIds.includes(app.id!)) {
+        if (app.status === 'passive') {
+          if (!app.passiveUntil || currentDateObj.date <= app.passiveUntil) {
              isAvailable = false;
-             reason = 'Bugün zaten listede';
-             break;
+             reason = 'Pasif durumda (İptal)';
           }
-          if (vDate !== currentDateObj.date) {
-             const daysDiff = Math.abs(differenceInDays(tDate, parseISO(vDate)));
-             if (daysDiff < 14) {
+        }
+
+        if (isAvailable) {
+          for (const vDate of visits) {
+            if (vDate === currentDateObj.date && !selectedIds.includes(app.id!)) {
                isAvailable = false;
-               reason = `Son ziyaret: ${daysDiff} gün önce`;
+               reason = 'Bugün zaten listede';
                break;
-             }
+            }
+            if (vDate !== currentDateObj.date) {
+               const daysDiff = Math.abs(differenceInDays(tDate, parseISO(vDate)));
+               if (daysDiff < 14) {
+                 isAvailable = false;
+                 reason = `Son ziyaret: ${daysDiff} gün önce`;
+                 break;
+               }
+            }
           }
         }
         return { applicant: app, isAvailable, reason };

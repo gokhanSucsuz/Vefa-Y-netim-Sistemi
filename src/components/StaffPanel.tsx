@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from '../hooks/useLiveQuery';
@@ -45,6 +46,7 @@ interface Props {
 }
 
 export default function StaffPanel({ currentUser, onLogout }: Props) {
+  const { confirm } = useConfirmDialog();
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [activeVisitId, setActiveVisitId] = useState<string | null>(() => localStorage.getItem('vefa_active_visit_id'));
   const [visitNotes, setVisitNotes] = useState<string>(() => localStorage.getItem('vefa_visit_notes') || '');
@@ -712,7 +714,7 @@ export default function StaffPanel({ currentUser, onLogout }: Props) {
                       <div className="flex gap-2">
                         <button 
                           onClick={async () => {
-                            if (confirm('Temizliğe başlamayı iptal etmek istediğinize emin misiniz?')) {
+                            if ((await confirm({ message: 'Temizliğe başlamayı iptal etmek istediğinize emin misiniz?', type: "warning" }))) {
                               try {
                                 const schedule = schedules.find(s => s.date === selectedDate);
                                 if (!schedule) return;

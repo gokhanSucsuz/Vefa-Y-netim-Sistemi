@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import React, { useState } from 'react';
 import { Staff, SystemUser } from '../types';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function StaffLeavesModal({ staff, currentUser, onClose, onUpdated }: Props) {
+  const { confirm } = useConfirmDialog();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
@@ -54,7 +56,7 @@ export default function StaffLeavesModal({ staff, currentUser, onClose, onUpdate
   };
 
   const handleDeleteLeave = async (index: number) => {
-    if (!confirm('Bu izin kaydını silmek istediğinize emin misiniz?')) return;
+    if (!(await confirm({ message: 'Bu izin kaydını silmek istediğinize emin misiniz?', type: "warning" }))) return;
     
     const updatedLeaves = [...leaves];
     const deleted = updatedLeaves.splice(index, 1)[0];

@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import React, { useState, useEffect } from 'react';
 import { Cloud, Loader2, CheckCircle2, AlertCircle, DownloadCloud, UploadCloud, FileJson, FileSpreadsheet } from 'lucide-react';
 import { dbLocal } from '../db';
@@ -9,6 +10,7 @@ interface BackupManagerProps {
 }
 
 export default function BackupManager({ user, isInitialLoad = false }: BackupManagerProps) {
+  const { confirm } = useConfirmDialog();
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [lastBackupDate, setLastBackupDate] = useState<string | null>(localStorage.getItem('lastBackupDate'));
@@ -42,7 +44,7 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
       return;
     }
 
-    if (!window.confirm(`Veritabanını bilgisayarınıza ${format.toUpperCase()} formatında yedeklemek istediğinize emin misiniz?`)) {
+    if (!(await confirm({ message: `Veritabanını bilgisayarınıza ${format.toUpperCase()} formatında yedeklemek istediğinize emin misiniz?`, type: "warning" }))) {
       return;
     }
 
@@ -115,7 +117,7 @@ export default function BackupManager({ user, isInitialLoad = false }: BackupMan
       return;
     }
 
-    if (!window.confirm('DİKKAT: Bu işlem mevcut tüm verileri silecek ve yedek dosyasındaki verileri yükleyecektir. Devam etmek istediğinize emin misiniz?')) {
+    if (!(await confirm({ message: 'DİKKAT: Bu işlem mevcut tüm verileri silecek ve yedek dosyasındaki verileri yükleyecektir. Devam etmek istediğinize emin misiniz?', type: "warning" }))) {
       if (e.target) e.target.value = '';
       return;
     }

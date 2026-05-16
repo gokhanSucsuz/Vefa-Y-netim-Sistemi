@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { dbLocal } from '../db';
@@ -55,6 +56,7 @@ function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
 }
 
 export default function ScheduleView({ applicants, staff, workDays, schedules, programs, currentUser, initialDate, focusedProgramId }: Props) {
+  const { confirm } = useConfirmDialog();
   const [isGenerating, setIsGenerating] = useState(false);
   const [showManualPlanner, setShowManualPlanner] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
@@ -169,12 +171,11 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       const lastSchedule = progSchedules[progSchedules.length - 1];
       
       if (lastSchedule.assignments.length < dailyLimit) {
-        const willDoMore = window.confirm("Son günün kapasitesi eksik kaldı. Başka kaydırma işlemi yapacak mısınız?\n\nTamam: Evet, başka kaydırma yapacağım (10 dakika beklenir)\nİptal: Hayır, yapmayacağım (Eksik gün otomatik olarak görevlendirilir)");
+        const willDoMore = await confirm({ message: "Son günün kapasitesi eksik kaldı. Başka kaydırma işlemi yapacak mısınız?\n\nTamam: Evet, başka kaydırma yapacağım (10 dakika beklenir)\nİptal: Hayır, yapmayacağım (Eksik gün otomatik olarak görevlendirilir)", type: "warning" });
         
         if (!willDoMore) {
           await autoFillLastDayOfProgram(dailyLimit);
           toast.success("Son gün otomatik olarak dolduruldu.");
-          loadData();
         } else {
           toast.success("10 dakika içinde başka işlem yapılmazsa otomatik doldurulacaktır.");
           setTimeout(async () => {
@@ -184,8 +185,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               const lSchedule = pSchedules[pSchedules.length - 1];
               if (lSchedule.assignments.length < dailyLimit) {
                  await autoFillLastDayOfProgram(dailyLimit);
-                 toast.info("10 dakika süresi doldu. Son gün otomatik tamamlandı.");
-                 loadData();
+                 toast('10 dakika süresi doldu. Son gün otomatik tamamlandı.', { icon: 'ℹ️' });
               }
             }
           }, 10 * 60 * 1000);
@@ -197,7 +197,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
   };
 
   const handleCleanupOverloaded = async () => {
-    if (!confirm('Bu işlem, aynı ekibe aynı günde 2\'den fazla atanmış temizlik görevlerini sıra bozulmadan ileriki günlere taşıyacaktır. Devam edilsin mi?')) return;
+    if (!(await confirm({ message: 'Bu işlem, aynı ekibe aynı günde 2\'den fazla atanmış temizlik görevlerini sıra bozulmadan ileriki günlere taşıyacaktır. Devam edilsin mi?', type: "warning" }))) return;
     setIsCleaningUp(true);
     try {
       const moved = await cleanupOverloadedSchedules();
@@ -553,7 +553,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       ? `Bu günkü${shiftLabel} tamamlanmamış (${uncompletedAssignments.length}) ziyareti iptal edip ${formatSafe(targetDateStr, 'dd.MM.yyyy')} tarihine ve sonrasına kaydırmak istediğinize emin misiniz?`
       : `Bu günkü${shiftLabel} tamamlanmamış (${uncompletedAssignments.length}) ziyareti iptal edip sonraki günlere kaydırmak istediğinize emin misiniz?`;
 
-    const confirmCancel = confirm(confirmMsg);
+    const confirmCancel = (await confirm({ message: confirmMsg, type: "warning" }));
     if (!confirmCancel) return;
 
     setIsRescheduling(true);
@@ -977,6 +977,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           // Try to find an applicant in the pool that satisfies the 14-day rule
           for (let pIdx = 0; pIdx < applicantPool.length; pIdx++) {
             const applicant = applicantPool[pIdx];
+            if (applicant.status === 'passive' && (!applicant.passiveUntil || wd.date <= applicant.passiveUntil)) continue;
             const lastDateStr = lastVisitMap.get(applicant.id!);
             
             let isGapOk = true;
@@ -1000,6 +1001,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           if (foundIdx === -1) {
             for (let pIdx = 0; pIdx < applicantPool.length; pIdx++) {
                const applicant = applicantPool[pIdx];
+               if (applicant.status === 'passive' && (!applicant.passiveUntil || wd.date <= applicant.passiveUntil)) continue;
                const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === applicant.id);
                if (!isAlreadyInDay) {
                  foundIdx = pIdx;
@@ -1214,7 +1216,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
   // Geocoding logic removed to prevent unauthorized backend updates on render.
 
   const reflowSchedules = async () => {
-    if (!confirm('İş günleri değiştiği için programı kaydırmak istiyor musunuz? Bu işlem mevcut atamaları yeni iş günlerine sırasıyla dağıtacaktır.')) return;
+    if (!(await confirm({ message: 'İş günleri değiştiği için programı kaydırmak istiyor musunuz? Bu işlem mevcut atamaları yeni iş günlerine sırasıyla dağıtacaktır.', type: "warning" }))) return;
     
     setIsGenerating(true);
     try {
@@ -1602,10 +1604,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
               <div className="pt-2">
                 <button
-                  onClick={() => {
-                     const reason = prompt('Mazeret veya sebep giriniz (opsiyonel):');
+                  onClick={async () => {
+                     const reason = await confirm({ message: 'Mazeret veya sebep giriniz (opsiyonel):', type: 'info', withPrompt: true, promptPlaceholder: 'Yanıtınız...' });
                      if (reason !== null) {
-                       performCancelAssignment(shiftAssignmentModal.date, shiftAssignmentModal.applicantId, reason);
+                       performCancelAssignment(shiftAssignmentModal.date, shiftAssignmentModal.applicantId, typeof reason === 'string' ? reason : '');
                      }
                   }}
                   className="w-full py-3 px-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all text-left flex items-center justify-between"
@@ -2065,11 +2067,11 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
                             <button
                               disabled={(isFuture && !isCompleted && !isCancelled) || (isPast && isCompleted)}
-                              onClick={() => {
+                              onClick={async () => {
                                 if (!isCompleted && !isCancelled) {
                                   setCompletionModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
                                 } else if (isCancelled) {
-                                  if (window.confirm('Bu pasife alma (iptal) işlemini geri almak istediğinize emin misiniz?')) {
+                                  if (await confirm({ message: 'Bu pasife alma (iptal) işlemini geri almak istediğinize emin misiniz?', type: "warning" })) {
                                     const schedule = schedules.find(s => s.date === a.date);
                                     if (schedule) {
                                       const updatedAssignments = schedule.assignments.map(assign => assign.applicantId === item.applicant.id ? { ...assign, isCancelled: false, cancelReason: undefined } : assign);
@@ -2079,7 +2081,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                                   }
                                 } else if (isCompleted) {
                                   if (a.date === todayStr) {
-                                    if (window.confirm('Bu ziyareti tamamlanmamış olarak işaretleyip geri almak istediğinize emin misiniz?')) {
+                                    if ((await confirm({ message: 'Bu ziyareti tamamlanmamış olarak işaretleyip geri almak istediğinize emin misiniz?', type: "warning" }))) {
                                       toggleCompletion(a.date, item.applicant.id!);
                                     }
                                   } else {
@@ -2279,8 +2281,8 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                                   </button>
                                   {existingTask && (
                                     <button 
-                                      onClick={() => {
-                                        if(confirm('Görevi silmek istediğinize emin misiniz?')) {
+                                      onClick={async () => {
+                                        if((await confirm({ message: 'Görevi silmek istediğinize emin misiniz?', type: "warning" }))) {
                                           saveCustomTask(a.date, s.id!, '', existingTask.id);
                                         }
                                       }}

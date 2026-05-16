@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Shield, CheckCircle, XCircle, Trash2, Loader2, Search, Mail, Phone, CreditCard, Activity, RefreshCw } from 'lucide-react';
@@ -12,6 +13,7 @@ interface UserManagerProps {
 }
 
 export default function UserManager({ currentUser }: UserManagerProps) {
+  const { confirm } = useConfirmDialog();
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,7 +63,7 @@ export default function UserManager({ currentUser }: UserManagerProps) {
       toast.error('Süper Admin silinemez!');
       return;
     }
-    if (!window.confirm(`${user.name} ${user.surname} kullanıcısını silmek istediğinize emin misiniz?`)) return;
+    if (!(await confirm({ message: `${user.name} ${user.surname} kullanıcısını silmek istediğinize emin misiniz?`, type: "warning" }))) return;
     
     setIsProcessing(user.id!);
     try {
@@ -141,7 +143,7 @@ export default function UserManager({ currentUser }: UserManagerProps) {
           {currentUser.isSuperAdmin && (
             <button
               onClick={async () => {
-                if (confirm('Tüm hane ve personel kayıtları silinecek ve yerlerine gerçekçi örnek veriler yüklenecek. Onaylıyor musunuz?')) {
+                if ((await confirm({ message: 'Tüm hane ve personel kayıtları silinecek ve yerlerine gerçekçi örnek veriler yüklenecek. Onaylıyor musunuz?', type: "warning" }))) {
                   try {
                     setIsProcessing('mock-reset');
                     const response = await fetch('/api/admin/reset-mock-data', {

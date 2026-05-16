@@ -118,6 +118,15 @@ export async function autoFillLastDayOfProgram(dailyLimit: number) {
 
   while (added < needed && checks < sortedApplicants.length * 2) {
     const applicant = sortedApplicants[nextIdx];
+
+    // Check passive status
+    if (applicant.status === 'passive') {
+      if (!applicant.passiveUntil || lastSchedule.date <= applicant.passiveUntil) {
+        nextIdx = (nextIdx + 1) % sortedApplicants.length;
+        checks++;
+        continue;
+      }
+    }
     
     // Ensure they are not already in the day
     const alreadyInDay = lastSchedule.assignments.some(a => a.applicantId === applicant.id) ||
@@ -439,6 +448,14 @@ export async function reAlignActiveProgramSchedules() {
 
     for (const item of remainingQueue) {
       if (toAdd.length >= capacity) { deferred.push(item); continue; }
+
+      const applicant = allApplicants.find(a => a.id === item.applicantId);
+      if (applicant?.status === 'passive') {
+        if (!applicant.passiveUntil || targetDate <= applicant.passiveUntil) {
+          deferred.push(item);
+          continue;
+        }
+      }
 
       const staffIds = item.staffIds || [];
       if (staffIds.length > 0) {

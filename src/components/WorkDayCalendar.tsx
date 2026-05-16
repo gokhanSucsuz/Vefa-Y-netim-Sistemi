@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { dbLocal } from '../db';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function WorkDayCalendar({ workDays, currentUser }: Props) {
+  const { confirm } = useConfirmDialog();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [processingDates, setProcessingDates] = useState<Set<string>>(new Set());
 
@@ -73,7 +75,7 @@ export default function WorkDayCalendar({ workDays, currentUser }: Props) {
   };
 
   const clearHolidays = async () => {
-    if (!confirm('Bu ayın tüm tatil işaretlerini temizlemek istediğinize emin misiniz? Hafta içi tüm günler çalışma günü sayılacaktır.')) return;
+    if (!(await confirm({ message: 'Bu ayın tüm tatil işaretlerini temizlemek istediğinize emin misiniz? Hafta içi tüm günler çalışma günü sayılacaktır.', type: "warning" }))) return;
     try {
       const monthDays = workDays.filter(wd => {
         const d = new Date(wd.date);

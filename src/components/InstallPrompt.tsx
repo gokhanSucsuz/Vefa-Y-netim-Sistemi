@@ -1,8 +1,10 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { Download, Smartphone, X, Share } from 'lucide-react';
 
 export default function InstallPrompt() {
+  const { confirm } = useConfirmDialog();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [platform, setPlatform] = useState<'android' | 'ios' | 'other'>('other');

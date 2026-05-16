@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import React, { useMemo, useEffect } from 'react';
 import { useLiveQuery } from '../hooks/useLiveQuery';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function ActiveTasksTracker({ currentUser }: Props) {
+  const { confirm } = useConfirmDialog();
   const staff = useLiveQuery(() => dbLocal.staff.toArray()) || [];
   const applicants = useLiveQuery(() => dbLocal.applicants.toArray()) || [];
   const schedules = useLiveQuery(() => dbLocal.schedules.toArray()) || [];
@@ -174,7 +176,7 @@ export default function ActiveTasksTracker({ currentUser }: Props) {
 
   const handleAdminComplete = async (applicantId: string) => {
     if (!todaySchedule || !todaySchedule.id) return;
-    if (!confirm('Bu ziyareti tamamlandı olarak işaretlemek istediğinize emin misiniz? (Personellerin listesinden de tamamlanmış olarak düşecektir.)')) return;
+    if (!(await confirm({ message: 'Bu ziyareti tamamlandı olarak işaretlemek istediğinize emin misiniz? (Personellerin listesinden de tamamlanmış olarak düşecektir.)', type: "warning" }))) return;
 
     try {
       const taskData = activeAssignments.find(a => a.applicant?.id === applicantId);

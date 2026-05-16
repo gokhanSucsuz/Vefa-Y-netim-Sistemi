@@ -1,3 +1,4 @@
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import toast from 'react-hot-toast';
 import React, { useState, useMemo } from 'react';
 import { Staff } from '../types';
@@ -26,6 +27,7 @@ export interface LeaveRecord {
 }
 
 export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManagementProps) {
+  const { confirm } = useConfirmDialog();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingLeave, setEditingLeave] = useState<{ staffId: string; leaveId: string } | null>(null);
@@ -142,7 +144,7 @@ export default function LeaveManagement({ staffList, onStaffUpdate }: LeaveManag
   };
 
   const handleDelete = async (staffId: string, leaveId: string) => {
-    if (!window.confirm('Bu izin kaydını silmek istediğinize emin misiniz?')) return;
+    if (!(await confirm({ message: 'Bu izin kaydını silmek istediğinize emin misiniz?', type: "warning" }))) return;
 
     try {
       const staff = staffList.find(s => s.id === staffId);
