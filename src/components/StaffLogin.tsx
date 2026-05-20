@@ -39,13 +39,28 @@ export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
     setLoading(true);
     try {
       const usersList = await dbService.users.toArray();
-      setUsers(usersList as any);
+      const staffList = await dbService.staff.toArray();
+
+      // Filter out users who have corresponding staff record with a resignation date
+      const nonResignedUsers = usersList.filter(u => {
+        const staffMember = staffList.find(s => s.tcNo === u.tcNo);
+        return !staffMember?.resignationDate;
+      });
+      setUsers(nonResignedUsers as any);
 
       if (firebaseUser?.email) {
         // 1. Check if user is already a SystemUser with this email
         const existingSystemUser = usersList.find(u => u.email.toLowerCase() === firebaseUser.email.toLowerCase());
         
         if (existingSystemUser) {
+          const staffMember = staffList.find(s => s.tcNo === existingSystemUser.tcNo);
+          if (staffMember?.resignationDate) {
+            setError('Bu personel işten ayrılmış durumdadır ve sisteme giriş yetkisi bulunmamaktadır.');
+            setMode('select');
+            await signOut(auth);
+            return;
+          }
+
           if (existingSystemUser.isApproved) {
             onLogin(existingSystemUser);
             return;
@@ -55,10 +70,16 @@ export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
           }
         } else {
           // 2. Check if user is a Staff member with this googleEmail
-          const staffList = await dbService.staff.toArray();
           const staffMember = staffList.find(s => s.googleEmail?.toLowerCase() === firebaseUser.email.toLowerCase());
 
           if (staffMember) {
+            if (staffMember.resignationDate) {
+              setError('Bu personel işten ayrılmış durumdadır ve sisteme giriş yetkisi bulunmamaktadır.');
+              setMode('select');
+              await signOut(auth);
+              return;
+            }
+
             if (staffMember.isApproved) {
               // Create a temporary system user for this session or add to users table
               const staffUser: SystemUser = {
@@ -101,6 +122,14 @@ export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
 
     setIsSubmitting(true);
     setError(null);
+
+    const staffList = await dbService.staff.toArray();
+    const staffMember = staffList.find(s => s.tcNo === selectedUser.tcNo);
+    if (staffMember?.resignationDate) {
+      setError('Bu personel işten ayrılmış durumdadır ve sisteme giriş yetkisi bulunmamaktadır.');
+      setIsSubmitting(false);
+      return;
+    }
 
     const hash = CryptoJS.SHA256(password).toString();
     if (hash === selectedUser.passwordHash) {

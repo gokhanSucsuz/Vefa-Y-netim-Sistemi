@@ -49,6 +49,12 @@ export default function GoogleLogin() {
       const staffMember = staffList.find(s => s.googleEmail === email);
 
       if (staffMember) {
+        if (staffMember.resignationDate) {
+          setError('Bu personel işten ayrılmış durumdadır ve sisteme giriş yetkisi bulunmamaktadır.');
+          await auth.signOut();
+          return;
+        }
+
         if (!staffMember.isApproved) {
           setError('Google hesabınız sisteme kayıtlı ancak yönetici onayı bekleniyor. Lütfen yönetici ile iletişime geçin.');
           await auth.signOut();

@@ -90,6 +90,16 @@ function AppContent() {
   const programs = useLiveQuery(() => isAuthorized ? dbLocal.programs.toArray() : Promise.resolve([]), [isAuthorized]) || [];
   const assignments = useLiveQuery(() => isAuthorized ? dbLocal.assignments.toArray() : Promise.resolve([]), [isAuthorized]) || [];
 
+  // Real-time session termination for resigned staff
+  useEffect(() => {
+    if (currentStaffUser && currentStaffUser.role === 'staff' && staff.length > 0) {
+      const dbStaff = staff.find(s => s.tcNo === currentStaffUser.tcNo);
+      if (dbStaff?.resignationDate) {
+        handleLogout();
+      }
+    }
+  }, [currentStaffUser, staff]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
