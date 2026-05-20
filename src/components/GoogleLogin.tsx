@@ -88,22 +88,26 @@ export default function GoogleLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-      <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-xl max-w-sm w-full text-center">
+    <div className="min-h-screen relative overflow-hidden bg-slate-50 flex flex-col items-center justify-center p-4">
+      {/* Ambient decorative gradient backgrounds */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-blue-600/10 to-indigo-600/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-indigo-600/10 to-blue-600/5 blur-[120px] pointer-events-none" />
+
+      <div className="relative bg-white/75 backdrop-blur-xl rounded-[2rem] border border-white/80 p-8 lg:p-10 shadow-[0_20px_50px_rgba(8,33,66,0.05)] max-w-sm w-full text-center transition-all duration-500">
         <div className="flex justify-center mb-6">
           <img 
             src={APP_LOGO_URL} 
             alt="Logo" 
-            className="w-20 h-20 object-contain"
+            className="w-20 h-20 object-contain hover:scale-105 transition-transform duration-300"
             referrerPolicy="no-referrer"
           />
         </div>
         
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Edirne SYDV Vefa</h2>
-        <p className="text-gray-500 text-sm mb-8">Vefa Sosyal Destek Yönetim Sistemi Girişi</p>
+        <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight mb-2">Edirne SYDV Vefa</h2>
+        <p className="text-gray-500 text-sm font-medium mb-8">Vefa Sosyal Destek Yönetim Sistemi Girişi</p>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-xs font-bold rounded-2xl flex flex-col gap-3 text-left">
+          <div className="mb-6 p-4 bg-red-50/80 backdrop-blur-sm border border-red-100 text-red-600 text-xs font-bold rounded-2xl flex flex-col gap-3 text-left animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-start gap-3">
               <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
               <span>{error}</span>
@@ -119,7 +123,7 @@ export default function GoogleLogin() {
         <button
           onClick={handleGoogleLogin}
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-100 hover:border-blue-100 hover:bg-blue-50 text-gray-700 font-bold py-4 px-4 rounded-2xl transition-all shadow-sm disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200/80 hover:border-blue-200 hover:bg-blue-50/50 text-slate-700 font-bold py-4 px-4 rounded-2xl transition-all shadow-[0_4px_12px_rgba(0,0,0,0.02)] active:scale-98 disabled:opacity-50 cursor-pointer"
         >
           {isLoading ? (
             <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
@@ -131,9 +135,9 @@ export default function GoogleLogin() {
           )}
         </button>
 
-        <div className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-center gap-2">
+        <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
             Resmi Personel Giriş Kapısı
           </p>
         </div>

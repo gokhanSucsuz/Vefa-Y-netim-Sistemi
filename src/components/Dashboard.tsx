@@ -34,10 +34,10 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
   const totalPeopleCount = applicants.reduce((sum, app) => sum + (app.householdSize || 1), 0);
 
   const stats = [
-    { label: 'Kayıtlı Hane', value: applicantCount, icon: Users, color: 'bg-institution-blue' },
-    { label: 'Toplam Hizmet Alan', value: totalPeopleCount, icon: ShieldCheck, color: 'bg-institution-dark' },
-    { label: 'Görevli Personel', value: staffCount, icon: Briefcase, color: 'bg-slate-700' },
-    { label: 'Ziyaret Programı', value: schedules.length, icon: Calendar, color: 'bg-emerald-600' },
+    { label: 'Kayıtlı Hane', value: applicantCount, icon: Users, color: 'bg-gradient-to-br from-[#0f2e59] to-[#081b33]', shadow: 'shadow-blue-900/10' },
+    { label: 'Toplam Hizmet Alan', value: totalPeopleCount, icon: ShieldCheck, color: 'bg-gradient-to-br from-[#1e467a] to-[#0c2a4f]', shadow: 'shadow-blue-950/15' },
+    { label: 'Görevli Personel', value: staffCount, icon: Briefcase, color: 'bg-gradient-to-br from-slate-600 to-slate-800', shadow: 'shadow-slate-800/10' },
+    { label: 'Ziyaret Programı', value: schedules.length, icon: Calendar, color: 'bg-gradient-to-br from-emerald-500 to-emerald-700', shadow: 'shadow-emerald-700/10' },
   ];
 
   return (
@@ -59,7 +59,7 @@ export default function Dashboard({ onNavigate, currentUser }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {stats.map((stat, i) => (
           <div key={i} className="official-card p-5 lg:p-6 flex items-center gap-4 lg:gap-5 group hover:shadow-md transition-all">
-            <div className={`${stat.color} p-3 lg:p-4 rounded-2xl text-white shadow-lg shrink-0 group-hover:scale-110 transition-transform`}>
+            <div className={`${stat.color} p-3 lg:p-4 rounded-2xl text-white shadow-lg ${stat.shadow} shrink-0 group-hover:scale-110 transition-transform duration-300`}>
               <stat.icon className="w-5 h-5 lg:w-6 lg:h-6" />
             </div>
             <div>

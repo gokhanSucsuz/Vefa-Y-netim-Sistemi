@@ -244,7 +244,7 @@ function AppContent() {
                         isSidebarCollapsed ? 'justify-center p-3' : 'justify-start px-3 py-2.5 gap-3'
                       } ${
                         isActive 
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20 font-bold' 
+                        ? 'bg-gradient-to-r from-blue-600 to-institution-blue text-white shadow-md shadow-blue-600/20 font-bold' 
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                       }`}
                     >
