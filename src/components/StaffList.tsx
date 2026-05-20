@@ -54,6 +54,10 @@ export default function StaffList({ staff, currentUser }: Props) {
         dataToSave.partnerId = undefined;
       }
 
+      if (dataToSave.resignationDate) {
+        dataToSave.isApproved = false;
+      }
+
       if (dataToSave.partnerId === undefined) {
         delete dataToSave.partnerId;
       }
@@ -417,16 +421,19 @@ export default function StaffList({ staff, currentUser }: Props) {
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">Panel Erişimi (Yönetici Onayı)</label>
-              <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 h-[42px]">
+              <div className={`flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 h-[42px] ${formData.resignationDate ? 'opacity-60' : ''}`}>
                 <input
                   type="checkbox"
                   id="isApproved"
-                  checked={formData.isApproved || false}
+                  disabled={!!formData.resignationDate}
+                  checked={!formData.resignationDate && (formData.isApproved || false)}
                   onChange={e => setFormData({ ...formData, isApproved: e.target.checked })}
-                  className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                  className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50"
                 />
-                <label htmlFor="isApproved" className="text-sm font-semibold text-gray-900 cursor-pointer">
-                  {formData.isApproved ? 'Saha Paneline Erişebilir' : 'Erişim Yok (Onay Bekliyor)'}
+                <label htmlFor="isApproved" className={`text-sm font-semibold text-gray-900 ${formData.resignationDate ? 'cursor-not-allowed select-none' : 'cursor-pointer'}`}>
+                  {formData.resignationDate 
+                    ? 'Erişim Yetkisi İptal Edildi' 
+                    : (formData.isApproved ? 'Saha Paneline Erişebilir' : 'Erişim Yok (Onay Bekliyor)')}
                 </label>
               </div>
             </div>
@@ -581,7 +588,11 @@ export default function StaffList({ staff, currentUser }: Props) {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {s.isApproved ? (
+                        {s.resignationDate ? (
+                          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200 uppercase tracking-widest w-fit" title="İşten ayrılan personelin erişim yetkisi tamamen iptal edilmiştir.">
+                            <X className="w-3 h-3" /> ERİŞİM YOK
+                          </span>
+                        ) : s.isApproved ? (
                           <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-widest w-fit">
                             <Check className="w-3 h-3" /> ONAYLI
                           </span>
