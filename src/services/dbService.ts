@@ -111,7 +111,15 @@ export async function syncWithServer() {
           });
           const table = (dexieDb as any)[item.collection === 'workdays' ? 'workDays' : item.collection === 'auditlogs' ? 'auditLogs' : item.collection === 'users' ? 'systemUsers' : item.collection === 'assignments' ? 'assignments' : item.collection];
           if (table) {
-             await table.update(item.data.localId, { id: res.id });
+             // Since primary keys are immutable in Dexie/IndexedDB, we must retrieve, delete, and add with the new server ID
+             const record = await table.get(item.data.localId);
+             if (record) {
+               await table.delete(item.data.localId);
+               await table.add({ ...record, id: res.id });
+             } else {
+               // Fallback: in case it already exists or was created with string primary key
+               await table.update(item.data.localId, { id: res.id });
+             }
           }
           // Update any pending sync queue items that still use the localId
           const pendingItems = await dexieDb.syncQueue.where('collection').equals(item.collection).toArray();
@@ -283,8 +291,16 @@ class ApiTable<T extends { id?: string }> {
           method: 'POST',
           body: JSON.stringify(item),
         });
-        // Update local with server ID
-        await this.dexieTable.update(localId, { id: res.id } as any);
+        // To update local with server ID, since primary keys are immutable in Dexie/IndexedDB,
+        // we must retrieve, delete, and add with the new server ID
+        const record = await this.dexieTable.get(localId);
+        if (record) {
+          await this.dexieTable.delete(localId);
+          await this.dexieTable.add({ ...record, id: res.id });
+        } else {
+          // Fallback: in case it already exists or was created with string primary key
+          await this.dexieTable.update(localId, { id: res.id } as any);
+        }
         notifyListeners();
         return res.id;
       } catch (e) {
@@ -309,10 +325,25 @@ class ApiTable<T extends { id?: string }> {
     });
 
     let updatedCount = await this.dexieTable.update(id, safeChanges as any);
-    if (updatedCount === 0 && typeof id === 'string' && !isNaN(Number(id))) {
-      await this.dexieTable.update(Number(id) as any, safeChanges as any);
+    if (updatedCount === 0 && typeof id === 'string') {
+      // Try by converting string to number (in case the primary key is numeric)
+      if (!isNaN(Number(id))) {
+        updatedCount = await this.dexieTable.update(Number(id) as any, safeChanges as any);
+      }
+      // If still not updated, try to find a record where the 'id' property matches
+      if (updatedCount === 0) {
+        const record = await this.dexieTable.where('id').equals(id).first();
+        if (record) {
+          // If the record exists, update it using its actual primary key
+          const primKeyName = this.dexieTable.schema.primKey.name;
+          const primKeyValue = (record as any)[primKeyName];
+          if (primKeyValue) {
+            updatedCount = await this.dexieTable.update(primKeyValue, safeChanges as any);
+          }
+        }
+      }
     } else if (updatedCount === 0 && typeof id === 'number') {
-      await this.dexieTable.update(String(id) as any, safeChanges as any);
+      updatedCount = await this.dexieTable.update(String(id) as any, safeChanges as any);
     }
     if (navigator.onLine) {
       try {
