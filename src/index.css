@@ -51,6 +51,52 @@
   .active-sidebar-tab {
     @apply bg-gradient-to-r from-institution-blue via-[#0d2e5c] to-[#163e75] text-white shadow-xl shadow-institution-blue/20 font-bold scale-[1.02] -translate-y-0.5;
   }
+
+  /* Usability: Slide-over Drawer Layout */
+  .official-drawer-overlay {
+    @apply fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[100] transition-opacity duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-100;
+  }
+
+  .official-drawer {
+    @apply fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-[0_0_64px_rgba(4,12,38,0.12)] z-[110] border-l border-slate-200/80 flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] h-full overflow-hidden;
+  }
+
+  /* Usability: Touch-optimized Quick Filter Chips */
+  .filter-chips-container {
+    @apply flex gap-2 overflow-x-auto py-1.5 px-0.5 -mx-0.5 select-none;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .filter-chips-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filter-chip {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-600 rounded-full font-bold text-xs whitespace-nowrap cursor-pointer transition-all duration-200 active:scale-95 shadow-[0_2px_8px_rgba(0,0,0,0.01)];
+  }
+
+  .filter-chip-active {
+    @apply bg-[#082142] text-white border-[#082142] shadow-md shadow-blue-900/10;
+  }
+
+  /* Usability: Thumb-Zone Floating Action Button (FAB) */
+  .official-fab {
+    @apply fixed bottom-24 lg:bottom-8 right-6 w-14 h-14 bg-gradient-to-r from-institution-blue to-institution-dark hover:from-[#0d2e5c] hover:to-[#041226] text-white rounded-full flex items-center justify-center shadow-2xl hover:shadow-[0_16px_36px_rgba(8,33,66,0.35)] active:scale-90 transition-all duration-300 cursor-pointer z-50;
+  }
+
+  /* Usability: Mobile-first Expandable Card Layout */
+  .mobile-accordion-card {
+    @apply bg-white border border-slate-200/80 rounded-2xl p-4.5 transition-all duration-300 shadow-[0_4px_16px_rgba(0,0,0,0.01)] hover:shadow-md;
+  }
+
+  .mobile-accordion-header {
+    @apply flex items-center justify-between cursor-pointer select-none;
+  }
+
+  .mobile-accordion-content {
+    @apply border-t border-slate-100 mt-4.5 pt-4.5 space-y-4;
+    animation: slideInDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 }
 
 @layer utilities {
@@ -62,6 +108,21 @@
   @keyframes pulse-slow {
     0%, 100% { opacity: 0.6; transform: scale(1); }
     50% { opacity: 0.8; transform: scale(1.05); }
+  }
+
+  @keyframes slideInDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideInRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   .animate-float {
