@@ -324,39 +324,41 @@ class ApiTable<T extends { id?: string }> {
       }
     });
 
-    let updatedCount = await this.dexieTable.update(id, safeChanges as any);
-    if (updatedCount === 0 && typeof id === 'string') {
-      // Try by converting string to number (in case the primary key is numeric)
-      if (!isNaN(Number(id))) {
-        updatedCount = await this.dexieTable.update(Number(id) as any, safeChanges as any);
+    // Resolve the actual Dexie primary key and the real MongoDB ObjectId
+    // A valid MongoDB ObjectId is exactly 24 lowercase hex characters
+    const isMongoId = /^[0-9a-f]{24}$/i.test(id);
+    let dexiePrimaryKey: any = id;
+    let serverIdToUse: string = id;
+
+    if (!isMongoId && !isNaN(Number(id))) {
+      // The id is a numeric auto-increment Dexie key
+      // Fetch the record to find its real MongoDB ObjectId stored in the 'id' field
+      const record = await this.dexieTable.get(Number(id) as any);
+      if (record && /^[0-9a-f]{24}$/i.test((record as any).id)) {
+        serverIdToUse = (record as any).id;
+        dexiePrimaryKey = Number(id);
       }
-      // If still not updated, try to find a record where the 'id' property matches
-      if (updatedCount === 0) {
-        const record = await this.dexieTable.where('id').equals(id).first();
-        if (record) {
-          // If the record exists, update it using its actual primary key
-          const primKeyName = this.dexieTable.schema.primKey.name;
-          const primKeyValue = (record as any)[primKeyName];
-          if (primKeyValue) {
-            updatedCount = await this.dexieTable.update(primKeyValue, safeChanges as any);
-          }
-        }
-      }
-    } else if (updatedCount === 0 && typeof id === 'number') {
-      updatedCount = await this.dexieTable.update(String(id) as any, safeChanges as any);
     }
+
+    // Update Dexie locally
+    let updatedCount = await this.dexieTable.update(dexiePrimaryKey, safeChanges as any);
+    if (updatedCount === 0 && !isNaN(Number(dexiePrimaryKey))) {
+      updatedCount = await this.dexieTable.update(Number(dexiePrimaryKey) as any, safeChanges as any);
+    }
+
+    // Send to server using the correct MongoDB ObjectId
     if (navigator.onLine) {
       try {
-        await apiFetch(`/${this.collectionName}/${id}`, {
+        await apiFetch(`/${this.collectionName}/${serverIdToUse}`, {
           method: 'PUT',
           body: JSON.stringify(changes),
         });
       } catch (e) {
-        console.warn("Update to server failed, queuing for sync", e);
-        await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'update', data: { id, changes }, timestamp: Date.now() });
+        console.error(`[dbService] Update failed for ${this.collectionName}/${serverIdToUse}, queuing:`, e);
+        await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'update', data: { id: serverIdToUse, changes }, timestamp: Date.now() });
       }
     } else {
-      await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'update', data: { id, changes }, timestamp: Date.now() });
+      await dexieDb.syncQueue.add({ collection: this.collectionName, action: 'update', data: { id: serverIdToUse, changes }, timestamp: Date.now() });
     }
     notifyListeners();
   }

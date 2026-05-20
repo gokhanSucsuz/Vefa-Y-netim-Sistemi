@@ -396,7 +396,8 @@ const createCrudRoutes = (model: any, name: string, encryptedFields: string[] = 
       await connectDB();
       if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(404).json({ error: "Invalid ID format" });
       const data = prepareForDB(req.body);
-      const item = await model.findByIdAndUpdate(req.params.id, data, { new: true });
+      // Use $set to patch only the provided fields instead of replacing the whole document
+      const item = await model.findByIdAndUpdate(req.params.id, { $set: data }, { new: true, upsert: false });
       if (!item) return res.status(404).json({ error: "Not found" });
 
       // Notify all clients that data changed

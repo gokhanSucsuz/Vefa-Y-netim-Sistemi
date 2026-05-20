@@ -33,12 +33,22 @@ const StaffSchema = new mongoose.Schema({
   password: String, // Encrypted
   partnerId: String, // Linked teammate
   isActive: { type: Boolean, default: true },
+  isBackup: { type: Boolean, default: false },
   dutyLocation: String,
   googleEmail: String,
   isApproved: { type: Boolean, default: false },
-  leaves: [{ startDate: String, endDate: String, reason: String }],
+  resignationDate: String, // ISO date string (YYYY-MM-DD)
+  resignationReason: String,
+  leaves: [{
+    id: String,
+    startDate: String,
+    endDate: String,
+    type: String, // 'annual' | 'sick' | 'half_morning' | 'half_afternoon' | 'unpaid' | 'other'
+    reason: String,
+    backupStaffId: String
+  }],
   createdAt: { type: Date, default: Date.now }
-});
+}, { strict: false }); // strict:false allows forward-compatible fields without schema migration
 
 const WorkDaySchema = new mongoose.Schema({
   date: { type: String, unique: true },
