@@ -35,7 +35,7 @@ interface Props {
 
 function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
   const { current: map } = useMap();
-  
+
   useEffect(() => {
     if (map && markers.length > 0) {
       const lats = markers.map(m => m.pos[0]);
@@ -44,7 +44,7 @@ function MapUpdater({ markers }: { markers: { pos: [number, number] }[] }) {
       const maxLat = Math.max(...lats);
       const minLng = Math.min(...lngs);
       const maxLng = Math.max(...lngs);
-      
+
       map.fitBounds(
         [[minLng, minLat], [maxLng, maxLat]],
         { padding: 50, maxZoom: 15, duration: 1000 }
@@ -60,7 +60,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
   const [isGenerating, setIsGenerating] = useState(false);
   const [showManualPlanner, setShowManualPlanner] = useState(false);
   const [lastSavedDay, setLastSavedDay] = useState<string | null>(null);
-  
+
   // Cleanup orphaned schedules (schedules pointing to non-existent programs)
   useEffect(() => {
     const cleanupOrphans = async () => {
@@ -126,7 +126,7 @@ export default function ScheduleView({ applicants, staff, workDays, schedules, p
 
 
   // formatSafe imported from exportUtils
-const validateAssignment = (applicantId: string, date: string, currentSchedules: Schedule[], excludeScheduleId?: string) => {
+  const validateAssignment = (applicantId: string, date: string, currentSchedules: Schedule[], excludeScheduleId?: string) => {
     // 1. Single visit per day check
     const daySchedule = currentSchedules.find(s => s.date === date);
     if (daySchedule && daySchedule.id !== excludeScheduleId) {
@@ -137,7 +137,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
     // 2. 14-day interval check
     const targetDate = parseISO(date);
-    const otherVisits = currentSchedules.flatMap(s => 
+    const otherVisits = currentSchedules.flatMap(s =>
       s.assignments
         .filter(a => a.applicantId === applicantId)
         .map(a => ({ date: s.date, scheduleId: s.id }))
@@ -147,9 +147,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       const visitDate = parseISO(visit.date);
       const diffDays = Math.abs(differenceInDays(targetDate, visitDate));
       if (diffDays < 14) {
-        return { 
-          valid: false, 
-          message: `İki ziyaret arasında en az 14 gün olmalıdır. (Mevcut ziyaret: ${format(visitDate, 'dd.MM.yyyy')}, Fark: ${diffDays} gün)` 
+        return {
+          valid: false,
+          message: `İki ziyaret arasında en az 14 gün olmalıdır. (Mevcut ziyaret: ${format(visitDate, 'dd.MM.yyyy')}, Fark: ${diffDays} gün)`
         };
       }
     }
@@ -169,10 +169,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
       progSchedules.sort((a, b) => a.date.localeCompare(b.date));
       const lastSchedule = progSchedules[progSchedules.length - 1];
-      
+
       if (lastSchedule.assignments.length < dailyLimit) {
         const willDoMore = await confirm({ message: "Son günün kapasitesi eksik kaldı. Başka kaydırma işlemi yapacak mısınız?\n\nTamam: Evet, başka kaydırma yapacağım (10 dakika beklenir)\nİptal: Hayır, yapmayacağım (Eksik gün otomatik olarak görevlendirilir)", type: "warning" });
-        
+
         if (!willDoMore) {
           await autoFillLastDayOfProgram(dailyLimit);
           toast.success("Son gün otomatik olarak dolduruldu.");
@@ -184,8 +184,8 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               pSchedules.sort((a, b) => a.date.localeCompare(b.date));
               const lSchedule = pSchedules[pSchedules.length - 1];
               if (lSchedule.assignments.length < dailyLimit) {
-                 await autoFillLastDayOfProgram(dailyLimit);
-                 toast('10 dakika süresi doldu. Son gün otomatik tamamlandı.', { icon: 'ℹ️' });
+                await autoFillLastDayOfProgram(dailyLimit);
+                toast('10 dakika süresi doldu. Son gün otomatik tamamlandı.', { icon: 'ℹ️' });
               }
             }
           }, 10 * 60 * 1000);
@@ -201,7 +201,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     setIsCleaningUp(true);
     try {
       const moved = await cleanupOverloadedSchedules();
-      
+
       if (moved === 0) {
         toast.success('Program temiz! Hiçbir ekipte günlük 2 görev aşımı yok.');
       } else {
@@ -394,7 +394,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         }
 
         // Strict queue sliding - no priority sort to preserve user's manual arrangement
-        
+
         // Find and extract the item being moved
         const moveIdx = uncompletedPool.findIndex(a => a.applicantId === applicantId);
         if (moveIdx === -1) {
@@ -412,18 +412,18 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
             if (s.date >= targetDateStr) break;
             const completedCount = s.assignments.filter(a => a.isCompleted || a.isCancelled).length;
             if (s.date === date) {
-               insertIndex += Math.max(0, firstDayOriginalUncompleted - 1);
+              insertIndex += Math.max(0, firstDayOriginalUncompleted - 1);
             } else {
-               insertIndex += Math.max(0, dailyLimit - completedCount);
+              insertIndex += Math.max(0, dailyLimit - completedCount);
             }
           }
         } else {
           insertIndex = Math.max(0, firstDayOriginalUncompleted - 1);
         }
-        
+
         uncompletedPool.splice(insertIndex, 0, movedItem);
         const tempPool = [...uncompletedPool];
-        
+
         // We need a way to track visits for the 14-day rule during redistribution
         // We'll use the existing schedules but ignore the uncompleted ones we are about to overwrite
         const baseSchedules = allSchedules.filter(s => s.date < date || s.assignments.some(a => a.isCompleted || a.isCancelled));
@@ -434,13 +434,13 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           const s = futureSchedules[i];
           const completedOnes = s.assignments.filter(a => a.isCompleted || a.isCancelled);
           const targetDate = parseISO(s.date);
-          
+
           let targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
           if (s.date === date) {
-             const movingToSameDay = targetDateStr === date;
-             targetUncompletedCount = movingToSameDay ? firstDayOriginalUncompleted : Math.max(0, firstDayOriginalUncompleted - 1);
+            const movingToSameDay = targetDateStr === date;
+            targetUncompletedCount = movingToSameDay ? firstDayOriginalUncompleted : Math.max(0, firstDayOriginalUncompleted - 1);
           }
-          
+
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {
             let foundIdx = -1;
@@ -458,7 +458,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               newUncompleted.push(tempPool.splice(foundIdx, 1)[0]);
             }
           }
-          
+
           const taggedUncompleted = newUncompleted.map((a: any, idx: number) => ({
             ...a,
             shift: (completedOnes.length + idx) < Math.ceil(dailyLimit / 2) ? 'morning' : 'afternoon'
@@ -477,10 +477,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           const allSchedules2 = await dbLocal.schedules.toArray();
           const scheduledDates = new Set(allSchedules2.map(s => s.date));
           let currentDateStr = futureSchedules.length > 0 ? futureSchedules[futureSchedules.length - 1].date : date;
-          
+
           const leftoverSchedules = [];
           let safetyLimit = 120; // max 120 days ahead
-          while(tempPool.length > 0 && safetyLimit-- > 0) {
+          while (tempPool.length > 0 && safetyLimit-- > 0) {
             // Advance to next calendar day
             const nextDate = addDays(parseISO(currentDateStr), 1);
             const nextDateStr = format(nextDate, 'yyyy-MM-dd');
@@ -497,12 +497,12 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               const existing = allSchedules2.find(s => s.date === nextDateStr);
               if (existing && existing.assignments.length >= dailyLimit) continue;
             }
-            
+
             const newUncompleted: any[] = [];
             for (let j = 0; j < dailyLimit && tempPool.length > 0; j++) {
               newUncompleted.push(tempPool.shift());
             }
-            
+
             leftoverSchedules.push({ date: currentDateStr, programId: currentDaySchedule.programId, assignments: newUncompleted });
           }
           if (leftoverSchedules.length > 0) {
@@ -514,11 +514,11 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         }
       });
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Ziyaret Kaydırma', `${date} tarihindeki ${applicants.find(a => a.id === applicantId)?.name} ziyareti kaydırıldı.`);
-      
+
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
       await promptAutoFillIfNeeded();
-      
+
       toast.success('Ziyaret başarıyla sonraki güne kaydırıldı.');
     } catch (error) {
       console.error('Rescheduling error:', error);
@@ -549,7 +549,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     }
 
     const shiftLabel = cancelShift === 'morning' ? ' (Sabah)' : cancelShift === 'afternoon' ? ' (Öğleden Sonra)' : '';
-    const confirmMsg = targetDateStr 
+    const confirmMsg = targetDateStr
       ? `Bu günkü${shiftLabel} tamamlanmamış (${uncompletedAssignments.length}) ziyareti iptal edip ${formatSafe(targetDateStr, 'dd.MM.yyyy')} tarihine ve sonrasına kaydırmak istediğinize emin misiniz?`
       : `Bu günkü${shiftLabel} tamamlanmamış (${uncompletedAssignments.length}) ziyareti iptal edip sonraki günlere kaydırmak istediğinize emin misiniz?`;
 
@@ -560,7 +560,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     try {
       await dbLocal.transaction('rw', [dbLocal.schedules, dbLocal.workDays], async () => {
         const allSchedules = await dbLocal.schedules.toArray();
-        
+
         // If targetDateStr is provided, we shift everything from that date onwards
         const effectiveTargetDate = targetDateStr || date;
 
@@ -571,7 +571,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         let uncompletedPool: any[] = [];
         // Add current day's uncompleted first
         uncompletedPool.push(...uncompletedAssignments);
-        
+
         // Add other future uncompleted (excluding current day's which are already added)
         for (const s of futureSchedules) {
           if (s.date === date) continue;
@@ -581,7 +581,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
         // Strict queue sliding - no deduplication or priority sort to preserve user's manual arrangement
         const tempPool = [...uncompletedPool];
-        
+
         // We need to handle the case where targetDateStr is a new date not in futureSchedules
         let planningDates = futureSchedules.map(s => s.date);
         if (targetDateStr && !planningDates.includes(targetDateStr)) {
@@ -597,9 +597,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           const s = allSchedules.find(as => as.date === dStr);
           const completedOnes = s ? s.assignments.filter(a => a.isCompleted || a.isCancelled) : [];
           const targetDate = parseISO(dStr);
-          
+
           const targetUncompletedCount = Math.max(0, dailyLimit - completedOnes.length);
-          
+
           const newUncompleted: any[] = [];
           for (let j = 0; j < targetUncompletedCount; j++) {
             let foundIdx = -1;
@@ -651,16 +651,16 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           return a.shift !== cancelShift;
         });
         await dbLocal.schedules.update(schedule.id!, { assignments: remainingAssignments });
-        
+
         // Handle leftovers — auto-derive next available day if workDays is insufficient
         if (tempPool.length > 0) {
           const allWorkDays = await dbLocal.workDays.toArray();
           const allSchedForLeftover = await dbLocal.schedules.toArray();
           let currentDateStr = planningDates.length > 0 ? planningDates[planningDates.length - 1] : date;
-          
+
           const leftoverSchedules = [];
           let safetyLimit = 120;
-          while(tempPool.length > 0 && safetyLimit-- > 0) {
+          while (tempPool.length > 0 && safetyLimit-- > 0) {
             const nextDate = addDays(parseISO(currentDateStr), 1);
             const nextDateStr = format(nextDate, 'yyyy-MM-dd');
             currentDateStr = nextDateStr;
@@ -691,11 +691,11 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         }
       });
       logAction(currentUser.id!, `${currentUser.name} ${currentUser.surname}`, 'Gün İptali ve Kaydırma', `${date} tarihindeki tüm ziyaretler kaydırıldı.`);
-      
+
       // Safety net: ensure per-team limit is maintained
       await cleanupOverloadedSchedules();
       await promptAutoFillIfNeeded();
-      
+
       toast.success('Ziyaretler başarıyla kaydırıldı.');
       setRescheduleModal(null);
       setTargetRescheduleDate('');
@@ -710,7 +710,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
   const currentMonthWorkDays = useMemo(() => {
     const daysInMonth = [];
     if (isNaN(monthStart.getTime())) return [];
-    
+
     let d = parseISO(format(monthStart, 'yyyy-MM-dd'));
     while (d <= monthEnd) {
       const dateStr = format(d, 'yyyy-MM-dd');
@@ -723,7 +723,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       } else {
         if (!isWeekend(d)) isUsable = true;
       }
-      
+
       if (isUsable) {
         daysInMonth.push({ date: dateStr, isWorkDay: true });
       }
@@ -735,13 +735,13 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
   const assignments: DailyAssignment[] = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const result: DailyAssignment[] = [];
-    
+
     // If focused on a program (including manual ones), we show ALL dates of that program regardless of currentMonth selection
     if (focusedProgramId) {
       const relevantSchedules = schedules
         .filter(s => (s.programId === focusedProgramId) || (focusedProgramId === 'manual' && (!s.programId || s.programId === 'manual')))
         .sort((a, b) => a.date.localeCompare(b.date));
-        
+
       relevantSchedules.forEach(schedule => {
         const items = schedule.assignments.map(a => {
           const applicant = applicants.find(ap => ap.id === a.applicantId);
@@ -758,27 +758,27 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
     currentMonthWorkDays.forEach(wd => {
       const schedule = schedules.find(s => s.date === wd.date);
-      
+
       // Filter out schedules for programs that no longer exist
       const isValidSchedule = schedule && (
-        !schedule.programId || 
-        schedule.programId === 'manual' || 
-        schedule.programId === 'history' || 
+        !schedule.programId ||
+        schedule.programId === 'manual' ||
+        schedule.programId === 'history' ||
         programs.some(p => String(p.id) === String(schedule.programId))
       );
 
       const items = (isValidSchedule && schedule.assignments)
         ? schedule.assignments.map(a => ({
-            applicant: applicants.find(p => p.id === a.applicantId)!,
-            staffMembers: (a.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[]
-          })).filter(i => i.applicant)
+          applicant: applicants.find(p => p.id === a.applicantId)!,
+          staffMembers: (a.staffIds || []).map(id => staff.find(s => s.id === id)).filter(Boolean) as Staff[]
+        })).filter(i => i.applicant)
         : [];
-      
+
       // Geçmiş günler geride kaldığı için, eğer herhangi bir atama yoksa listeye dahil etme
       if (wd.date <= todayStr && items.length === 0) {
         return;
       }
-      
+
       result.push({ date: wd.date, items });
     });
     return result;
@@ -794,11 +794,11 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     const now = new Date();
     const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');
     const planningStartDate = tomorrowStr; // bugünden sonraki gün başla (her zaman)
-    
+
     const activeProgram = programs.find(p => p.status === 'active');
 
     let actualPlanningStartDate = planningStartDate;
-    
+
     if (activeProgram) {
       const daysLeft = differenceInDays(parseISO(activeProgram.endDate), now);
       if (daysLeft > 7) {
@@ -811,8 +811,8 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       // No active program, but there might be manual schedules in the future
       const manualSchedules = schedules.filter(s => s.date >= planningStartDate && (!s.programId || s.programId === ''));
       if (manualSchedules.length > 0) {
-         const lastDate = [...manualSchedules].sort((a,b) => b.date.localeCompare(a.date))[0].date;
-         actualPlanningStartDate = format(addDays(parseISO(lastDate), 1), 'yyyy-MM-dd');
+        const lastDate = [...manualSchedules].sort((a, b) => b.date.localeCompare(a.date))[0].date;
+        actualPlanningStartDate = format(addDays(parseISO(lastDate), 1), 'yyyy-MM-dd');
       }
     }
 
@@ -821,12 +821,12 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       // 3. Determine starting applicant and cycle
       const sortedApplicants = [...applicants].sort((a, b) => (a.priority || 0) - (b.priority || 0));
       const lastProgram = await dbLocal.programs.orderBy("id").last();
-      
+
       let globalStartIndex = 0;
       if (lastProgram && lastProgram.lastApplicantId) {
         const lastCycle = lastProgram.lastVisitCycle || 1;
         const lastIdxInCycle = sortedApplicants.findIndex(a => a.id === lastProgram.lastApplicantId);
-        
+
         if (lastIdxInCycle !== -1) {
           const lastGlobalIndex = (lastCycle === 1) ? lastIdxInCycle : (sortedApplicants.length + lastIdxInCycle);
           globalStartIndex = (lastGlobalIndex + 1) % (sortedApplicants.length * 2);
@@ -844,21 +844,21 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       const explicitWorkSettings = await dbLocal.workDays.where("date").aboveOrEqual(actualPlanningStartDate).toArray();
       const settingsMap = new Map(explicitWorkSettings.map(s => [s.date, s.isWorkDay !== undefined ? s.isWorkDay : false]));
       const existingScheduleDates = new Set(schedules.map(s => s.date));
-      
+
       let availableWorkDays: any[] = [];
       let checkDate = parseISO(actualPlanningStartDate);
       let daysChecked = 0;
-      
+
       // Look ahead up to 90 days to find enough work days
       while (availableWorkDays.length < Math.max(60, Math.ceil(totalRequiredVisits / 3)) && daysChecked < 90) {
         const dateStr = format(checkDate, 'yyyy-MM-dd');
         const explicit = settingsMap.get(dateStr);
-        
+
         let isUsable = false;
         if (explicit === true) isUsable = true;
         else if (explicit === false) isUsable = false;
         else if (!isWeekend(checkDate)) isUsable = true;
-        
+
         if (isUsable && !existingScheduleDates.has(dateStr)) {
           availableWorkDays.push({ date: dateStr, isWorkDay: true });
         }
@@ -890,7 +890,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           }
           return true;
         });
-        
+
         const dailyTeams: string[][] = [];
         const processedStaff = new Set<string>();
         activeStaff.forEach(s => {
@@ -904,7 +904,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         const individuals = activeStaff.filter(s => !processedStaff.has(s.id!));
         for (let i = 0; i < individuals.length; i += 2) {
           const pair = [individuals[i].id!];
-          if (individuals[i+1]) pair.push(individuals[i+1].id!);
+          if (individuals[i + 1]) pair.push(individuals[i + 1].id!);
           dailyTeams.push(pair);
         }
         return dailyTeams;
@@ -915,7 +915,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       let isLastDayOfProgram = false;
 
       const scheduleEntries: any[] = [];
-      
+
       // Keep track of last visit date and team for each applicant
       const lastVisitMap = new Map<string, string>();
       const visitCountMap = new Map<string, number>();
@@ -944,14 +944,14 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         const existingCount = visitCountMap.get(app.id!) || 0;
         const remaining = Math.max(0, targetVisits - existingCount);
         for (let j = 0; j < remaining; j++) {
-            applicantPool.push(app);
+          applicantPool.push(app);
         }
       });
 
       // Track resource sufficiency
       const totalAvailableCapacity = availableWorkDays.length * dailyLimit;
       if (applicantPool.length > totalAvailableCapacity) {
-          toast.error(`Uyarı: Seçilen tarihler arasında toplam kapasite (${totalAvailableCapacity}) tüm hanelerin 2 kez ziyaret edilmesi için yeterli değil (${applicantPool.length} ziyaret gerekli). Bazı haneler sadece bir kez veya hiç planlanamayabilir.`);
+        toast.error(`Uyarı: Seçilen tarihler arasında toplam kapasite (${totalAvailableCapacity}) tüm hanelerin 2 kez ziyaret edilmesi için yeterli değil (${applicantPool.length} ziyaret gerekli). Bazı haneler sadece bir kez veya hiç planlanamayabilir.`);
       }
 
       for (let d = 0; d < availableWorkDays.length; d++) {
@@ -960,7 +960,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         const targetDate = parseISO(wd.date);
         const dailyTeams = getTeamsForDate(wd.date);
         if (dailyTeams.length === 0) continue;
-        
+
         const dailyTeamsList = dailyTeams.map(t => t.slice().sort().join(','));
         const dayTeamCounts = new Map<string, number>();
 
@@ -969,28 +969,28 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
             // Liste bittiğinde (havuz boşaldığında), eğer günlük limit dolmadıysa 
             // listenin başından günlük limiti tamamlayacak kadar kayıt ekle
             if (sortedApplicants.length > 0) {
-               applicantPool.push(...sortedApplicants);
-               // Havuz bittiği için bu gün programın son günü olacak
-               isLastDayOfProgram = true;
+              applicantPool.push(...sortedApplicants);
+              // Havuz bittiği için bu gün programın son günü olacak
+              isLastDayOfProgram = true;
             } else {
-               break;
+              break;
             }
           }
 
           let foundIdx = -1;
-          
+
           // Try to find an applicant in the pool that satisfies the 14-day rule
           for (let pIdx = 0; pIdx < applicantPool.length; pIdx++) {
             const applicant = applicantPool[pIdx];
             if (applicant.status === 'passive' && (!applicant.passiveUntil || wd.date <= applicant.passiveUntil)) continue;
             const lastDateStr = lastVisitMap.get(applicant.id!);
-            
+
             let isGapOk = true;
             if (lastDateStr) {
-               const lastDate = parseISO(lastDateStr);
-               if (Math.abs(differenceInDays(targetDate, lastDate)) < 14) {
-                 isGapOk = false;
-               }
+              const lastDate = parseISO(lastDateStr);
+              if (Math.abs(differenceInDays(targetDate, lastDate)) < 14) {
+                isGapOk = false;
+              }
             }
 
             const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === applicant.id);
@@ -1005,23 +1005,23 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           // we only pick if they are not already in the day (emergency fallback)
           if (foundIdx === -1) {
             for (let pIdx = 0; pIdx < applicantPool.length; pIdx++) {
-               const applicant = applicantPool[pIdx];
-               if (applicant.status === 'passive' && (!applicant.passiveUntil || wd.date <= applicant.passiveUntil)) continue;
-               const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === applicant.id);
-               if (!isAlreadyInDay) {
-                 foundIdx = pIdx;
-                 break;
-               }
+              const applicant = applicantPool[pIdx];
+              if (applicant.status === 'passive' && (!applicant.passiveUntil || wd.date <= applicant.passiveUntil)) continue;
+              const isAlreadyInDay = dailyAssignments.some(a => a.applicantId === applicant.id);
+              if (!isAlreadyInDay) {
+                foundIdx = pIdx;
+                break;
+              }
             }
           }
 
           if (foundIdx !== -1) {
             const chosenApplicant = applicantPool.splice(foundIdx, 1)[0];
-            
+
             // Try to assign the preferred team (last team to visit them)
             const preferredTeamIds = lastTeamMap.get(chosenApplicant.id!);
             let assignedTeam: string[] | null = null;
-            
+
             if (preferredTeamIds && preferredTeamIds.length > 0) {
               const prefKey = preferredTeamIds.slice().sort().join(',');
               const teamIdx = dailyTeamsList.indexOf(prefKey);
@@ -1053,12 +1053,12 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               }
             }
 
-            dailyAssignments.push({ 
+            dailyAssignments.push({
               applicantId: chosenApplicant.id!,
               staffIds: assignedTeam || [],
               isCompleted: false
             });
-            
+
             lastAssignedId = chosenApplicant.id;
             lastVisitMap.set(chosenApplicant.id!, wd.date);
             if (assignedTeam && assignedTeam.length > 0) {
@@ -1066,7 +1066,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
             }
           }
         }
-        
+
         if (dailyAssignments.length > 0) {
           // Assign shifts to the generated daily assignments
           const taggedDailyAssignments = tagAssignmentsWithShift(dailyAssignments, dailyLimit);
@@ -1085,8 +1085,8 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
       // 8. Create Program Record
       // Determine final cycle based on how many times the last applicant has been visited
-      const lastApplicantVisits = allExistingSchedules.flatMap(s => s.assignments).filter(a => a.applicantId === lastAssignedId).length + 
-                                 scheduleEntries.flatMap(s => s.assignments).filter(a => a.applicantId === lastAssignedId).length;
+      const lastApplicantVisits = allExistingSchedules.flatMap(s => s.assignments).filter(a => a.applicantId === lastAssignedId).length +
+        scheduleEntries.flatMap(s => s.assignments).filter(a => a.applicantId === lastAssignedId).length;
       const finalCycle = (lastApplicantVisits % 2 === 0) ? 2 : 1;
 
       const programId = await dbLocal.programs.add({
@@ -1105,7 +1105,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         programId: programId as string
       }));
       await dbLocal.schedules.bulkAdd(payloadSchedules);
-      
+
       const sessionDailyLimit = parseInt(localStorage.getItem('dailyLimit') || '6');
       await autoFillLastDayOfProgram(sessionDailyLimit);
 
@@ -1144,7 +1144,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
         const targetDateObj = parseISO(date);
         const startDate = new Date(targetDateObj);
         const endDate = new Date(targetDateObj);
-        
+
         if (isMorning) {
           startDate.setHours(9, 30, 0, 0);
           endDate.setHours(11, 30, 0, 0);
@@ -1171,9 +1171,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           }));
         }
 
-        return { 
-          ...a, 
-          isCompleted, 
+        return {
+          ...a,
+          isCompleted,
           completionDate: isCompleted ? new Date().toISOString() : undefined,
           completionNote: isCompleted ? note : undefined,
           approvals
@@ -1196,7 +1196,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     const newAssignments = schedule.assignments.map(a => {
       if (a.applicantId === applicantId) {
         const newStaffIds = [...(a.staffIds || [])];
-        
+
         if (!staffId) { return { ...a, staffIds: [] }; } else {
           newStaffIds[staffIndex] = staffId;
           // If this staff has a partner, automatically set the partner in the other slot
@@ -1222,7 +1222,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
   const reflowSchedules = async () => {
     if (!(await confirm({ message: 'İş günleri değiştiği için programı kaydırmak istiyor musunuz? Bu işlem mevcut atamaları yeni iş günlerine sırasıyla dağıtacaktır.', type: "warning" }))) return;
-    
+
     setIsGenerating(true);
     try {
       // 1. Get all schedules for this month
@@ -1236,9 +1236,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       // 2. Separate completed and non-completed
       const completedSchedules = monthSchedules.filter(s => s.assignments.some(a => a.isCompleted));
       const nonCompletedSchedules = monthSchedules.filter(s => !s.assignments.some(a => a.isCompleted));
-      
+
       const nonCompletedAssignments = nonCompletedSchedules.flatMap(s => s.assignments);
-      
+
       if (nonCompletedAssignments.length === 0) {
         toast.success('Kaydırılacak (tamamlanmamış) planlama bulunamadı.');
         return;
@@ -1250,7 +1250,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       // 4. Get all work days for this month
       const monthWorkDays = currentMonthWorkDays;
       const completedDates = new Set(completedSchedules.map(s => s.date));
-      
+
       // Filter work days that don't have a completed schedule
       const availableWorkDays = monthWorkDays.filter(wd => !completedDates.has(wd.date));
 
@@ -1313,12 +1313,12 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           allSchedulesAfterReflow.push(newSchedule as any);
         }
       }
-      
+
       // Handle leftovers if any
       if (tempPool.length > 0) {
         toast.error(`Uyarı: ${tempPool.length} ziyaret 14 gün kuralı nedeniyle bu aya sığmadı ve planlanamadı.`);
       }
-      
+
       toast.success('Program başarıyla kaydırıldı.');
     } catch (error) {
       console.error("Error reflowing schedule:", error);
@@ -1346,7 +1346,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       if (!isExpandedDayValid) {
         const todayStr = format(new Date(), 'yyyy-MM-dd');
         const todayWithItems = assignments.find(a => a.date === todayStr && a.items.length > 0);
-        
+
         if (todayWithItems) {
           setExpandedDay(todayStr);
         } else {
@@ -1367,16 +1367,16 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     if (!expandedDay) return [];
     const day = assignments.find(a => a.date === expandedDay);
     if (!day || !day.items || day.items.length === 0) return [];
-    
+
     return day.items
       .map((item, i) => {
-        const lat = (item.applicant.lat !== undefined && item.applicant.lat !== null && !isNaN(Number(item.applicant.lat))) 
-          ? Number(item.applicant.lat) 
+        const lat = (item.applicant.lat !== undefined && item.applicant.lat !== null && !isNaN(Number(item.applicant.lat)))
+          ? Number(item.applicant.lat)
           : (41.675 + (i * 0.002));
-        const lng = (item.applicant.lng !== undefined && item.applicant.lng !== null && !isNaN(Number(item.applicant.lng))) 
-          ? Number(item.applicant.lng) 
+        const lng = (item.applicant.lng !== undefined && item.applicant.lng !== null && !isNaN(Number(item.applicant.lng)))
+          ? Number(item.applicant.lng)
           : (26.570 + (i * 0.002));
-        
+
         return {
           pos: [lat, lng] as [number, number],
           name: `${item.applicant.name} ${item.applicant.surname}`,
@@ -1411,7 +1411,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
     const teamKey = [...(assignment.staffIds || [])].sort().join(',');
     const teamTasks = schedule.assignments.filter(a => [...(a.staffIds || [])].sort().join(',') === teamKey);
     const myIndex = teamTasks.findIndex(a => a.applicantId === applicantId);
-    
+
     // Default disabled states
     let shiftDateDisabled = false;
     let shiftWithinDayDisabled = false;
@@ -1479,11 +1479,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                     {hasMorning && (
                       <button
                         onClick={() => setSelectedCancelShift(selectedCancelShift === 'morning' ? undefined : 'morning')}
-                        className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${
-                          selectedCancelShift === 'morning'
+                        className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${selectedCancelShift === 'morning'
                             ? 'bg-amber-500 text-white border-amber-500'
                             : 'bg-white text-slate-600 border-slate-200 hover:border-amber-300'
-                        }`}
+                          }`}
                       >
                         🌅 Sabah
                       </button>
@@ -1491,22 +1490,20 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                     {hasAfternoon && (
                       <button
                         onClick={() => setSelectedCancelShift(selectedCancelShift === 'afternoon' ? undefined : 'afternoon')}
-                        className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${
-                          selectedCancelShift === 'afternoon'
+                        className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${selectedCancelShift === 'afternoon'
                             ? 'bg-blue-600 text-white border-blue-600'
                             : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
-                        }`}
+                          }`}
                       >
                         🌇 Öğleden Sonra
                       </button>
                     )}
                     <button
                       onClick={() => setSelectedCancelShift(undefined)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${
-                        selectedCancelShift === undefined
+                      className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${selectedCancelShift === undefined
                           ? 'bg-slate-800 text-white border-slate-800'
                           : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
-                      }`}
+                        }`}
                     >
                       🗓 Tüm Gün
                     </button>
@@ -1520,7 +1517,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                 </div>
               ) : null;
             })()}
-            
+
             <div className="space-y-3 mb-6">
               <button
                 onClick={() => handleCancelDay(rescheduleModal.date, undefined, selectedCancelShift)}
@@ -1529,7 +1526,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                 <span>Bir Sonraki İş Gününe Kaydır</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
-              
+
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Belirli Bir Tarihe Kaydır</label>
                 <div className="flex gap-2">
@@ -1574,7 +1571,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
             <p className="text-sm text-gray-500 mb-6">
               <strong className="text-gray-800">{shiftAssignmentModal.name}</strong> hanesine ait {formatSafe(shiftAssignmentModal.date, 'dd MMMM yyyy', { locale: tr })} tarihindeki temizlik işi hakkında yapmak istediğiniz işlemi seçin.
             </p>
-            
+
             <div className="space-y-3 mb-6">
               <button
                 onClick={() => performShiftAssignment(shiftAssignmentModal.date, shiftAssignmentModal.applicantId)}
@@ -1586,7 +1583,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                 </div>
                 <ChevronRight className="w-4 h-4" />
               </button>
-              
+
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Belirli Bir Tarihe Kaydır</label>
                 <div className="flex gap-2">
@@ -1610,10 +1607,10 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               <div className="pt-2">
                 <button
                   onClick={async () => {
-                     const reason = await confirm({ message: 'Mazeret veya sebep giriniz (opsiyonel):', type: 'info', withPrompt: true, promptPlaceholder: 'Yanıtınız...' });
-                     if (reason !== null) {
-                       performCancelAssignment(shiftAssignmentModal.date, shiftAssignmentModal.applicantId, typeof reason === 'string' ? reason : '');
-                     }
+                    const reason = await confirm({ message: 'Mazeret veya sebep giriniz (opsiyonel):', type: 'info', withPrompt: true, promptPlaceholder: 'Yanıtınız...' });
+                    if (reason !== null) {
+                      performCancelAssignment(shiftAssignmentModal.date, shiftAssignmentModal.applicantId, typeof reason === 'string' ? reason : '');
+                    }
                   }}
                   className="w-full py-3 px-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all text-left flex items-center justify-between"
                 >
@@ -1625,7 +1622,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                 </button>
               </div>
             </div>
-            
+
             <button
               onClick={() => {
                 setShiftAssignmentModal(null);
@@ -1706,9 +1703,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
             <Clock className="w-4 h-4 text-gray-400" />
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-gray-500 uppercase whitespace-nowrap">Günlük Limit:</span>
-              <input 
-                type="number" 
-                min="1" 
+              <input
+                type="number"
+                min="1"
                 max="20"
                 value={dailyLimit}
                 onChange={(e) => setDailyLimit(Math.max(1, e.target.value || 1))}
@@ -1737,15 +1734,15 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
             <Wand2 className={`w-4 h-4 lg:w-5 lg:h-5 ${isGenerating ? 'animate-spin' : ''}`} />
             <span>Otomatik Planla</span>
           </button>
-          <button
-            onClick={handleCleanupOverloaded}
-            disabled={isCleaningUp}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-500 text-white px-4 py-2 rounded-xl hover:bg-rose-600 transition-all shadow-lg shadow-rose-100 disabled:opacity-50 text-sm font-bold"
-            title="Aynı ekibe aynı günde 2'den fazla atanmış görevleri kaydırır"
-          >
-            <RefreshCw className={`w-4 h-4 lg:w-5 lg:h-5 ${isCleaningUp ? 'animate-spin' : ''}`} />
-            <span>Programı Düzelt</span>
-          </button>
+          {/*  <button
+                onClick={handleCleanupOverloaded}
+                disabled={isCleaningUp}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-500 text-white px-4 py-2 rounded-xl hover:bg-rose-600 transition-all shadow-lg shadow-rose-100 disabled:opacity-50 text-sm font-bold"
+                title="Aynı ekibe aynı günde 2'den fazla atanmış görevleri kaydırır"
+              >
+                <RefreshCw className={`w-4 h-4 lg:w-5 lg:h-5 ${isCleaningUp ? 'animate-spin' : ''}`} />
+                <span>Programı Düzelt</span>
+              </button> */}
           {hasOrphanedSchedules && (
             <button
               onClick={reflowSchedules}
@@ -1781,9 +1778,9 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
           >
             <NavigationControl position="top-right" />
             {activeMarkers.map((m, i) => (
-              <Marker 
-                key={`${expandedDay}-${i}`} 
-                latitude={m.pos[0]} 
+              <Marker
+                key={`${expandedDay}-${i}`}
+                latitude={m.pos[0]}
                 longitude={m.pos[1]}
                 onClick={(e) => {
                   e.originalEvent.stopPropagation();
@@ -1791,7 +1788,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                 }}
               >
                 <div className="group relative">
-                  <div 
+                  <div
                     className="w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
                     onMouseEnter={() => setHoveredMarker(i)}
                   >
@@ -1813,7 +1810,7 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                 <div className="bg-white px-1 py-1 whitespace-nowrap flex flex-col gap-1">
                   <div className="font-bold text-xs text-gray-900">{activeMarkers[hoveredMarker].name}</div>
                   <div className="text-[10px] text-gray-500">{activeMarkers[hoveredMarker].address}</div>
-                  <a 
+                  <a
                     href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${activeMarkers[hoveredMarker].pos[0]},${activeMarkers[hoveredMarker].pos[1]}`}
                     target="_blank"
                     rel="noreferrer noopener"
@@ -1836,8 +1833,8 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 lg:p-6 border-b border-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/50">
-          <input 
-            type="month" 
+          <input
+            type="month"
             value={format(selectedMonth, 'yyyy-MM')}
             onChange={(e) => {
               const d = parseISO(`${e.target.value}-01`);
@@ -1897,427 +1894,423 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
               const dayShiftReason = shiftStati.find(s => s.shiftDateDisabled)?.reason;
 
               return (
-              <div key={a.date} className={`transition-all ${expandedDay === a.date ? 'bg-blue-50/30' : ''}`}>
-                <div 
-                  className="px-4 lg:px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-                  onClick={() => setExpandedDay(expandedDay === a.date ? null : a.date)}
-                >
-                  <div className="flex items-center gap-3 lg:gap-4">
-                    <div className="w-10 lg:w-12 text-center">
-                      <div className="text-base lg:text-lg font-bold text-gray-900 leading-none">{formatSafe(a.date, 'dd')}</div>
-                      <div className="text-[10px] text-gray-500 uppercase font-bold mt-1">{formatSafe(a.date, 'EEE', { locale: tr })}</div>
-                    </div>
-                    <div className="h-8 w-px bg-gray-200" />
-                    <div className="min-w-0">
-                      <div className="text-xs lg:text-sm font-bold text-gray-700 truncate max-w-[150px] sm:max-w-xs">
-                        {a.items.length > 0 ? `${a.items[0].applicant.address}` : 'Atama Yapılmamış'}
+                <div key={a.date} className={`transition-all ${expandedDay === a.date ? 'bg-blue-50/30' : ''}`}>
+                  <div
+                    className="px-4 lg:px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                    onClick={() => setExpandedDay(expandedDay === a.date ? null : a.date)}
+                  >
+                    <div className="flex items-center gap-3 lg:gap-4">
+                      <div className="w-10 lg:w-12 text-center">
+                        <div className="text-base lg:text-lg font-bold text-gray-900 leading-none">{formatSafe(a.date, 'dd')}</div>
+                        <div className="text-[10px] text-gray-500 uppercase font-bold mt-1">{formatSafe(a.date, 'EEE', { locale: tr })}</div>
                       </div>
-                      <div className="text-[10px] lg:text-xs text-gray-400 font-medium">{a.items.length} Hane</div>
+                      <div className="h-8 w-px bg-gray-200" />
+                      <div className="min-w-0">
+                        <div className="text-xs lg:text-sm font-bold text-gray-700 truncate max-w-[150px] sm:max-w-xs">
+                          {a.items.length > 0 ? `${a.items[0].applicant.address}` : 'Atama Yapılmamış'}
+                        </div>
+                        <div className="text-[10px] lg:text-xs text-gray-400 font-medium">{a.items.length} Hane</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!a.items.every(i => {
+                        const s = schedules.find(sc => sc.date === a.date);
+                        const ass = s?.assignments.find(as => as.applicantId === i.applicant.id);
+                        return ass?.isCompleted;
+                      }) && a.items.length > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (hasUnshiftableUncompletedTask) {
+                                toast.error(dayShiftReason || 'Gün içindeki bazı ziyaretlere başlandığı veya atamalarına engel olan durumlar bulunduğu için gün tamamen kaydırılamaz.');
+                                return;
+                              }
+                              setRescheduleModal({ date: a.date });
+                            }}
+                            className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${hasUnshiftableUncompletedTask ? 'text-gray-400 opacity-50 cursor-not-allowed hidden sm:flex' : 'text-orange-600 hover:bg-orange-50'}`}
+                            title={hasUnshiftableUncompletedTask ? dayShiftReason : "Günü İptal Et ve Kaydır"}
+                          >
+                            <AlertTriangle className="w-4 h-4" />
+                            <span className="text-[10px] font-bold hidden sm:inline">GÜNÜ KAYDIR</span>
+                          </button>
+                        )}
+                      {a.items.every(i => {
+                        const s = schedules.find(sc => sc.date === a.date);
+                        const ass = s?.assignments.find(as => as.applicantId === i.applicant.id);
+                        return ass?.isCompleted;
+                      }) && a.items.length > 0 && (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        )}
+                      {expandedDay === a.date ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {!a.items.every(i => {
-                      const s = schedules.find(sc => sc.date === a.date);
-                      const ass = s?.assignments.find(as => as.applicantId === i.applicant.id);
-                      return ass?.isCompleted;
-                    }) && a.items.length > 0 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (hasUnshiftableUncompletedTask) {
-                            toast.error(dayShiftReason || 'Gün içindeki bazı ziyaretlere başlandığı veya atamalarına engel olan durumlar bulunduğu için gün tamamen kaydırılamaz.');
-                            return;
-                          }
-                          setRescheduleModal({ date: a.date });
-                        }}
-                        className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${hasUnshiftableUncompletedTask ? 'text-gray-400 opacity-50 cursor-not-allowed hidden sm:flex' : 'text-orange-600 hover:bg-orange-50'}`}
-                        title={hasUnshiftableUncompletedTask ? dayShiftReason : "Günü İptal Et ve Kaydır"}
-                      >
-                        <AlertTriangle className="w-4 h-4" />
-                        <span className="text-[10px] font-bold hidden sm:inline">GÜNÜ KAYDIR</span>
-                      </button>
-                    )}
-                    {a.items.every(i => {
-                      const s = schedules.find(sc => sc.date === a.date);
-                      const ass = s?.assignments.find(as => as.applicantId === i.applicant.id);
-                      return ass?.isCompleted;
-                    }) && a.items.length > 0 && (
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    )}
-                    {expandedDay === a.date ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
-                  </div>
-                </div>
 
-                {expandedDay === a.date && (
-                  <div className="px-4 lg:px-6 pb-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {a.items.map((item, idx) => {
-                        const schedule = schedules.find(s => s.date === a.date);
-                        const assignment = schedule?.assignments[idx];
-                        const isCompleted = assignment?.isCompleted;
-                        const isCancelled = assignment?.isCancelled;
-                        const isSelectedForSwap = swapSelection?.date === a.date && swapSelection?.applicantId === item.applicant.id;
+                  {expandedDay === a.date && (
+                    <div className="px-4 lg:px-6 pb-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {a.items.map((item, idx) => {
+                          const schedule = schedules.find(s => s.date === a.date);
+                          const assignment = schedule?.assignments[idx];
+                          const isCompleted = assignment?.isCompleted;
+                          const isCancelled = assignment?.isCancelled;
+                          const isSelectedForSwap = swapSelection?.date === a.date && swapSelection?.applicantId === item.applicant.id;
 
-                        const todayStr = format(new Date(), 'yyyy-MM-dd');
-                        const isFuture = a.date > todayStr;
-                        const isPast = a.date < todayStr;
-                        const shiftStatus = checkShiftDisabled(a.date, item.applicant.id!);
+                          const todayStr = format(new Date(), 'yyyy-MM-dd');
+                          const isFuture = a.date > todayStr;
+                          const isPast = a.date < todayStr;
+                          const shiftStatus = checkShiftDisabled(a.date, item.applicant.id!);
 
-                        return (
-                          <div key={idx} className={`official-card p-4 flex flex-col gap-3 relative transition-all ${
-                            isCompleted ? 'bg-emerald-50 border-emerald-100 shadow-none' : 
-                            isCancelled ? 'bg-rose-50 border-rose-100 shadow-none' :
-                            isSelectedForSwap ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-100' : 'bg-white'
-                          }`}>
-                            {/* Timing Label (Sabah/Öğleden Sonra) */}
-                            {(() => {
-                              const teamKey = item.staffMembers.map(s => s.id).sort().join(',');
-                              const teamTasks = a.items.filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey);
-                              const teamTasksIndex = a.items.slice(0, idx).filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey).length;
-                              
-                              if (teamTasks.length === 2) {
-                                const label = teamTasksIndex === 0 ? 'Sabah' : 'Öğleden Sonra';
-                                return (
-                                  <div className={`absolute top-0 right-0 mt-2 mr-2 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-widest z-10 ${
-                                    label === 'Sabah' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
-                                  }`}>
-                                    {label}
+                          return (
+                            <div key={idx} className={`official-card p-4 flex flex-col gap-3 relative transition-all ${isCompleted ? 'bg-emerald-50 border-emerald-100 shadow-none' :
+                                isCancelled ? 'bg-rose-50 border-rose-100 shadow-none' :
+                                  isSelectedForSwap ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-100' : 'bg-white'
+                              }`}>
+                              {/* Timing Label (Sabah/Öğleden Sonra) */}
+                              {(() => {
+                                const teamKey = item.staffMembers.map(s => s.id).sort().join(',');
+                                const teamTasks = a.items.filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey);
+                                const teamTasksIndex = a.items.slice(0, idx).filter(it => it.staffMembers.map(s => s.id).sort().join(',') === teamKey).length;
+
+                                if (teamTasks.length === 2) {
+                                  const label = teamTasksIndex === 0 ? 'Sabah' : 'Öğleden Sonra';
+                                  return (
+                                    <div className={`absolute top-0 right-0 mt-2 mr-2 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-widest z-10 ${label === 'Sabah' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
+                                      }`}>
+                                      {label}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
+
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="text-[10px] font-extrabold bg-institution-blue text-white w-5 h-5 flex items-center justify-center rounded uppercase">
+                                      {idx + 1}
+                                    </span>
+                                    <h4 className="font-bold text-slate-900 truncate text-sm">
+                                      {item.applicant.name} {item.applicant.surname}
+                                    </h4>
                                   </div>
-                                );
-                              }
-                              return null;
-                            })()}
+                                  <div className="text-[10px] text-institution-blue font-bold truncate uppercase tracking-tight">
+                                    {item.applicant.neighborhood}
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 font-medium mt-1 flex items-center gap-1">
+                                    <MapPin className="w-3 h-3 text-slate-300" />
+                                    <span className="truncate">{item.applicant.address}</span>
+                                  </div>
+                                </div>
 
-                            <div className="flex justify-between items-start gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="text-[10px] font-extrabold bg-institution-blue text-white w-5 h-5 flex items-center justify-center rounded uppercase">
-                                    {idx + 1}
-                                  </span>
-                                  <h4 className="font-bold text-slate-900 truncate text-sm">
-                                    {item.applicant.name} {item.applicant.surname}
-                                  </h4>
-                                </div>
-                                <div className="text-[10px] text-institution-blue font-bold truncate uppercase tracking-tight">
-                                  {item.applicant.neighborhood}
-                                </div>
-                                <div className="text-[9px] text-slate-500 font-medium mt-1 flex items-center gap-1">
-                                  <MapPin className="w-3 h-3 text-slate-300" />
-                                  <span className="truncate">{item.applicant.address}</span>
+                                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                  <div className="text-[10px] font-mono font-bold text-slate-400">
+                                    {item.applicant.tcNo}
+                                  </div>
                                 </div>
                               </div>
 
-                              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                <div className="text-[10px] font-mono font-bold text-slate-400">
-                                  {item.applicant.tcNo}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => {
-                                  if (shiftStatus.swapDisabled && !isSelectedForSwap) {
-                                    toast.error(shiftStatus.reason);
-                                    return;
-                                  }
-                                  handleSwap(a.date, item.applicant.id!);
-                                }}
-                                disabled={isCompleted || isPast || (shiftStatus.swapDisabled && !isSelectedForSwap)}
-                                className={`flex-1 py-1 text-[10px] font-bold rounded-xl border transition-all flex items-center justify-center gap-1 ${
-                                  isSelectedForSwap 
-                                    ? 'bg-amber-500 text-white border-amber-500 shadow-sm' 
-                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                } disabled:opacity-30 disabled:cursor-not-allowed`}
-                                title={shiftStatus.swapDisabled && !isSelectedForSwap ? shiftStatus.reason : (isSelectedForSwap ? "Hedef" : "Değiştir")}
-                              >
-                                <RefreshCw className={`w-3 h-3 ${isSelectedForSwap ? 'animate-spin' : ''}`} />
-                                {isSelectedForSwap ? 'Hedef' : 'Değiştir'}
-                              </button>
-
-                              {!isCompleted && (
+                              <div className="flex gap-2">
                                 <button
                                   onClick={() => {
-                                    if (shiftStatus.shiftDateDisabled) {
+                                    if (shiftStatus.swapDisabled && !isSelectedForSwap) {
                                       toast.error(shiftStatus.reason);
                                       return;
                                     }
-                                    setShiftAssignmentModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
+                                    handleSwap(a.date, item.applicant.id!);
                                   }}
-                                  disabled={isPast || shiftStatus.shiftDateDisabled}
-                                  className="p-1.5 rounded-xl transition-all flex items-center justify-center border disabled:opacity-30 disabled:cursor-not-allowed bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100"
-                                  title={shiftStatus.shiftDateDisabled ? shiftStatus.reason : "Günü Değiştir ve Kaydır"}
+                                  disabled={isCompleted || isPast || (shiftStatus.swapDisabled && !isSelectedForSwap)}
+                                  className={`flex-1 py-1 text-[10px] font-bold rounded-xl border transition-all flex items-center justify-center gap-1 ${isSelectedForSwap
+                                      ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                    } disabled:opacity-30 disabled:cursor-not-allowed`}
+                                  title={shiftStatus.swapDisabled && !isSelectedForSwap ? shiftStatus.reason : (isSelectedForSwap ? "Hedef" : "Değiştir")}
                                 >
-                                  <Clock className="w-3.5 h-3.5" />
+                                  <RefreshCw className={`w-3 h-3 ${isSelectedForSwap ? 'animate-spin' : ''}`} />
+                                  {isSelectedForSwap ? 'Hedef' : 'Değiştir'}
                                 </button>
-                              )}
-                              
-                              <button
-                                onClick={() => moveAssignment(a.date, idx, 'up')}
-                                disabled={isCompleted || idx === 0 || shiftStatus.shiftWithinDayDisabled}
-                                className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                title={shiftStatus.shiftWithinDayDisabled ? shiftStatus.reason : "Sırayı Yukarı Taşı (Sabah)"}
-                              >
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => moveAssignment(a.date, idx, 'down')}
-                                disabled={isCompleted || idx === a.items.length - 1 || shiftStatus.shiftWithinDayDisabled}
-                                className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                title={shiftStatus.shiftWithinDayDisabled ? shiftStatus.reason : "Sırayı Aşağı Taşı (Öğleden Sonra)"}
-                              >
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
 
-                            <button
-                              disabled={(isFuture && !isCompleted && !isCancelled) || (isPast && isCompleted)}
-                              onClick={async () => {
-                                if (!isCompleted && !isCancelled) {
-                                  setCompletionModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
-                                } else if (isCancelled) {
-                                  if (await confirm({ message: 'Bu pasife alma (iptal) işlemini geri almak istediğinize emin misiniz?', type: "warning" })) {
-                                    const schedule = schedules.find(s => s.date === a.date);
-                                    if (schedule) {
-                                      const updatedAssignments = schedule.assignments.map(assign => assign.applicantId === item.applicant.id ? { ...assign, isCancelled: false, cancelReason: undefined } : assign);
-                                      dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
-                                      toast.success('İptal işlemi geri alındı.');
-                                    }
-                                  }
-                                } else if (isCompleted) {
-                                  if (a.date === todayStr) {
-                                    if ((await confirm({ message: 'Bu ziyareti tamamlanmamış olarak işaretleyip geri almak istediğinize emin misiniz?', type: "warning" }))) {
-                                      toggleCompletion(a.date, item.applicant.id!);
-                                    }
-                                  } else {
-                                    toggleCompletion(a.date, item.applicant.id!);
-                                  }
-                                }
-                              }}
-                              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                                isCompleted 
-                                  ? (isPast ? 'bg-gray-100 text-gray-300' : 'bg-slate-100 text-slate-400 hover:bg-slate-200') 
-                                  : isCancelled
-                                  ? 'bg-rose-100 text-rose-600'
-                                  : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm shadow-emerald-100'
-                              } disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed`}
-                            >
-                              {isCompleted ? <RefreshCw className="w-3.5 h-3.5" /> : isCancelled ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
-                              <span className="truncate max-w-[200px]">
-                                {isCompleted ? (isPast ? 'Geri Alınamaz' : 'Geri Al') : isCancelled ? `İptal: ${assignment?.cancelReason}` : (isFuture ? 'Zamanı Bekleniyor' : 'Ziyareti Tamamla')}
-                              </span>
-                            </button>
-
-                            <div className="space-y-4 pt-2 border-t border-slate-50">
-                              <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                  <MapPin className="w-3 h-3" />
-                                  Ziyaret Edilecek Hane
-                                </label>
-                                <select
-                                  value={item.applicant.id || ''}
-                                  disabled={isCompleted}
-                                  onChange={(e) => {
-                                    const newId = e.target.value;
-                                    if (schedule) {
-                                      const check = validateAssignment(newId, a.date, schedules, schedule.id);
-                                      if (!check.valid) {
-                                        toast.error(check.message);
+                                {!isCompleted && (
+                                  <button
+                                    onClick={() => {
+                                      if (shiftStatus.shiftDateDisabled) {
+                                        toast.error(shiftStatus.reason);
                                         return;
                                       }
-                                      const newAssignments = schedule.assignments.map((assignment, i) => 
-                                        i === idx ? { ...assignment, applicantId: newId } : assignment
-                                      );
-                                      dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
-                                    }
-                                  }}
-                                  className="w-full text-xs font-bold bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-institution-blue/20 transition-all disabled:opacity-50 appearance-none"
+                                      setShiftAssignmentModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
+                                    }}
+                                    disabled={isPast || shiftStatus.shiftDateDisabled}
+                                    className="p-1.5 rounded-xl transition-all flex items-center justify-center border disabled:opacity-30 disabled:cursor-not-allowed bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100"
+                                    title={shiftStatus.shiftDateDisabled ? shiftStatus.reason : "Günü Değiştir ve Kaydır"}
+                                  >
+                                    <Clock className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => moveAssignment(a.date, idx, 'up')}
+                                  disabled={isCompleted || idx === 0 || shiftStatus.shiftWithinDayDisabled}
+                                  className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title={shiftStatus.shiftWithinDayDisabled ? shiftStatus.reason : "Sırayı Yukarı Taşı (Sabah)"}
                                 >
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => moveAssignment(a.date, idx, 'down')}
+                                  disabled={isCompleted || idx === a.items.length - 1 || shiftStatus.shiftWithinDayDisabled}
+                                  className="p-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title={shiftStatus.shiftWithinDayDisabled ? shiftStatus.reason : "Sırayı Aşağı Taşı (Öğleden Sonra)"}
+                                >
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <button
+                                disabled={(isFuture && !isCompleted && !isCancelled) || (isPast && isCompleted)}
+                                onClick={async () => {
+                                  if (!isCompleted && !isCancelled) {
+                                    setCompletionModal({ date: a.date, applicantId: item.applicant.id!, name: `${item.applicant.name} ${item.applicant.surname}` });
+                                  } else if (isCancelled) {
+                                    if (await confirm({ message: 'Bu pasife alma (iptal) işlemini geri almak istediğinize emin misiniz?', type: "warning" })) {
+                                      const schedule = schedules.find(s => s.date === a.date);
+                                      if (schedule) {
+                                        const updatedAssignments = schedule.assignments.map(assign => assign.applicantId === item.applicant.id ? { ...assign, isCancelled: false, cancelReason: undefined } : assign);
+                                        dbLocal.schedules.update(schedule.id!, { assignments: updatedAssignments });
+                                        toast.success('İptal işlemi geri alındı.');
+                                      }
+                                    }
+                                  } else if (isCompleted) {
+                                    if (a.date === todayStr) {
+                                      if ((await confirm({ message: 'Bu ziyareti tamamlanmamış olarak işaretleyip geri almak istediğinize emin misiniz?', type: "warning" }))) {
+                                        toggleCompletion(a.date, item.applicant.id!);
+                                      }
+                                    } else {
+                                      toggleCompletion(a.date, item.applicant.id!);
+                                    }
+                                  }
+                                }}
+                                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${isCompleted
+                                    ? (isPast ? 'bg-gray-100 text-gray-300' : 'bg-slate-100 text-slate-400 hover:bg-slate-200')
+                                    : isCancelled
+                                      ? 'bg-rose-100 text-rose-600'
+                                      : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm shadow-emerald-100'
+                                  } disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed`}
+                              >
+                                {isCompleted ? <RefreshCw className="w-3.5 h-3.5" /> : isCancelled ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                                <span className="truncate max-w-[200px]">
+                                  {isCompleted ? (isPast ? 'Geri Alınamaz' : 'Geri Al') : isCancelled ? `İptal: ${assignment?.cancelReason}` : (isFuture ? 'Zamanı Bekleniyor' : 'Ziyareti Tamamla')}
+                                </span>
+                              </button>
+
+                              <div className="space-y-4 pt-2 border-t border-slate-50">
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <MapPin className="w-3 h-3" />
+                                    Ziyaret Edilecek Hane
+                                  </label>
+                                  <select
+                                    value={item.applicant.id || ''}
+                                    disabled={isCompleted}
+                                    onChange={(e) => {
+                                      const newId = e.target.value;
+                                      if (schedule) {
+                                        const check = validateAssignment(newId, a.date, schedules, schedule.id);
+                                        if (!check.valid) {
+                                          toast.error(check.message);
+                                          return;
+                                        }
+                                        const newAssignments = schedule.assignments.map((assignment, i) =>
+                                          i === idx ? { ...assignment, applicantId: newId } : assignment
+                                        );
+                                        dbLocal.schedules.update(schedule.id!, { assignments: newAssignments });
+                                      }
+                                    }}
+                                    className="w-full text-xs font-bold bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-institution-blue/20 transition-all disabled:opacity-50 appearance-none"
+                                  >
                                     {applicants.map(app => (
                                       <option key={app.id} value={app.id}>
                                         {app.name} {app.surname}
                                       </option>
                                     ))}
-                                </select>
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                  <Users className="w-3 h-3" />
-                                  Görevli Ekip
-                                </label>
-                                {item.staffMembers.length > 0 && (
-                                  <div className="text-[11px] font-bold text-slate-700 bg-institution-blue/5 border border-institution-blue/20 p-2 rounded-xl text-center mb-2 shadow-sm">
-                                    {item.staffMembers.map(s => s.name + ' ' + s.surname).join(' - ')}
-                                  </div>
-                                )}
-                                <div className="flex gap-2 items-center">
-                                  <select
-                                    value={item.staffMembers[0]?.id ? (staff.find(st => st.id === item.staffMembers[0]?.id)?.partnerId ? (item.staffMembers[0].id < staff.find(st => st.id === item.staffMembers[0]?.id)!.partnerId! ? item.staffMembers[0].id : staff.find(st => st.id === item.staffMembers[0]?.id)!.partnerId!) : item.staffMembers[0].id) : ''}
-                                    disabled={isCompleted}
-                                    onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, 0, e.target.value)}
-                                    className="flex-1 text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 outline-none focus:ring-2 focus:ring-institution-blue/20 transition-all disabled:opacity-50 appearance-none text-center"
-                                  >
-                                    <option value="">Ekip Seç...</option>
-                                    {staff.reduce((acc, s) => {
-                                      const teamId = s.partnerId ? (s.id < s.partnerId ? s.id : s.partnerId) : s.id;
-                                      if (!acc.some(t => t.id === teamId)) {
-                                        const partner = staff.find(p => p.id === s.partnerId);
-                                        acc.push({
-                                          id: teamId,
-                                          name: partner ? `${s.name} ${s.surname} - ${partner.name} ${partner.surname}` : `${s.name} ${s.surname}`,
-                                          staff1Id: s.id,
-                                          staff2Id: s.partnerId
-                                        });
-                                      }
-                                      return acc;
-                                    }, [] as {id: string, name: string, staff1Id: string, staff2Id?: string}[]).map(t => {
-                                      // Check how many tasks this team already has today
-                                      const assignmentsOnSameDay = a.items.filter(i => 
-                                        i.staffMembers.some(sm => sm.id === t.staff1Id || sm.id === t.staff2Id)
-                                      );
-                                      // If they already have 2 tasks, and THIS task is not one of them, disable!
-                                      const isAlreadyInThisTask = item.staffMembers.some(sm => sm.id === t.staff1Id || sm.id === t.staff2Id);
-                                      const isDisabled = assignmentsOnSameDay.length >= 2 && !isAlreadyInThisTask;
-                                      
-                                      return (
-                                        <option key={t.id} value={t.id} disabled={isDisabled}>
-                                          {t.name} {isDisabled ? '(Dolu)' : ''}
-                                        </option>
-                                      );
-                                    })}
                                   </select>
-                                  {item.staffMembers.length > 0 && !isCompleted && (
-                                    <button 
-                                      onClick={() => updateStaffAssignment(a.date, item.applicant.id!, 0, '')}
-                                      className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl border border-slate-100 transition-colors"
-                                      title="Ekibi Bu Görevden Çıkar"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  )}
                                 </div>
-                              </div>
-                            </div>
-                            
-                            <div className="pt-2">
-                              <button 
-                                onClick={() => {
-                                  const applicant = item.applicant;
-                                  const url = `https://www.google.com/maps/dir/?api=1&destination=${applicant.lat},${applicant.lng}`;
-                                  window.open(url, '_blank');
-                                }}
-                                className="w-full py-2.5 text-[10px] font-bold rounded-xl bg-institution-blue text-white hover:bg-institution-dark shadow-sm transition-all flex items-center justify-center gap-2"
-                              >
-                                <MapIcon className="w-3.5 h-3.5" />
-                                <span className="uppercase tracking-widest">Yol Tarifi Al</span>
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
 
-                    {/* BOŞTAKİ PERSONELLER VE ÖZEL GÖREVLER */}
-                    <div className="mt-8 pt-6 border-t border-slate-200">
-                      <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-                        <Users className="w-4 h-4 text-slate-500" /> Boşta Kalan Personeller ve Özel Görevler
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {(() => {
-                          const cSchedule = schedules.find(sc => sc.date === a.date);
-                          const assignedStaffIds = new Set(
-                            cSchedule?.assignments.flatMap(as => as.staffIds || []) || []
-                          );
-                          const customTasks = cSchedule?.customTasks || [];
-                          
-                          const idleStaff = staff.filter(s => {
-                            if (s.resignationDate) {
-                              if (a.date >= s.resignationDate) return false;
-                            } else {
-                              if (s.isActive === false) return false;
-                            }
-                            
-                            // İzinli mi?
-                            if (s.leaves) {
-                               const isOnLeave = s.leaves.some(l => 
-                                 l.startDate <= a.date && l.endDate >= a.date
-                               );
-                               if (isOnLeave) return false;
-                            }
-                            
-                            // Ziyaret ataması var mı?
-                            if (assignedStaffIds.has(s.id!)) return false;
-
-                            return true;
-                          });
-
-                          if (idleStaff.length === 0) {
-                            return <div className="text-xs text-slate-500 col-span-full">Bu gün için tüm aktif personeller bir göreve atanmış veya izinli.</div>;
-                          }
-
-                          return idleStaff.map(s => {
-                            const existingTask = customTasks.find(t => t.staffId === s.id);
-                            const inputKey = `${a.date}_${s.id}`;
-                            const inputValue = customTaskInputs[inputKey] !== undefined ? customTaskInputs[inputKey] : (existingTask?.taskDescription || '');
-
-                            return (
-                              <div key={s.id} className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-3 shadow-sm">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[10px]">
-                                      {s.name[0]}{s.surname[0]}
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <Users className="w-3 h-3" />
+                                    Görevli Ekip
+                                  </label>
+                                  {item.staffMembers.length > 0 && (
+                                    <div className="text-[11px] font-bold text-slate-700 bg-institution-blue/5 border border-institution-blue/20 p-2 rounded-xl text-center mb-2 shadow-sm">
+                                      {item.staffMembers.map(s => s.name + ' ' + s.surname).join(' - ')}
                                     </div>
-                                    <span className="text-xs font-bold text-slate-700">{s.name} {s.surname}</span>
-                                  </div>
-                                  {existingTask && (
-                                    <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full uppercase">Görevli</span>
                                   )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <input 
-                                    type="text" 
-                                    placeholder="Örn: Ofis İşi, Depo Temizliği..."
-                                    value={inputValue}
-                                    onChange={e => setCustomTaskInputs(prev => ({ ...prev, [inputKey]: e.target.value }))}
-                                    className="flex-1 text-xs px-2 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
-                                  />
-                                  <button 
-                                    onClick={() => saveCustomTask(a.date, s.id!, inputValue, existingTask?.id)}
-                                    className="bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-700 transition-colors"
-                                  >
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  {existingTask && (
-                                    <button 
-                                      onClick={async () => {
-                                        if((await confirm({ message: 'Görevi silmek istediğinize emin misiniz?', type: "warning" }))) {
-                                          saveCustomTask(a.date, s.id!, '', existingTask.id);
-                                        }
-                                      }}
-                                      className="bg-red-50 text-red-600 p-1.5 rounded-lg hover:bg-red-100 transition-colors"
+                                  <div className="flex gap-2 items-center">
+                                    <select
+                                      value={item.staffMembers[0]?.id ? (staff.find(st => st.id === item.staffMembers[0]?.id)?.partnerId ? (item.staffMembers[0].id < staff.find(st => st.id === item.staffMembers[0]?.id)!.partnerId! ? item.staffMembers[0].id : staff.find(st => st.id === item.staffMembers[0]?.id)!.partnerId!) : item.staffMembers[0].id) : ''}
+                                      disabled={isCompleted}
+                                      onChange={(e) => updateStaffAssignment(a.date, item.applicant.id!, 0, e.target.value)}
+                                      className="flex-1 text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 outline-none focus:ring-2 focus:ring-institution-blue/20 transition-all disabled:opacity-50 appearance-none text-center"
                                     >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
+                                      <option value="">Ekip Seç...</option>
+                                      {staff.reduce((acc, s) => {
+                                        const teamId = s.partnerId ? (s.id < s.partnerId ? s.id : s.partnerId) : s.id;
+                                        if (!acc.some(t => t.id === teamId)) {
+                                          const partner = staff.find(p => p.id === s.partnerId);
+                                          acc.push({
+                                            id: teamId,
+                                            name: partner ? `${s.name} ${s.surname} - ${partner.name} ${partner.surname}` : `${s.name} ${s.surname}`,
+                                            staff1Id: s.id,
+                                            staff2Id: s.partnerId
+                                          });
+                                        }
+                                        return acc;
+                                      }, [] as { id: string, name: string, staff1Id: string, staff2Id?: string }[]).map(t => {
+                                        // Check how many tasks this team already has today
+                                        const assignmentsOnSameDay = a.items.filter(i =>
+                                          i.staffMembers.some(sm => sm.id === t.staff1Id || sm.id === t.staff2Id)
+                                        );
+                                        // If they already have 2 tasks, and THIS task is not one of them, disable!
+                                        const isAlreadyInThisTask = item.staffMembers.some(sm => sm.id === t.staff1Id || sm.id === t.staff2Id);
+                                        const isDisabled = assignmentsOnSameDay.length >= 2 && !isAlreadyInThisTask;
+
+                                        return (
+                                          <option key={t.id} value={t.id} disabled={isDisabled}>
+                                            {t.name} {isDisabled ? '(Dolu)' : ''}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
+                                    {item.staffMembers.length > 0 && !isCompleted && (
+                                      <button
+                                        onClick={() => updateStaffAssignment(a.date, item.applicant.id!, 0, '')}
+                                        className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl border border-slate-100 transition-colors"
+                                        title="Ekibi Bu Görevden Çıkar"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
+
+                              <div className="pt-2">
+                                <button
+                                  onClick={() => {
+                                    const applicant = item.applicant;
+                                    const url = `https://www.google.com/maps/dir/?api=1&destination=${applicant.lat},${applicant.lng}`;
+                                    window.open(url, '_blank');
+                                  }}
+                                  className="w-full py-2.5 text-[10px] font-bold rounded-xl bg-institution-blue text-white hover:bg-institution-dark shadow-sm transition-all flex items-center justify-center gap-2"
+                                >
+                                  <MapIcon className="w-3.5 h-3.5" />
+                                  <span className="uppercase tracking-widest">Yol Tarifi Al</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* BOŞTAKİ PERSONELLER VE ÖZEL GÖREVLER */}
+                      <div className="mt-8 pt-6 border-t border-slate-200">
+                        <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                          <Users className="w-4 h-4 text-slate-500" /> Boşta Kalan Personeller ve Özel Görevler
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {(() => {
+                            const cSchedule = schedules.find(sc => sc.date === a.date);
+                            const assignedStaffIds = new Set(
+                              cSchedule?.assignments.flatMap(as => as.staffIds || []) || []
                             );
-                          });
-                        })()}
+                            const customTasks = cSchedule?.customTasks || [];
+
+                            const idleStaff = staff.filter(s => {
+                              if (s.resignationDate) {
+                                if (a.date >= s.resignationDate) return false;
+                              } else {
+                                if (s.isActive === false) return false;
+                              }
+
+                              // İzinli mi?
+                              if (s.leaves) {
+                                const isOnLeave = s.leaves.some(l =>
+                                  l.startDate <= a.date && l.endDate >= a.date
+                                );
+                                if (isOnLeave) return false;
+                              }
+
+                              // Ziyaret ataması var mı?
+                              if (assignedStaffIds.has(s.id!)) return false;
+
+                              return true;
+                            });
+
+                            if (idleStaff.length === 0) {
+                              return <div className="text-xs text-slate-500 col-span-full">Bu gün için tüm aktif personeller bir göreve atanmış veya izinli.</div>;
+                            }
+
+                            return idleStaff.map(s => {
+                              const existingTask = customTasks.find(t => t.staffId === s.id);
+                              const inputKey = `${a.date}_${s.id}`;
+                              const inputValue = customTaskInputs[inputKey] !== undefined ? customTaskInputs[inputKey] : (existingTask?.taskDescription || '');
+
+                              return (
+                                <div key={s.id} className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-3 shadow-sm">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[10px]">
+                                        {s.name[0]}{s.surname[0]}
+                                      </div>
+                                      <span className="text-xs font-bold text-slate-700">{s.name} {s.surname}</span>
+                                    </div>
+                                    {existingTask && (
+                                      <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full uppercase">Görevli</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Örn: Ofis İşi, Depo Temizliği..."
+                                      value={inputValue}
+                                      onChange={e => setCustomTaskInputs(prev => ({ ...prev, [inputKey]: e.target.value }))}
+                                      className="flex-1 text-xs px-2 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                                    />
+                                    <button
+                                      onClick={() => saveCustomTask(a.date, s.id!, inputValue, existingTask?.id)}
+                                      className="bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    {existingTask && (
+                                      <button
+                                        onClick={async () => {
+                                          if ((await confirm({ message: 'Görevi silmek istediğinize emin misiniz?', type: "warning" }))) {
+                                            saveCustomTask(a.date, s.id!, '', existingTask.id);
+                                          }
+                                        }}
+                                        className="bg-red-50 text-red-600 p-1.5 rounded-lg hover:bg-red-100 transition-colors"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            );
+                  )}
+                </div>
+              );
             })
           )}
         </div>
       </div>
-      
+
       {showManualPlanner && (
-        <ManualSchedulePlanner 
+        <ManualSchedulePlanner
           applicants={applicants}
           staff={staff}
           workDays={workDays}
