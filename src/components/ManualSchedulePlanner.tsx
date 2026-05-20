@@ -29,26 +29,6 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
   const [sortBy, setSortBy] = useState<'priority' | 'name' | 'neighborhood'>('priority');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
-  // Teams calculated from staff
-  const teams = useMemo(() => {
-    const pairs: Staff[][] = [];
-    const used = new Set<string>();
-    staff.filter(s => s.isActive && !s.isBackup).forEach(s => {
-      if (!used.has(s.id!)) {
-        const p = staff.find(p => p.id === s.partnerId && !used.has(p.id!));
-        if (p) {
-          pairs.push([s, p]);
-          used.add(s.id!);
-          used.add(p.id!);
-        } else {
-          pairs.push([s]);
-          used.add(s.id!);
-        }
-      }
-    });
-    return pairs;
-  }, [staff]);
-
   // Find next available workdays
   const availableDates = useMemo(() => {
     const today = new Date();
@@ -74,6 +54,36 @@ export default function ManualSchedulePlanner({ applicants, staff, workDays, sch
   }, [workDays]);
 
   const currentDateObj = availableDates[currentDateIndex];
+  
+  // Teams calculated from staff
+  const teams = useMemo(() => {
+    const pairs: Staff[][] = [];
+    const used = new Set<string>();
+    const activeDate = currentDateObj?.date;
+
+    staff.filter(s => {
+      if (s.isBackup) return false;
+      if (s.resignationDate) {
+        if (activeDate && activeDate >= s.resignationDate) return false;
+      } else {
+        if (s.isActive === false) return false;
+      }
+      return true;
+    }).forEach(s => {
+      if (!used.has(s.id!)) {
+        const p = staff.find(p => p.id === s.partnerId && !used.has(p.id!));
+        if (p) {
+          pairs.push([s, p]);
+          used.add(s.id!);
+          used.add(p.id!);
+        } else {
+          pairs.push([s]);
+          used.add(s.id!);
+        }
+      }
+    });
+    return pairs;
+  }, [staff, currentDateObj]);
   
   const currentDaySchedule = schedules.find(s => s.date === currentDateObj?.date);
   const existingCount = currentDaySchedule ? currentDaySchedule.assignments.length : 0;

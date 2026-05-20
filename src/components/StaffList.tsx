@@ -31,7 +31,9 @@ export default function StaffList({ staff, currentUser }: Props) {
     isApproved: false,
     partnerId: undefined,
     isActive: true,
-    dutyLocation: ''
+    dutyLocation: '',
+    resignationDate: undefined,
+    resignationReason: ''
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,6 +48,12 @@ export default function StaffList({ staff, currentUser }: Props) {
     try {
       // Clean undefined fields
       const dataToSave = { ...formData };
+      
+      // If passive or resigned, they cannot have an active partner
+      if (dataToSave.isActive === false || dataToSave.resignationDate) {
+        dataToSave.partnerId = undefined;
+      }
+
       if (dataToSave.partnerId === undefined) {
         delete dataToSave.partnerId;
       }
@@ -61,7 +69,7 @@ export default function StaffList({ staff, currentUser }: Props) {
       }
 
       // Handle bidirectional partner link
-      if (formData.partnerId) {
+      if (formData.partnerId && formData.isActive !== false && !formData.resignationDate) {
         const partner = staff.find(s => s.id === formData.partnerId);
         if (partner) {
           // Clear old partner's link if any
@@ -72,7 +80,7 @@ export default function StaffList({ staff, currentUser }: Props) {
           await dbLocal.staff.update(partner.id!, { partnerId: newId });
         }
       } else if (editingId) {
-        // If partner was cleared, clear the other side too
+        // If partner was cleared, or staff is made passive/resigned, clear the other side too
         const oldStaff = staff.find(s => s.id === editingId);
         if (oldStaff?.partnerId) {
           await dbLocal.staff.update(oldStaff.partnerId, { partnerId: undefined });
@@ -81,7 +89,20 @@ export default function StaffList({ staff, currentUser }: Props) {
 
       setEditingId(null);
       setIsAdding(false);
-      setFormData({ name: '', surname: '', tcNo: '', phone: '', googleEmail: '', isApproved: false, partnerId: undefined });
+      setFormData({ 
+        name: '', 
+        surname: '', 
+        tcNo: '', 
+        phone: '', 
+        googleEmail: '', 
+        isApproved: false, 
+        partnerId: undefined,
+        isActive: true,
+        isBackup: false,
+        dutyLocation: '',
+        resignationDate: undefined,
+        resignationReason: ''
+      });
     } catch (error) {
       console.error("Error saving staff:", error);
     }
@@ -173,6 +194,12 @@ export default function StaffList({ staff, currentUser }: Props) {
         );
       })
       .sort((a, b) => {
+        // Resigned staff should always be at the bottom of the list
+        const aResigned = !!a.resignationDate;
+        const bResigned = !!b.resignationDate;
+        if (aResigned && !bResigned) return 1;
+        if (!aResigned && bResigned) return -1;
+
         let comparison = 0;
         if (sortBy === 'name') {
           comparison = (a.name + a.surname).localeCompare(b.name + b.surname);
@@ -215,7 +242,20 @@ export default function StaffList({ staff, currentUser }: Props) {
           {!isAdding && (
             <button
               onClick={() => {
-                setFormData({ name: '', surname: '', tcNo: '', phone: '', googleEmail: '', isApproved: false, partnerId: undefined, isActive: true, isBackup: false, dutyLocation: '' });
+                setFormData({ 
+                  name: '', 
+                  surname: '', 
+                  tcNo: '', 
+                  phone: '', 
+                  googleEmail: '', 
+                  isApproved: false, 
+                  partnerId: undefined, 
+                  isActive: true, 
+                  isBackup: false, 
+                  dutyLocation: '',
+                  resignationDate: undefined,
+                  resignationReason: ''
+                });
                 setEditingId(null);
                 setIsAdding(true);
               }}
@@ -234,7 +274,7 @@ export default function StaffList({ staff, currentUser }: Props) {
             <h3 className="text-lg font-semibold text-gray-900">
               {editingId ? 'Personel Düzenle' : 'Yeni Personel Kaydı'}
             </h3>
-            <button onClick={() => { setIsAdding(false); setEditingId(null); setFormData({ name: '', surname: '', tcNo: '', phone: '', googleEmail: '', isApproved: false, partnerId: undefined, isActive: true, isBackup: false, dutyLocation: '' }); }} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => { setIsAdding(false); setEditingId(null); setFormData({ name: '', surname: '', tcNo: '', phone: '', googleEmail: '', isApproved: false, partnerId: undefined, isActive: true, isBackup: false, dutyLocation: '', resignationDate: undefined, resignationReason: '' }); }} className="text-gray-400 hover:text-gray-600">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -282,15 +322,24 @@ export default function StaffList({ staff, currentUser }: Props) {
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">Durum</label>
               <select
-                value={formData.isActive !== false ? (formData.isBackup ? 'backup' : 'active') : 'passive'}
+                value={formData.resignationDate ? 'resigned' : (formData.isActive !== false ? (formData.isBackup ? 'backup' : 'active') : 'passive')}
                 onChange={e => {
                   const val = e.target.value;
-                  if (val === 'passive') {
-                    setFormData({ ...formData, isActive: false, isBackup: false });
+                  if (val === 'resigned') {
+                    setFormData({ 
+                      ...formData, 
+                      isActive: false, 
+                      isBackup: false, 
+                      resignationDate: formData.resignationDate || new Date().toISOString().split('T')[0],
+                      dutyLocation: '',
+                      partnerId: undefined
+                    });
+                  } else if (val === 'passive') {
+                    setFormData({ ...formData, isActive: false, isBackup: false, resignationDate: undefined, resignationReason: undefined });
                   } else if (val === 'backup') {
-                    setFormData({ ...formData, isActive: true, isBackup: true });
+                    setFormData({ ...formData, isActive: true, isBackup: true, resignationDate: undefined, resignationReason: undefined });
                   } else {
-                    setFormData({ ...formData, isActive: true, isBackup: false });
+                    setFormData({ ...formData, isActive: true, isBackup: false, resignationDate: undefined, resignationReason: undefined });
                   }
                 }}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
@@ -298,9 +347,10 @@ export default function StaffList({ staff, currentUser }: Props) {
                 <option value="active">Aktif (Sahada / Ekip)</option>
                 <option value="backup">Yedek (Görev Atanmamış)</option>
                 <option value="passive">Pasif (Farklı Görevde)</option>
+                <option value="resigned">İşten Ayrıldı (Pasif)</option>
               </select>
             </div>
-            {formData.isActive === false && (
+            {formData.isActive === false && !formData.resignationDate && (
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Görev Yeri</label>
                 <input
@@ -313,6 +363,30 @@ export default function StaffList({ staff, currentUser }: Props) {
                 />
               </div>
             )}
+            {formData.resignationDate !== undefined && formData.resignationDate !== null && (
+              <>
+                <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <label className="text-sm font-medium text-gray-700">İşten Ayrılış Tarihi</label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.resignationDate}
+                    onChange={e => setFormData({ ...formData, resignationDate: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <label className="text-sm font-medium text-gray-700">Ayrılma Sebebi</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: Kendi isteğiyle, Emeklilik vb."
+                    value={formData.resignationReason || ''}
+                    onChange={e => setFormData({ ...formData, resignationReason: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
+              </>
+            )}
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">Ekip Arkadaşı (Opsiyonel)</label>
               <select
@@ -322,7 +396,7 @@ export default function StaffList({ staff, currentUser }: Props) {
               >
                 <option value="">Ekip Arkadaşı Yok</option>
                 {staff
-                  .filter(s => s.id !== editingId) // Don't show self
+                  .filter(s => s.id !== editingId && !s.resignationDate && s.isActive !== false) // Don't show self, resigned, or passive staff
                   .map(s => (
                     <option key={s.id} value={s.id}>
                       {s.name} {s.surname} {s.partnerId ? '(Zaten Ekibi Var)' : ''}
@@ -451,7 +525,11 @@ export default function StaffList({ staff, currentUser }: Props) {
                               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
                                 Vefa Saha Personeli
                               </span>
-                              {s.isActive === false ? (
+                              {s.resignationDate ? (
+                                <span className="text-[10px] bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-rose-100 cursor-help" title={s.resignationReason ? `Ayrılma Sebebi: ${s.resignationReason}` : 'Ayrılma sebebi belirtilmemiş'}>
+                                  İşten Ayrıldı - {s.resignationDate}
+                                </span>
+                              ) : s.isActive === false ? (
                                 <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-amber-100">
                                   Pasif - {s.dutyLocation}
                                 </span>

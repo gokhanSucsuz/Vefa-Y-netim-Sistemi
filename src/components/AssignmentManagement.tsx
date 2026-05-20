@@ -172,6 +172,12 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
       return;
     }
 
+    const selectedStaff = staff.find(s => s.id === formData.staffId);
+    if (selectedStaff?.resignationDate && formData.date && formData.date >= selectedStaff.resignationDate) {
+      toast.error(`Bu personel ${selectedStaff.resignationDate} tarihinde işten ayrılmıştır. Bu tarihe veya sonrasına görevlendirilemez.`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const conflict = checkConflict(formData.staffId!, formData.date!, formData.shift!);
@@ -332,7 +338,11 @@ export default function AssignmentManagement({ staff, schedules, assignments, cu
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
               >
                 <option value="">-- Personel Seçin --</option>
-                {staff.filter(s => s.isActive !== false && !s.isBackup).map(s => (
+                 {staff.filter(s => {
+                  if (s.isActive === false || s.isBackup) return false;
+                  if (s.resignationDate && formData.date && formData.date >= s.resignationDate) return false;
+                  return true;
+                }).map(s => (
                   <option key={s.id} value={s.id}>{s.name} {s.surname}</option>
                 ))}
               </select>

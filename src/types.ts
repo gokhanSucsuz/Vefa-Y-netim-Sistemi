@@ -62,6 +62,8 @@ export interface Staff {
   isActive?: boolean;
   isBackup?: boolean; // Yedek personel
   dutyLocation?: string; // Görev yeri
+  resignationDate?: string; // İşten ayrılış tarihi (YYYY-MM-DD)
+  resignationReason?: string; // İşten ayrılış sebebi
   leaves?: { 
     id: string;
     startDate: string; 

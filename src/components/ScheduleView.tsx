@@ -876,7 +876,12 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
       // 6. Function to get teams for a specific date (ignoring staff on leave)
       const getTeamsForDate = (dateStr: string) => {
         const activeStaff = staff.filter(s => {
-          if (s.isActive === false || s.isBackup === true) return false;
+          if (s.isBackup === true) return false;
+          if (s.resignationDate) {
+            if (dateStr >= s.resignationDate) return false;
+          } else {
+            if (s.isActive === false) return false;
+          }
           if (s.name.toLowerCase().includes('deneme') || s.surname.toLowerCase().includes('deneme')) return false;
           // Check if on leave
           if (s.leaves && s.leaves.length > 0) {
@@ -2227,7 +2232,11 @@ const validateAssignment = (applicantId: string, date: string, currentSchedules:
                           const customTasks = cSchedule?.customTasks || [];
                           
                           const idleStaff = staff.filter(s => {
-                            if (!s.isActive) return false;
+                            if (s.resignationDate) {
+                              if (a.date >= s.resignationDate) return false;
+                            } else {
+                              if (s.isActive === false) return false;
+                            }
                             
                             // İzinli mi?
                             if (s.leaves) {

@@ -27,7 +27,7 @@ export default function TeamAssignment({ applicants, staff, currentUser }: Props
   const teams = useMemo((): Team[] => {
     const seen = new Set<string>();
     const result: Team[] = [];
-    staff.filter(s => s.isActive !== false && !s.isBackup).forEach(s => {
+    staff.filter(s => s.isActive !== false && !s.isBackup && !s.resignationDate).forEach(s => {
       if (seen.has(s.id!)) return;
       const partner = s.partnerId ? staff.find(p => p.id === s.partnerId) : undefined;
       const members = partner ? [s, partner] : [s];
