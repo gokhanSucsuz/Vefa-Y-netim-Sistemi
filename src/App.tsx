@@ -191,37 +191,37 @@ function AppContent() {
       {/* DESKTOP SIDEBAR */}
       {/* ======================================================== */}
       <aside 
-        className={`hidden lg:flex flex-col bg-white border-r border-slate-200 transition-all duration-300 z-20 ${
+        className={`hidden lg:flex flex-col bg-white/70 backdrop-blur-xl border-r border-slate-200 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] z-20 ${
           isSidebarCollapsed ? 'w-20' : 'w-72'
         }`}
       >
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 shrink-0">
           <div className={`flex items-center gap-3 overflow-hidden ${isSidebarCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
-            <img src={APP_LOGO_URL} alt="Logo" className="w-8 h-8 object-contain shrink-0" referrerPolicy="no-referrer" />
+            <img src={APP_LOGO_URL} alt="Logo" className="w-9 h-9 object-contain shrink-0 drop-shadow-[0_2px_4px_rgba(0,0,0,0.05)] hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
             <div className="flex flex-col whitespace-nowrap">
-              <span className="font-black text-sm text-slate-900 leading-none">VEFA SYDV</span>
-              <span className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">Yönetim Paneli</span>
+              <span className="font-black text-sm text-slate-900 leading-none uppercase tracking-tight">VEFA SYDV</span>
+              <span className="text-[8px] font-black text-blue-600 uppercase tracking-widest mt-0.5">YÖNETİM PANELİ</span>
             </div>
           </div>
           
           {isSidebarCollapsed && (
-             <img src={APP_LOGO_URL} alt="Logo" className="w-8 h-8 object-contain mx-auto" referrerPolicy="no-referrer" />
+             <img src={APP_LOGO_URL} alt="Logo" className="w-8 h-8 object-contain mx-auto hover:rotate-12 transition-transform" referrerPolicy="no-referrer" />
           )}
 
           <button 
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors absolute -right-4 bg-white border border-slate-200 shadow-sm z-50"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all duration-300 absolute -right-4 bg-white border border-slate-200 shadow-sm hover:shadow z-50 cursor-pointer"
           >
             {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
 
         {/* Sidebar Navigation */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar py-4">
-          <div className="space-y-6 px-3">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar py-6">
+          <div className="space-y-7 px-3">
             {menuSections.map((section, sIdx) => (
-              <div key={sIdx} className="space-y-1">
+              <div key={sIdx} className="space-y-1.5 animate-in fade-in duration-500">
                 {!isSidebarCollapsed && (
                   <div className="px-3 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     {section.title}
@@ -229,7 +229,7 @@ function AppContent() {
                 )}
                 {isSidebarCollapsed && (
                   <div className="w-full flex justify-center mb-2">
-                    <div className="w-4 h-0.5 bg-slate-200 rounded-full"></div>
+                    <div className="w-4 h-0.5 bg-slate-200/85 rounded-full"></div>
                   </div>
                 )}
                 
@@ -240,15 +240,15 @@ function AppContent() {
                       key={item.id}
                       onClick={() => handleTabClick(item.id)}
                       title={isSidebarCollapsed ? item.label : undefined}
-                      className={`w-full flex items-center rounded-xl transition-all duration-200 group relative ${
-                        isSidebarCollapsed ? 'justify-center p-3' : 'justify-start px-3 py-2.5 gap-3'
+                      className={`w-full flex items-center rounded-xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group relative cursor-pointer ${
+                        isSidebarCollapsed ? 'justify-center p-3' : 'justify-start px-4 py-2.5 gap-3'
                       } ${
                         isActive 
-                        ? 'bg-gradient-to-r from-blue-600 to-institution-blue text-white shadow-md shadow-blue-600/20 font-bold' 
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        ? 'active-sidebar-tab' 
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-bold'
                       }`}
                     >
-                      <item.icon className={`shrink-0 ${isSidebarCollapsed ? 'w-5 h-5' : 'w-4 h-4'} ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-600'}`} />
+                      <item.icon className={`shrink-0 transition-transform duration-300 ${isSidebarCollapsed ? 'w-5 h-5' : 'w-4 h-4'} ${isActive ? 'text-white scale-110' : 'text-slate-400 group-hover:text-blue-600 group-hover:scale-110'}`} />
                       
                       {!isSidebarCollapsed && (
                         <span className="text-sm truncate">{item.label}</span>
@@ -256,9 +256,9 @@ function AppContent() {
 
                       {/* Tooltip for collapsed state */}
                       {isSidebarCollapsed && (
-                        <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 pointer-events-none shadow-xl">
+                        <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 pointer-events-none shadow-xl border border-white/10">
                           {item.label}
-                          <div className="absolute top-1/2 -left-1 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+                          <div className="absolute top-1/2 -left-1 -mt-1 w-2 h-2 bg-slate-900 rotate-45 border-l border-b border-white/10"></div>
                         </div>
                       )}
                     </button>
@@ -275,29 +275,29 @@ function AppContent() {
             {!isSidebarCollapsed ? (
               <>
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#082142] text-white flex items-center justify-center font-black text-sm shrink-0 shadow-md shadow-blue-900/10">
                     {currentStaffUser.name?.[0]}{currentStaffUser.surname?.[0]}
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold text-slate-900 truncate">{currentStaffUser.name} {currentStaffUser.surname}</span>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{currentStaffUser.role}</span>
+                    <span className="text-sm font-black text-slate-900 truncate">{currentStaffUser.name} {currentStaffUser.surname}</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{currentStaffUser.role === 'superadmin' ? 'SÜPER ADMİN' : 'YÖNETİCİ'}</span>
                   </div>
                 </div>
                 <button 
                   onClick={handleLogout}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                  className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-all duration-300 cursor-pointer shrink-0 hover:scale-105 active:scale-95"
                   title="Çıkış Yap"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-4.5 h-4.5" />
                 </button>
               </>
             ) : (
               <button 
                 onClick={handleLogout}
-                className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 transition-colors"
+                className="w-11 h-11 rounded-xl bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95"
                 title="Çıkış Yap"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4.5 h-4.5" />
               </button>
             )}
           </div>

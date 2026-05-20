@@ -220,24 +220,28 @@ export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-slate-50 flex items-center justify-center p-4">
-      {/* Ambient decorative gradient backgrounds */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-blue-600/10 to-indigo-600/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-indigo-600/10 to-blue-600/5 blur-[120px] pointer-events-none" />
+    <div className="min-h-screen relative overflow-hidden bg-[#041226] flex items-center justify-center p-4">
+      {/* Dynamic Background Light Sources */}
+      <div className="absolute top-[-25%] left-[-25%] w-[80%] h-[80%] rounded-full bg-gradient-to-br from-blue-900/40 to-cyan-900/10 blur-[150px] animate-pulse-slow pointer-events-none" />
+      <div className="absolute bottom-[-25%] right-[-25%] w-[80%] h-[80%] rounded-full bg-gradient-to-br from-[#0d2e5c]/40 to-blue-950/20 blur-[150px] animate-pulse-slow pointer-events-none" />
 
-      <div className="relative bg-white/75 backdrop-blur-xl rounded-[2rem] border border-white/80 p-8 lg:p-10 shadow-[0_20px_50px_rgba(8,33,66,0.05)] max-w-md w-full transition-all duration-500">
-        <div className="flex justify-center mb-6">
-          <div className="bg-blue-50/80 p-4 rounded-2xl border border-blue-100/50 shadow-inner">
-            <Shield className="w-10 h-10 text-blue-600" />
+      {/* Abstract Grid Line Backdrop */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+
+      <div className="relative bg-white/5 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 p-8 lg:p-12 shadow-[0_32px_64px_rgba(0,0,0,0.4)] max-w-md w-full transition-all duration-500 animate-float">
+        <div className="flex justify-center mb-8 relative">
+          <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full scale-75 animate-pulse" />
+          <div className="bg-white/10 p-5 rounded-[1.5rem] border border-white/10 shadow-lg relative">
+            <Shield className="w-12 h-12 text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]" />
           </div>
         </div>
 
         {mode === 'select' && (
-          <div className="text-center">
-            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight mb-2">Kullanıcı Seçimi</h2>
-            <p className="text-gray-500 text-sm font-medium mb-6">Lütfen işlem yapacak personeli seçiniz.</p>
+          <div className="text-center animate-in fade-in duration-300">
+            <h2 className="text-3xl font-black text-white tracking-tight mb-2 uppercase">KULLANICI SEÇİMİ</h2>
+            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-8">İşlem yapacak personeli seçiniz</p>
             
-            <div className="space-y-3 mb-6">
+            <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
               {users.map(u => (
                 <button
                   key={u.id}
@@ -245,19 +249,19 @@ export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
                     setSelectedUser(u);
                     setMode('login');
                   }}
-                  className="w-full flex items-center gap-3 p-4 bg-white/60 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-100 rounded-2xl transition-all shadow-[0_4px_12px_rgba(0,0,0,0.01)] hover:shadow-md hover:shadow-blue-900/5 group active:scale-98 cursor-pointer"
+                  className="w-full flex items-center gap-4 p-4.5 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-2xl transition-all duration-300 shadow-[0_8px_32px_rgba(0,0,0,0.1)] hover:-translate-y-0.5 group active:scale-98 cursor-pointer"
                 >
-                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-slate-200/60 group-hover:border-blue-200 transition-all shrink-0">
-                    <User className="w-5 h-5 text-gray-400 group-hover:text-blue-600" />
+                  <div className="w-11 h-11 bg-white/10 rounded-xl flex items-center justify-center border border-white/10 group-hover:border-white/30 transition-all shrink-0">
+                    <User className="w-5 h-5 text-slate-300 group-hover:text-white" />
                   </div>
                   <div className="text-left min-w-0 flex-1">
-                    <div className="font-bold text-slate-800 flex items-center gap-2 truncate">
+                    <div className="font-bold text-white flex items-center gap-2 truncate">
                       {u.name} {u.surname}
                       {u.isSuperAdmin && (
-                        <span className="bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter shrink-0 shadow-sm">S.Admin</span>
+                        <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter shrink-0 shadow-md shadow-orange-500/20">S.Admin</span>
                       )}
                     </div>
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{u.role === 'admin' ? 'Yönetici' : 'Personel'}</div>
+                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{u.role === 'admin' ? 'YÖNETİCİ' : 'PERSONEL'}</div>
                   </div>
                 </button>
               ))}
@@ -266,41 +270,41 @@ export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
             <div className="flex flex-col gap-4">
               <button
                 onClick={() => setMode('register')}
-                className="flex items-center justify-center gap-2 text-blue-600 font-bold text-sm hover:underline cursor-pointer"
+                className="flex items-center justify-center gap-2 text-white font-extrabold text-sm hover:text-blue-400 transition-colors cursor-pointer py-2"
               >
                 <UserPlus className="w-4 h-4" />
-                Yeni Personel Kaydı
+                YENİ PERSONEL KAYDI
               </button>
 
-              <div className="h-px bg-slate-100 my-2" />
+              <div className="h-px bg-white/5 my-2" />
 
               <button
                 onClick={handleGoogleLogout}
-                className="flex items-center justify-center gap-2 text-red-600 font-bold text-sm hover:bg-red-50/60 py-3 rounded-xl transition-all cursor-pointer"
+                className="flex items-center justify-center gap-2 text-red-400 font-extrabold text-sm hover:text-red-300 hover:bg-red-950/20 py-3 rounded-xl transition-all cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
-                Google Hesabından Çıkış Yap
+                GOOGLE HESABINDAN ÇIKIŞ YAP
               </button>
             </div>
           </div>
         )}
 
         {mode === 'login' && selectedUser && (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">{selectedUser.name} {selectedUser.surname}</h2>
-              <p className="text-gray-500 text-sm font-medium mt-1">Lütfen şifrenizi giriniz.</p>
+          <form onSubmit={handleLogin} className="space-y-6 animate-in fade-in duration-300">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-black text-white tracking-tight uppercase">{selectedUser.name} {selectedUser.surname}</h2>
+              <p className="text-slate-400 text-xs font-black uppercase tracking-widest mt-2">Lütfen şifrenizi giriniz</p>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Şifre</label>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ŞİFRE</label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white/60 hover:bg-white focus:bg-white border border-slate-200/80 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                  className="w-full pl-11 pr-4 py-4 bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 hover:border-white/20 focus:border-blue-500 rounded-2xl text-sm text-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-300"
                   placeholder="••••••••"
                   autoFocus
                 />
@@ -308,19 +312,19 @@ export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50/80 backdrop-blur-sm border border-red-100 text-red-600 text-xs font-bold rounded-xl text-center">
+              <div className="p-4 bg-red-950/40 backdrop-blur-md border border-red-500/20 text-red-300 text-xs font-bold rounded-2xl text-center">
                 {error}
               </div>
             )}
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-institution-blue hover:from-blue-700 hover:to-institution-dark text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-lg shadow-blue-900/10 hover:shadow-xl hover:shadow-blue-900/15 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-[#0d2e5c] hover:from-blue-500 hover:to-[#163e75] text-white py-4.5 rounded-2xl font-extrabold transition-all duration-300 disabled:opacity-50 shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/25 active:scale-98 cursor-pointer"
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
-                Giriş Yap
+                SİSTEME GİRİŞ YAP
               </button>
               <button
                 type="button"
@@ -329,133 +333,133 @@ export default function StaffLogin({ onLogin, firebaseUser }: StaffLoginProps) {
                   setPassword('');
                   setError(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 font-bold text-sm py-2 cursor-pointer transition-colors"
+                className="text-slate-400 hover:text-white font-extrabold text-xs uppercase tracking-wider py-2 cursor-pointer transition-colors"
               >
-                Geri Dön
+                KULLANICI SEÇİMİNE GERİ DÖN
               </button>
             </div>
           </form>
         )}
 
         {mode === 'register' && (
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Personel Kaydı</h2>
-              <p className="text-gray-500 text-sm font-medium mt-1">Sisteme yeni personel tanımlayın.</p>
+          <form onSubmit={handleRegister} className="space-y-4 animate-in fade-in duration-300">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-black text-white tracking-tight uppercase">PERSONEL KAYDI</h2>
+              <p className="text-slate-400 text-xs font-black uppercase tracking-widest mt-2">Sisteme yeni personel tanımlayın</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Ad</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">AD</label>
                 <input
                   type="text"
                   required
                   value={regData.name}
                   onChange={e => setRegData({ ...regData, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-white/60 hover:bg-white focus:bg-white border border-slate-200/80 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 hover:border-white/20 focus:border-blue-500 rounded-2xl text-sm text-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-300"
                   placeholder="Ad"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Soyad</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">SOYAD</label>
                 <input
                   type="text"
                   required
                   value={regData.surname}
                   onChange={e => setRegData({ ...regData, surname: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-white/60 hover:bg-white focus:bg-white border border-slate-200/80 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 hover:border-white/20 focus:border-blue-500 rounded-2xl text-sm text-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-300"
                   placeholder="Soyad"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">T.C. Kimlik No</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">T.C. KİMLİK NO</label>
               <div className="relative">
-                <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   required
                   maxLength={11}
                   value={regData.tcNo}
                   onChange={e => setRegData({ ...regData, tcNo: e.target.value.replace(/\D/g, '') })}
-                  className="w-full pl-10 pr-4 py-2.5 bg-white/60 hover:bg-white focus:bg-white border border-slate-200/80 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                  className="w-full pl-11 pr-4 py-3.5 bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 hover:border-white/20 focus:border-blue-500 rounded-2xl text-sm text-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-300"
                   placeholder="11 Haneli T.C. No"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">E-Posta</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">E-POSTA</label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="email"
                   required
                   value={regData.email}
                   onChange={e => setRegData({ ...regData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2.5 bg-white/60 hover:bg-white focus:bg-white border border-slate-200/80 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
-                  placeholder="eposta@adres.com"
+                  className="w-full pl-11 pr-4 py-3.5 bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 hover:border-white/20 focus:border-blue-500 rounded-2xl text-sm text-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-300"
+                  placeholder="eposta@sydv.com"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Şifre</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ŞİFRE</label>
                 <input
                   type="password"
                   required
                   value={regData.password}
                   onChange={e => setRegData({ ...regData, password: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-white/60 hover:bg-white focus:bg-white border border-slate-200/80 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 hover:border-white/20 focus:border-blue-500 rounded-2xl text-sm text-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-300"
                   placeholder="••••••••"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Şifre Tekrar</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ŞİFRE TEKRAR</label>
                 <input
                   type="password"
                   required
                   value={regData.confirmPassword}
                   onChange={e => setRegData({ ...regData, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-white/60 hover:bg-white focus:bg-white border border-slate-200/80 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 hover:border-white/20 focus:border-blue-500 rounded-2xl text-sm text-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-300"
                   placeholder="••••••••"
                 />
               </div>
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50/80 backdrop-blur-sm border border-red-100 text-red-600 text-xs font-bold rounded-xl text-center">
+              <div className="p-4 bg-red-950/40 backdrop-blur-md border border-red-500/20 text-red-300 text-xs font-bold rounded-2xl text-center animate-pulse">
                 {error}
               </div>
             )}
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-institution-blue hover:from-blue-700 hover:to-institution-dark text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-lg shadow-blue-900/10 hover:shadow-xl hover:shadow-blue-900/15 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-[#0d2e5c] hover:from-blue-500 hover:to-[#163e75] text-white py-4.5 rounded-2xl font-extrabold transition-all duration-300 disabled:opacity-50 shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/25 active:scale-98 cursor-pointer animate-pulse-slow"
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                Kaydı Tamamla
+                KAYDI TAMAMLA
               </button>
               {users.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setMode('select')}
-                  className="text-slate-400 hover:text-slate-600 font-bold text-sm py-2 cursor-pointer transition-colors"
+                  className="text-slate-400 hover:text-white font-extrabold text-xs uppercase tracking-wider py-2 cursor-pointer transition-colors"
                 >
-                  Geri Dön
+                  GERİ DÖN
                 </button>
               )}
             </div>
           </form>
         )}
         
-        <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-          <p className="text-[10px] text-slate-400 font-medium tracking-wide">
-            Sistem Tasarım ve Yönetim: <span className="text-slate-500 font-bold">Gökhan SUÇSUZ</span>
+        <div className="mt-10 pt-8 border-t border-white/5 text-center">
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+            SİSTEM TASARIM VE YÖNETİM: <span className="text-white font-black">GÖKHAN SUÇSUZ</span>
           </p>
         </div>
       </div>

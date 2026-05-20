@@ -5,52 +5,73 @@
   --font-sans: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
   --color-institution-blue: #082142;
   --color-institution-dark: #041226;
-  --color-institution-light: #f4f7fa;
-  --radius-xl: 1.25rem;
-  --radius-2xl: 1.75rem;
+  --color-institution-light: #f8fafc;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
 }
 
 @layer base {
   body {
-    @apply bg-institution-light text-slate-800 font-sans antialiased selection:bg-institution-blue selection:text-white;
+    @apply bg-slate-50 text-slate-800 font-sans antialiased selection:bg-institution-blue selection:text-white;
     background-image: 
-      radial-gradient(at 0% 0%, rgba(220, 233, 245, 0.4) 0px, transparent 50%),
-      radial-gradient(at 50% 0%, rgba(225, 235, 248, 0.3) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(230, 240, 252, 0.4) 0px, transparent 50%);
+      radial-gradient(at 0% 0%, rgba(220, 233, 245, 0.4) 0px, transparent 40%),
+      radial-gradient(at 100% 0%, rgba(200, 220, 245, 0.3) 0px, transparent 40%),
+      radial-gradient(at 50% 100%, rgba(230, 240, 252, 0.4) 0px, transparent 40%);
     background-attachment: fixed;
   }
   
   html, body {
-    @apply overflow-x-hidden w-full;
+    @apply overflow-x-hidden w-full h-full;
     -webkit-tap-highlight-color: transparent;
   }
 }
 
 @layer components {
-  /* Premium Glassmorphic Cards with hover lift and micro-shadows */
+  /* Premium Asymmetric Elevated Glassmorphic Card */
   .official-card {
-    @apply bg-white/75 backdrop-blur-lg border border-white/60 shadow-[0_4px_24px_rgba(0,0,0,0.03)] rounded-2xl transition-all duration-300 hover:shadow-[0_12px_36px_rgba(0,0,0,0.06)] hover:-translate-y-0.5;
-  }
-  
-  .official-button-primary {
-    @apply bg-gradient-to-r from-institution-blue to-[#1c3a61] hover:from-[#142d4d] hover:to-institution-dark text-white font-bold py-2.5 px-5 rounded-xl transition-all active:scale-95 disabled:opacity-50 shadow-md shadow-blue-900/10 hover:shadow-lg hover:shadow-blue-900/15;
+    @apply bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_rgba(4,18,38,0.02)] rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:shadow-[0_20px_48px_rgba(4,18,38,0.06)] hover:-translate-y-1 hover:bg-white/85;
   }
 
-  /* Custom glass inputs */
-  input[type="text"], input[type="email"], input[type="password"], input[type="date"], select, textarea {
-    @apply focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 border-slate-200/80 bg-white/60 hover:bg-white focus:bg-white transition-all outline-none;
+  /* Ultra-Premium Glass Input */
+  .official-input {
+    @apply bg-white/60 hover:bg-white/80 focus:bg-white border border-slate-200/80 hover:border-slate-300 focus:border-blue-600 rounded-xl px-4 py-3 text-slate-800 transition-all duration-300 outline-none focus:ring-4 focus:ring-blue-500/10;
+  }
+  
+  /* Institutional Premium Primary Button with micro-shine effect */
+  .official-button-primary {
+    @apply bg-gradient-to-r from-institution-blue via-[#0d2e5c] to-institution-dark hover:from-[#0d2e5c] hover:to-[#041226] text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 active:scale-95 disabled:opacity-50 shadow-lg shadow-institution-blue/15 hover:shadow-xl hover:shadow-institution-blue/25 hover:-translate-y-0.5 cursor-pointer relative overflow-hidden;
+  }
+
+  /* Secondary Button */
+  .official-button-secondary {
+    @apply bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold py-3 px-6 rounded-xl transition-all duration-300 active:scale-95 hover:shadow-md cursor-pointer;
+  }
+
+  /* Micro-Accented Active Sidebar Tab */
+  .active-sidebar-tab {
+    @apply bg-gradient-to-r from-institution-blue via-[#0d2e5c] to-[#163e75] text-white shadow-xl shadow-institution-blue/20 font-bold scale-[1.02] -translate-y-0.5;
   }
 }
 
 @layer utilities {
-  @keyframes progress {
-    0% { transform: translateX(-100%); }
-    50% { transform: translateX(0); }
-    100% { transform: translateX(100%); }
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(1deg); }
   }
-  .animate-progress {
-    animation: progress 2s infinite linear;
+
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
   }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse-slow 8s ease-in-out infinite;
+  }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -80,3 +101,4 @@
     background-color: #cbd5e1;
   }
 }
+
